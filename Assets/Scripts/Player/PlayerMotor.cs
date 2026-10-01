@@ -5,6 +5,8 @@ namespace ProjectU
     [RequireComponent(typeof(CharacterController))]
     public sealed class PlayerMotor : MonoBehaviour
     {
+        private const float GroundStickSpeed = -2f;
+
         [Header("Movement")]
         [SerializeField, Min(0f), Tooltip("Horizontal movement speed in meters per second.")]
         private float moveSpeed = 6f;
@@ -55,7 +57,7 @@ namespace ProjectU
                 transform.rotation = Quaternion.Euler(0f, facingYaw, 0f);
 
             if (controller.isGrounded && verticalSpeed < 0f)
-                verticalSpeed = -2f;
+                verticalSpeed = GroundStickSpeed;
             if (controller.isGrounded && shouldJump)
                 verticalSpeed = Mathf.Sqrt(2f * gravity * jumpHeight);
 
@@ -65,7 +67,7 @@ namespace ProjectU
             if ((collisions & CollisionFlags.Above) != 0 && verticalSpeed > 0f)
                 verticalSpeed = 0f;
             if ((collisions & CollisionFlags.Below) != 0 && verticalSpeed < 0f)
-                verticalSpeed = -2f;
+                verticalSpeed = GroundStickSpeed;
         }
 
         private void ClearCommands()
