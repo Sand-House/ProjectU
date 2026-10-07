@@ -119,6 +119,57 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &264866009
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 264866011}
+  - component: {fileID: 264866010}
+  m_Layer: 0
+  m_Name: Projectile Pool
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &264866010
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 264866009}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 06a3adee62288454a9ff0d8b7651bf63, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.ProjectilePool
+  entries:
+  - prefab: {fileID: 2135943712521666338, guid: 3f933023557cfe34e83c53cab4ca899d, type: 3}
+    prewarmCount: 24
+    capacity: 128
+  - prefab: {fileID: 4559416488407110031, guid: 64cc25507f3a08b4f8bc8b1c1521aa7f, type: 3}
+    prewarmCount: 8
+    capacity: 32
+--- !u!4 &264866011
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 264866009}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &330585543
 GameObject:
   m_ObjectHideFlags: 0
@@ -900,6 +951,7 @@ GameObject:
   - component: {fileID: 1295477693}
   - component: {fileID: 1295477692}
   - component: {fileID: 1295477698}
+  - component: {fileID: 1295477699}
   m_Layer: 2
   m_Name: Player
   m_TagString: Player
@@ -907,21 +959,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1295477698
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1295477691}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b91dc68464f14c9387e628f1069adcda, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerController
-  playerCamera: {fileID: 330585548}
-  logInput: 1
-  heldLogInterval: 0.5
 --- !u!114 &1295477692
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1047,6 +1084,40 @@ Transform:
   - {fileID: 564732083}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1295477698
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1295477691}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b91dc68464f14c9387e628f1069adcda, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerController
+  playerCamera: {fileID: 330585548}
+  logInput: 1
+  heldLogInterval: 0.5
+--- !u!114 &1295477699
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1295477691}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 810bdef62c39a4b4c94901ea221cd967, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerProjectileLauncher
+  pool: {fileID: 264866010}
+  bulletPrefab: {fileID: 2135943712521666338, guid: 3f933023557cfe34e83c53cab4ca899d, type: 3}
+  grenadePrefab: {fileID: 4559416488407110031, guid: 64cc25507f3a08b4f8bc8b1c1521aa7f, type: 3}
+  aimCamera: {fileID: 330585545}
+  muzzleOffset: {x: 0.35, y: 0.55, z: 0.65}
+  aimDistance: 100
+  grenadeLiftAngle: 12
 --- !u!1 &1580104033
 GameObject:
   m_ObjectHideFlags: 0
@@ -1285,3 +1356,4 @@ SceneRoots:
   - {fileID: 1081520812}
   - {fileID: 1266429779}
   - {fileID: 1295477697}
+  - {fileID: 264866011}
