@@ -11,9 +11,10 @@ namespace ProjectU
         private InputAction look;
         private InputAction jump;
         private InputAction ultimate;
-        private InputAction skill2;
         private InputAction reload;
+        private InputAction dash;
         private InputAction skill1;
+        private InputAction skill2;
         private InputAction primaryFire;
         private InputAction secondaryFire;
         private bool suppressPrimaryFire;
@@ -26,6 +27,7 @@ namespace ProjectU
         public ButtonInputState Jump { get; private set; }
         public ButtonInputState Ultimate { get; private set; }
         public ButtonInputState Reload { get; private set; }
+        public ButtonInputState Dash { get; private set; }
         public ButtonInputState Skill1 { get; private set; }
         public ButtonInputState Skill2 { get; private set; }
         public ButtonInputState PrimaryFire { get; private set; }
@@ -41,10 +43,11 @@ namespace ProjectU
             look = actions.AddAction("Look", InputActionType.Value, "<Mouse>/delta");
             jump = actions.AddAction("Jump", InputActionType.Button, "<Keyboard>/space");
             ultimate = actions.AddAction("Ultimate", InputActionType.Button, "<Keyboard>/q");
-            skill2 = actions.AddAction("Skill2", InputActionType.Button, "<Keyboard>/e");
             reload = actions.AddAction("Reload", InputActionType.Button, "<Keyboard>/r");
-            skill1 = actions.AddAction("Skill1", InputActionType.Button, "<Keyboard>/leftShift");
-            skill1.AddBinding("<Keyboard>/rightShift");
+            dash = actions.AddAction("Dash", InputActionType.Button, "<Keyboard>/leftShift");
+            dash.AddBinding("<Keyboard>/rightShift");
+            skill1 = actions.AddAction("Skill1", InputActionType.Button, "<Keyboard>/e");
+            skill2 = actions.AddAction("Skill2", InputActionType.Button, "<Keyboard>/f");
             primaryFire = actions.AddAction("PrimaryFire", InputActionType.Button, "<Mouse>/leftButton");
             secondaryFire = actions.AddAction("SecondaryFire", InputActionType.Button, "<Mouse>/rightButton");
             // Recognize a button already held when the action map is re-enabled.
@@ -83,6 +86,7 @@ namespace ProjectU
             Jump = ButtonInputState.Read(jump);
             Ultimate = ButtonInputState.Read(ultimate);
             Reload = ButtonInputState.Read(reload);
+            Dash = ButtonInputState.Read(dash);
             Skill1 = ButtonInputState.Read(skill1);
             Skill2 = ButtonInputState.Read(skill2);
             SecondaryFire = ButtonInputState.Read(secondaryFire);
@@ -106,7 +110,7 @@ namespace ProjectU
         private void ClearInput()
         {
             Move = Look = Vector2.zero;
-            Jump = Ultimate = Reload = Skill1 = Skill2 = PrimaryFire = SecondaryFire = default;
+            Jump = Ultimate = Reload = Dash = Skill1 = Skill2 = PrimaryFire = SecondaryFire = default;
         }
 
         private void OnApplicationFocus(bool focused)

@@ -13,7 +13,7 @@ namespace ProjectU
 
         private PlayerInputReader input;
         private PlayerMotor motor;
-        private readonly float[] nextHeldLog = new float[7];
+        private readonly float[] nextHeldLog = new float[8];
 
         private void Awake()
         {
@@ -40,10 +40,11 @@ namespace ProjectU
             Handle(input.Jump, "Jump (Space)", 0);
             Handle(input.Ultimate, "Ultimate (Q)", 1);
             Handle(input.Reload, "Reload (R)", 2);
-            Handle(input.Skill1, "Skill1 (Shift)", 3);
-            Handle(input.Skill2, "Skill2 (E)", 4);
-            Handle(input.PrimaryFire, "PrimaryFire (LMB)", 5);
-            Handle(input.SecondaryFire, "SecondaryFire (RMB)", 6);
+            Handle(input.Dash, "Dash (Shift)", 3);
+            Handle(input.Skill1, "Skill1 (E)", 4);
+            Handle(input.Skill2, "Skill2 (F)", 5);
+            Handle(input.PrimaryFire, "PrimaryFire (LMB)", 6);
+            Handle(input.SecondaryFire, "SecondaryFire (RMB)", 7);
         }
 
         private void Handle(ButtonInputState state, string label, int index)
