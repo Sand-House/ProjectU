@@ -1,6 +1,6 @@
 # ProjectU 프로젝트 지침
 
-진행 현황 기준: **2026-10-07**. 현재 소스, 저장된 씬·프리팹, 기존 구현 가이드를 대조해 작성했다.
+진행 현황 기준: **2026-10-08**. 체력·피해 공통 클래스 추가를 반영했으며 씬·투사체 연결은 아직 남아 있다.
 
 ## 1. 작업할 때의 기준
 
@@ -99,7 +99,7 @@
 | 수류탄 스킬 | 일부 구현 | 물리 이동·튕김·지연 폭발 연출; E 연결·쿨다운·실제 범위 피해는 미구현 |
 | 소총·탄약·재장전 | 미구현 | 현재 물리 Bullet 발사는 시험용; 히트스캔 소총, 연사, 탄창, 재장전 필요 |
 | 정밀 조준·대시·궁극기 | 미구현 | 입력은 있으나 실제 행동 없음; 우클릭 정밀 조준 연결 필요 |
-| 체력·피해·사망 | 미구현 | 피해 인터페이스 없음; 총알·수류탄 피해 예시는 주석 상태 |
+| 체력·피해·사망 | 기반 클래스 구현 | `Mortal`의 정수 HP, 무적, 공격자 전달, 피해·사망 이벤트 구현; 캐릭터·씬 연결과 실제 공격의 피해 전달·사망 행동은 미구현 |
 | 적 AI·적 공격 | 미구현 | Striker·Gunner의 추적, 거리 유지, 공격 예고, 공격·사망 처리 필요 |
 | 웨이브·강화 선택 | 미구현 | 적 생성, 클리어 판정, 전투 정지, 강화 제시·적용 필요 |
 | 보스·결과·재시작 | 미구현 | 10웨이브 보스, 성공·실패, 한 판 상태 초기화 필요 |
@@ -111,6 +111,7 @@
 
 | 경로 | 책임 |
 |---|---|
+| `Assets/Scripts/Mortal.cs` | 플레이어·적 공통 체력, 무적, 피해·사망 처리 및 이벤트 기반 클래스 |
 | `Assets/Scripts/Player/ButtonInputState.cs` | 읽어도 소비되지 않는 버튼별 프레임 입력 스냅샷 |
 | `Assets/Scripts/Player/PlayerInputReader.cs` | 독립 `PlayerControls` InputActionMap 생성, 상태 수집, 커서 관리 |
 | `Assets/Scripts/Player/PlayerController.cs` | 카메라 Yaw로 입력을 월드 이동 명령으로 변환, 점프 요청, 버튼 로그 |
@@ -124,6 +125,7 @@
 | `Assets/Scenes/SampleScene.unity` | 현재 테스트 씬과 직렬화된 컴포넌트 참조 |
 | `Assets/Prefabs/Projectiles/` | `Bullet.prefab`, `Grenade.prefab`, 물리 머티리얼과 시각 머티리얼 |
 | `Assets/Editor/ProjectileValidation.cs` | 기존 씬·프리팹을 사용하는 투사체 배치 검증 |
+| `Assets/Editor/MortalValidation.cs` | 씬을 저장하지 않는 공통 체력·피해·사망 검증; 에디터 메뉴 또는 배치 실행 |
 | `Packages/manifest.json`, `ProjectSettings/ProjectVersion.txt` | 패키지·Unity 버전의 기준 |
 
 ### 유지해야 할 현재 구조
@@ -132,6 +134,7 @@
 - Reader는 입력 수집, Controller는 행동 명령, Motor는 실제 이동을 담당한다. Motor는 입력과 카메라를 참조하지 않으며 이동·점프 명령은 한 업데이트에 소비한다.
 - 입력은 코드에서 만든 액션 맵을 사용한다. 템플릿 `Assets/InputSystem_Actions.inputactions`는 현재 플레이어 조작에 사용하지 않는다.
 - 액션·공개 멤버·로그 상태명은 PascalCase, 비공개 필드·지역 변수는 camelCase를 따른다. Inspector 설정은 `[SerializeField]` 필드로 관리한다.
+- `Mortal.isDead`는 사용자가 요청한 공개 이름을 그대로 유지하는 예외다. `HP`와 `isDead`는 읽기 전용, `IsInvincible`은 읽기·쓰기가 가능하다. `TakeDamage(int damage, GameObject attacker)`는 실제 HP 감소량과 공격자를 `OnDamaged`에 전달하고, 치명 피해에서는 이후 `Dead(attacker)`로 `OnDead`를 한 번 발생시킨다. 파생 클래스는 재정의 시 기본 구현을 호출한다.
 - 투사체 이동은 Rigidbody가 담당한다. `ProjectilePool.Spawn()`이 `Launch()`까지 호출하며 반환은 `Despawn()`을 사용한다. 외부의 직접 비활성화·삭제는 풀의 대여 상태를 어긋나게 할 수 있다.
 - 재사용 시 발사자, 수명, 물리 상태, 충돌 제외, 추가 연출 상태를 초기화한다. 수명과 폭발 연출은 게임 시간에 따라 진행한다.
 - 카메라·총구 장애물 검사의 기본 대상은 Default 레이어이며 플레이어는 Ignore Raycast 레이어를 사용한다. 새 장애물과 마스크 설정을 함께 확인한다.
@@ -146,6 +149,7 @@
 - **물리 Bullet은 히트스캔 소총 완성을 의미하지 않는다.** 향후 소총과 적 투사체의 역할을 구분하고, 기획이 바뀌면 목표도 명시적으로 수정한다.
 - **우클릭 수류탄은 현재 프로토타입 연결이다.** 정밀 조준·수류탄 스킬 구현 시 우클릭과 E의 역할을 목표에 맞춰 연결한다.
 - `IDamageable`은 존재하지 않는다. 피해 대상 탐색·피해 호출·중복 피해 방지는 주석이며 프리팹 YAML의 옛 `damage/damageMask` 값도 현재 피해 기능의 근거가 아니다.
+- 공통 `Mortal`의 HP 기본값은 100이며 Inspector에서 시작값을 설정한다. 공격자는 `GameObject`이며 환경 피해는 null을 허용한다. 무적·사망 상태와 0 이하 피해는 무시하고 HP는 0 아래로 감소하지 않는다. `Dead()` 직접 호출은 무적과 무관하게 HP를 0으로 만들며, 이동·사격 중단·애니메이션·객체 삭제·부활은 처리하지 않는다. 씬·프리팹에는 아직 연결하지 않았다.
 - 폭발 구체는 시각 연출이다. 실제 범위 피해, 넉백, 엄폐물 차단, 거리별 감쇠는 구현하지 않았다. 수류탄 조준은 초기 발사각만 보정하며 정확한 착탄 탄도 계산은 없다.
 - 풀은 프리팹별 고정 등록 방식으로 동적 등록·자동 축소를 지원하지 않는다. 투사체끼리의 충돌 제외도 별도로 설정하지 않았다. 조준 `RaycastAll`에는 배열 할당이 있다.
 - 임시 `OnGUI` 크로스헤어와 `PlayerPrototypeSetup`, `PlayerInputValidation`, `ProjectilePrototypeSetup`은 제거된 상태다. 삭제된 도구의 실행을 전제로 작업하지 않는다.
@@ -174,18 +178,20 @@
 
 변경한 기능에 맞게 컴파일, 씬·프리팹 참조, 실제 동작을 확인한다. 문서만 변경한 경우 내용·경로·링크 검사를 수행한다. 플레이 감각은 `SampleScene`의 Game 뷰에서 확인한다.
 
-현재 존재하는 자동 검증은 `ProjectU.Editor.ProjectileValidation.Run()`이다. 동일 프로젝트를 연 Unity 에디터가 닫힌 상태에서 다음 PowerShell 명령을 사용한다.
+자동 검증은 `ProjectU.Editor.ProjectileValidation.Run()`과 `ProjectU.Editor.MortalValidation.Run()`이다. 투사체 검증은 동일 프로젝트를 연 Unity 에디터가 닫힌 상태에서 다음 PowerShell 명령을 사용한다.
 
 ```powershell
-& 'C:/Program Files/6000.3.25f1/Editor/Unity.exe' -batchmode -nographics -projectPath 'C:/Unity Projects/ProjectU' -executeMethod ProjectU.Editor.ProjectileValidation.Run -logFile 'C:/Unity Projects/ProjectU/Logs/ProjectileValidation.log'
+& 'C:/Program Files/Unity/Hub/Editor/6000.3.25f1/Editor/Unity.exe' -batchmode -nographics -projectPath 'C:/UnityProjects/ProjectU' -executeMethod ProjectU.Editor.ProjectileValidation.Run -logFile 'C:/UnityProjects/ProjectU/Logs/ProjectileValidation.log'
 ```
 
 검증기는 플레이 모드 진입 후 자체적으로 성공 코드 0 또는 실패 코드 1로 Unity를 종료한다. 이 흐름에는 `-quit`을 추가하지 않는다. 수량·타이밍을 바꾸면 검증 기대값도 함께 수정한다.
 
 - 검사 범위: 사전 생성 32개, 총알 직선 비행, 수류탄 중력, 발사자 충돌 제외·복구, 총알 바닥 충돌 반환, 수류탄 지연 폭발·반환, 총알 128개 용량 제한, 전체 반환·재사용·풀 비활성화 반환.
 - 기존 `Logs/ProjectileValidation.log`에서 `PROJECTILE VALIDATION PASSED` 기록을 확인했다. 플레이어 조작 가이드에도 이전 컴파일·씬 참조·바닥 충돌체 검증 기록이 있다.
-- 이 문서 작성 작업에서는 소스·씬·프리팹·기존 기록을 대조했으며 Unity 배치 검증이나 새 플레이 테스트를 실행하지 않았다.
-- 자동 검증은 피해 처리, 실제 클릭, 시각 효과 외형, 정확한 탄도 착탄, 총알의 무충돌 수명 만료를 각각 독립적으로 확인하지 않는다.
+- 2026-10-07 문서 작성에서는 소스·씬·프리팹·기존 기록만 대조했으며 Unity 배치 검증이나 새 플레이 테스트를 실행하지 않았다.
+- 투사체 자동 검증은 피해 처리, 실제 클릭, 시각 효과 외형, 정확한 탄도 착탄, 총알의 무충돌 수명 만료를 각각 독립적으로 확인하지 않는다.
+- 체력 검증은 에디터 메뉴 `ProjectU > Validation > Validate Mortal` 또는 `-executeMethod ProjectU.Editor.MortalValidation.Run`으로 실행한다. 시작 상태, 피해 감소·공격자 전달, 무적·유효하지 않은 피해 무시, 초과 피해·이벤트 순서, 중복 사망 방지, null 공격자, 치명 피해 이벤트 재진입·구독자 예외를 검사한다. 씬을 저장하거나 캐릭터 조작을 변경하지 않으며 배치 실행 시 성공 코드 0 또는 실패 코드 1로 종료한다.
+- 2026-10-08 이번 작업에서 Unity 6000.3.25f1의 임시 별도 프로젝트(`Temp/MortalValidationProject`)로 새 두 스크립트를 컴파일하고 `MortalValidation.Run()`을 직접 실행했다. 종료 코드 0과 `Logs/MortalValidation.log`의 `MORTAL VALIDATION PASSED`를 확인했다. 기존 투사체 검증과 SampleScene 수동 플레이는 이번에 다시 실행하지 않았다.
 - 수동 확인: WASD·마우스·점프, 좌·우클릭 단발, 벽 충돌, 수류탄 튕김·폭발 연출, Esc 입력 중단, 재잠금 클릭의 사격 억제, 크로스헤어 미표시.
 
 후속 작업에서는 기준 날짜와 함께 구현한 기능, 남은 제약, 실제 수행한 검증을 갱신해 이 문서의 진행 상태를 최신으로 유지한다.
