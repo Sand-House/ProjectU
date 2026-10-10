@@ -1,6 +1,6 @@
 # ProjectU 프로젝트 지침
 
-진행 현황 기준: **2026-10-09**. Shift 대시·E Skill1·F Skill2 입력과 로그, 별도 `PlayerStamina` 컴포넌트로 관리하는 스태미나 기반 이동기 설계를 반영했다. 실제 대시 이동·스태미나 처리와 체력·피해의 씬·투사체 연결은 아직 남아 있다.
+진행 현황 기준: **2026-10-10**. Shift 대시·E Skill1·F Skill2 입력과 로그, 별도 `PlayerStamina` 컴포넌트로 관리하는 스태미나 기반 이동기 설계를 반영했다. 임시 Soldier용 X Bot 메시와 Mixamo 애니메이션 7개를 Humanoid로 임포트하고 호환성을 확인했으며 씬·플레이어에는 적용하지 않았다. 후진은 새 `Run Backward`로 교체했으며 반복 재생 시 큰 누적 루트 이동 없이 주기 중 작은 흔들림만 남는 것을 확인했다. 실제 대시 이동·스태미나 처리와 체력·피해의 씬·투사체 연결은 아직 남아 있다.
 
 ## 1. 작업할 때의 기준
 
@@ -94,6 +94,7 @@
 | 시스템 | 상태 | 실제 구현과 남은 범위 |
 |---|---|---|
 | 테스트 아레나 | 프로토타입 구현 | `SampleScene`에 40×40m 바닥, 경계 벽, 전방 표시가 있는 파란 플레이어 캡슐 |
+| Soldier 메시·애니메이션 | 에셋 임포트 완료, 씬 미적용 | X Bot 전신 메시와 60 FPS Humanoid 클립 7개; 동일 스켈레톤·샘플 재생 확인. 후진을 Run Backward로 교체해 큰 누적 루트 이동 해소 확인. Animator Controller·상체 Avatar Mask·플레이어 연결은 미구현 |
 | 입력 | 구현 | WASD·마우스, Dash를 포함한 8개 게임플레이 버튼의 `Pressed/Held/Released`, 커서·포커스·일시정지 처리 |
 | 이동·점프 | 구현 | `CharacterController` 이동, 스트레이프, 카메라 Yaw 방향 회전, 중력·지상 점프·충돌 |
 | TPS 카메라 | 구현 | 어깨 뒤 추적, Yaw·pitch, 수직 각도 제한, SphereCast 장애물 회피 |
@@ -128,6 +129,8 @@
 | `Assets/Scripts/Projectiles/ProjectilePool.cs` | 프리팹별 Queue·Dictionary·HashSet으로 생성·대여·반환 관리 |
 | `Assets/Scenes/SampleScene.unity` | 현재 테스트 씬과 직렬화된 컴포넌트 참조 |
 | `Assets/Prefabs/Projectiles/` | `Bullet.prefab`, `Grenade.prefab`, 물리 머티리얼과 시각 머티리얼 |
+| `Assets/Characters/Soldier/Models/` | 임시 Soldier의 `X Bot.fbx`; Humanoid Avatar와 전신 스킨드 메시 |
+| `Assets/Characters/Soldier/Animations/` | Mixamo의 사격·재장전·소총 대기·전후좌우 달리기 클립 7개; 씬 미적용 |
 | `Assets/Editor/ProjectileValidation.cs` | 기존 씬·프리팹을 사용하는 투사체 배치 검증 |
 | `Assets/Editor/MortalValidation.cs` | 씬을 저장하지 않는 공통 체력·피해·사망 검증; 에디터 메뉴 또는 배치 실행 |
 | `Packages/manifest.json`, `ProjectSettings/ProjectVersion.txt` | 패키지·Unity 버전의 기준 |
@@ -175,6 +178,7 @@
 - **우클릭 수류탄은 현재 프로토타입 연결이다.** 정밀 조준·수류탄 스킬 구현 시 우클릭과 E의 역할을 목표에 맞춰 연결한다.
 - `IDamageable`은 존재하지 않는다. 피해 대상 탐색·피해 호출·중복 피해 방지는 주석이며 프리팹 YAML의 옛 `damage/damageMask` 값도 현재 피해 기능의 근거가 아니다.
 - 공통 `Mortal`의 HP 기본값은 100이며 Inspector에서 시작값을 설정한다. 공격자는 `GameObject`이며 환경 피해는 null을 허용한다. 무적·사망 상태와 0 이하 피해는 무시하고 HP는 0 아래로 감소하지 않는다. `Dead()` 직접 호출은 무적과 무관하게 HP를 0으로 만들며, 이동·사격 중단·애니메이션·객체 삭제·부활은 처리하지 않는다. 씬·프리팹에는 아직 연결하지 않았다.
+- X Bot은 임시 시각 에셋이며 임포트만 완료했다. 기존 `Run Backwards`는 삭제하고 사용자 제공 `X Bot@Run Backward.fbx`로 교체했다. 새 후진은 0.5초·60 FPS이며 원본 루트 이동을 보정하지 않고 검사한 수평 누적 변위가 한 주기 약 0.0034mm, 5주기 약 0.0175mm로 큰 누적 이동이 없다. 주기 중 루트의 최대 수평 편차 약 2.43cm는 남으므로 완전히 고정된 루트로 기록하지 않는다. 무기 메시·손 IK·상체 마스크·점프·대시·투척·사망 애니메이션 연결은 아직 진행하지 않았다.
 - 폭발 구체는 시각 연출이다. 실제 범위 피해, 넉백, 엄폐물 차단, 거리별 감쇠는 구현하지 않았다. 수류탄 조준은 초기 발사각만 보정하며 정확한 착탄 탄도 계산은 없다.
 - 풀은 프리팹별 고정 등록 방식으로 동적 등록·자동 축소를 지원하지 않는다. 투사체끼리의 충돌 제외도 별도로 설정하지 않았다. 조준 `RaycastAll`에는 배열 할당이 있다.
 - 임시 `OnGUI` 크로스헤어와 `PlayerPrototypeSetup`, `PlayerInputValidation`, `ProjectilePrototypeSetup`은 제거된 상태다. 삭제된 도구의 실행을 전제로 작업하지 않는다.
@@ -222,5 +226,7 @@
 - 2026-10-09 입력 변경 작업에서는 Unity 6000.3.25f1로 원본 프로젝트를 배치 컴파일했다. 종료 코드 0과 `Logs/PlayerInputCompile.log`의 컴파일 완료·정상 종료를 확인했으며 C# 컴파일 오류는 없었다. Shift=Dash·E=Skill1·F=Skill2 바인딩, 입력 수집·초기화, 8개 버튼 로그 인덱스를 소스로 대조했고 씬의 Log Input 활성 설정, 이전 매핑 제거, 문서 경로·링크와 `git diff --check`를 확인했다. 실제 키 입력·SampleScene 수동 플레이와 기존 투사체·체력 검증은 당시 실행하지 않았다.
 - 후속 수동 확인: 좌·우 Shift의 Dash, E의 Skill1, F의 Skill2가 각각 Pressed·Held·Released로 출력되는지, 동시 입력의 로그가 독립적인지, Esc·포커스 상실·일시정지 시 입력이 초기화되는지 Game 뷰에서 확인한다. 현재 세 버튼은 실제 이동·스킬·스태미나 처리를 실행하지 않는다.
 - 2026-10-09 스태미나 설계 문서 반영에서는 AGENTS.md만 수정했다. 별도 PlayerStamina 컴포넌트와 클래스별 책임, 소모·회복 API 및 대시 실행 흐름을 미구현 설계로 기록했다. 문서 내용·참조 경로·링크와 `git diff --check`를 확인했으며 Unity 컴파일·자동 검증·수동 플레이는 이번 문서 작업에서 실행하지 않았다.
+- 2026-10-10 에셋 임포트에서는 사용자 제공 FBX 8개의 복사 전후 SHA256 일치와 Unity 6000.3.25f1 배치 임포트 종료 코드 0을 확인했다. X Bot의 유효한 Humanoid Avatar, 스킨드 메시 2개와 URP/Lit 머티리얼 2개, 모든 애니메이션의 동일한 65개 Mixamo 본 구조, 7개 클립의 60 FPS·양수 재생 길이·Humanoid 변환을 확인했다. 임시 Preview Scene에서 각 클립의 한 주기를 60회 샘플링해 실제 Humanoid 포즈 변화와 유한한 값을 확인했고, `Logs/SoldierAssetImport.log`의 `SOLDIER ASSET IMPORT PASSED` 및 `Logs/SoldierAssetImportReport.json`을 기록했다. 대기·달리기는 Loop Time을 켜고 사격·재장전은 끈 상태로 임포트했으며 원본 루트 이동은 유지했다. `Run Backwards`의 큰 루트 이동을 후속 제약으로 기록했다. 임시 에디터 검사 스크립트는 검증 후 제거했다. SampleScene의 SHA256과 기존 씬·프리팹·런타임 코드·패키지·프로젝트 설정의 변경 없음, 문서 참조와 `git diff --check`를 확인했다. Animator Controller·상체 마스크·플레이어 연결과 수동 시각 검증, 기존 투사체·체력 검증은 이번 작업에서 실행하지 않았다.
+- 2026-10-10 후속 후진 교체에서는 이전 `Run Backwards` FBX와 meta 경로를 제거하고 새 `Run Backward`를 임포트했다. 기존 GUID와 클립 내부 ID, X Bot Avatar 참조를 유지하고 새 파일의 프레임 범위 0~30, Loop Time 켬, 압축 Off를 적용했다. 새 FBX의 원본·복사본 SHA256 일치, 동일한 65개 본과 Humanoid 재생, Unity 배치 종료 코드 0을 확인했다. 루트 이동 보정을 적용하지 않고 `Apply Root Motion`을 켠 임시 Preview Scene에서 5주기를 주기당 60회 샘플링했다. 수평 변위는 한 주기 약 0.0034mm, 5주기 약 0.0175mm이고, 한 주기 중 최대 수평 편차는 약 2.43cm다. 검사 결과는 `Logs/SoldierBackwardImport.log`의 `SOLDIER BACKWARD IMPORT PASSED`와 `Logs/SoldierBackwardImportReport.json`에 기록했다. 기존 모델·다른 클립·씬·코드·설정 등 81개 파일의 작업 전후 SHA256 일치를 확인했으며 임시 검증 스크립트를 제거하고 문서·경로와 `git diff --check`를 확인했다. 씬 적용·수동 시각 검증과 기존 투사체·체력 검증은 수행하지 않았다.
 
 후속 작업에서는 기준 날짜와 함께 구현한 기능, 남은 제약, 실제 수행한 검증을 갱신해 이 문서의 진행 상태를 최신으로 유지한다.
