@@ -1,6 +1,6 @@
 # ProjectU 프로젝트 지침
 
-진행 현황 기준: **2026-10-10**. Shift 대시·E Skill1·F Skill2 입력과 로그, 별도 `PlayerStamina` 컴포넌트로 관리하는 스태미나 기반 이동기 설계를 반영했다. 임시 Soldier용 X Bot 메시와 Mixamo 애니메이션 10개를 Humanoid로 임포트하고 호환성을 확인했으며 씬·플레이어에는 적용하지 않았다. 후진은 새 `Run Backward`로 교체했으며 반복 재생 시 큰 누적 루트 이동 없이 주기 중 작은 흔들림만 남는 것을 확인했다. `Jump Up`·`Jump Loop`·`Jump Down`도 추가 임포트했고 `Jump Loop`만 Loop Time을 켰다. 실제 대시 이동·스태미나 처리와 체력·피해의 씬·투사체 연결은 아직 남아 있다.
+진행 현황 기준: **2026-10-10**. Soldier용 X Bot 메시와 Humanoid 애니메이션 10개를 SampleScene의 플레이어에 적용했다. 전후좌우 이동·점프, 상체 마스크를 사용하는 소총 대기·사격·재장전 동작을 연결했으며 상체·양손·임시 소총 총구가 카메라 중앙 조준점을 따라간다. 실제 발사 성공 이벤트로 사격 동작을 실행하며 R은 탄약 처리 없는 재장전 시각 동작이다. Shift 대시·E Skill1·F Skill2는 여전히 입력·로그만 제공하며 실제 대시·스태미나와 체력·피해의 씬·투사체 연결은 남아 있다.
 
 ## 1. 작업할 때의 기준
 
@@ -60,10 +60,10 @@
 |---|---|---|
 | WASD | 카메라 기준 스트레이프 이동 | 구현 |
 | 마우스 이동 | 카메라 회전·조준, 캐릭터 수평 회전 | 구현 |
-| 좌클릭 | 기본 사격 | 클릭당 물리 Bullet 한 발; 자동 연사·피해 없음 |
+| 좌클릭 | 기본 사격 | 클릭당 물리 Bullet 한 발과 상체 사격 애니메이션; 자동 연사·피해 없음 |
 | 우클릭 | 정밀 조준 | 클릭당 Grenade 투척에 임시 연결 |
-| R | 재장전 | 입력 상태와 로그만 구현 |
-| Space | 점프 | 지상 점프 구현 |
+| R | 재장전 | 입력·로그와 상체 재장전 동작; 탄약 처리 없음 |
+| Space | 점프 | 지상 점프와 Jump Up/Loop/Down 애니메이션 구현 |
 | 왼쪽·오른쪽 Shift | 스태미나를 소모하는 대시, 쿨타임 없음 | `Dash` 입력 상태와 로그만 구현 |
 | E | Skill1: 수류탄 투척 | `Skill1` 입력 상태와 로그만 구현 |
 | F | Skill2: 효과 미정 | `Skill2` 입력 상태와 로그만 구현 |
@@ -93,22 +93,22 @@
 
 | 시스템 | 상태 | 실제 구현과 남은 범위 |
 |---|---|---|
-| 테스트 아레나 | 프로토타입 구현 | `SampleScene`에 40×40m 바닥, 경계 벽, 전방 표시가 있는 파란 플레이어 캡슐 |
-| Soldier 메시·애니메이션 | 에셋 임포트 완료, 씬 미적용 | X Bot 전신 메시와 점프 3종을 포함한 60 FPS Humanoid 클립 10개; 동일 스켈레톤·샘플 재생 확인. 후진을 Run Backward로 교체해 큰 누적 루트 이동 해소 확인. Jump Loop만 반복 설정을 켰으며 Animator Controller·상체 Avatar Mask·플레이어 연결은 미구현 |
+| 테스트 아레나 | 프로토타입 구현 | `SampleScene`에 40×40m 바닥, 경계 벽, X Bot 플레이어와 임시 소총; 기존 캡슐 렌더러·전방 표시는 숨기고 CharacterController는 유지 |
+| Soldier 메시·애니메이션 | 씬 적용, 프로토타입 구현 | Humanoid 클립 10개를 2D 이동 Blend Tree·점프 3상태·상체 소총 레이어에 연결. 상체 Avatar Mask, 카메라 조준점에 맞춘 척추·가슴 회전과 양팔 IK, 임시 총구에서 실제 발사 구현. Apply Root Motion은 꺼짐; 실제 총 모델과 손가락 정렬·수동 조작 감각 조정은 남음 |
 | 입력 | 구현 | WASD·마우스, Dash를 포함한 8개 게임플레이 버튼의 `Pressed/Held/Released`, 커서·포커스·일시정지 처리 |
-| 이동·점프 | 구현 | `CharacterController` 이동, 스트레이프, 카메라 Yaw 방향 회전, 중력·지상 점프·충돌 |
+| 이동·점프 | 구현 | `CharacterController` 이동, 스트레이프, 카메라 Yaw 방향 회전, 중력·지상 점프·충돌; 실제 수평 속도와 접지·수직 속도로 애니메이션 구동 |
 | TPS 카메라 | 구현 | 어깨 뒤 추적, Yaw·pitch, 수직 각도 제한, SphereCast 장애물 회피 |
-| 발사·조준 | 프로토타입 구현 | 화면 중앙 조준점, 총구 위치, 수류탄 발사각 보정, 간단한 총구 장애물 검사 |
+| 발사·조준 | 프로토타입 구현 | 화면 중앙 조준점을 상체·총구·Bullet 방향이 공유. 카메라 LateUpdate 이후 총구 정렬 후 발사; 가까운 조준점에서는 총을 뒤로 당김. 총구 앞 장애물 검사와 보정 위치의 방향 재계산, 수류탄 발사각 보정 구현 |
 | 투사체·풀 | 구현 | 공통 생명주기, Bullet, Grenade, 프리팹별 사전 생성·확장·대여·반환·용량 제한 |
 | 수류탄 스킬 | 일부 구현 | 물리 이동·튕김·지연 폭발 연출; E의 Skill1 입력은 로그만 출력하며 투척 연결·쿨다운·실제 범위 피해는 미구현 |
-| 소총·탄약·재장전 | 미구현 | 현재 물리 Bullet 발사는 시험용; 히트스캔 소총, 연사, 탄창, 재장전 필요 |
+| 소총·탄약·재장전 | 사격·재장전 시각 동작만 연결 | 물리 Bullet 발사는 시험용이며 R은 상체 재장전 애니메이션만 재생; 히트스캔 소총, 연사, 탄창·실제 재장전 필요 |
 | 대시·스태미나 | 입력·로그 구현, 자원 설계 확정 | Shift의 Dash 입력만 제공; 별도 PlayerStamina 컴포넌트로 자원 관리 예정. 실제 대시 이동·스태미나 소모·회복은 미구현. 목표는 스태미나 소모, 쿨타임 없음 |
 | 정밀 조준·Skill2·궁극기 | 미구현 | F의 Skill2와 Q의 Ultimate는 입력·로그만 구현; 우클릭 정밀 조준 연결과 스킬 효과 구현 필요 |
 | 체력·피해·사망 | 기반 클래스 구현 | `Mortal`의 정수 HP, 무적, 공격자 전달, 피해·사망 이벤트 구현; 캐릭터·씬 연결과 실제 공격의 피해 전달·사망 행동은 미구현 |
 | 적 AI·적 공격 | 미구현 | Striker·Gunner의 추적, 거리 유지, 공격 예고, 공격·사망 처리 필요 |
 | 웨이브·강화 선택 | 미구현 | 적 생성, 클리어 판정, 전투 정지, 강화 제시·적용 필요 |
 | 보스·결과·재시작 | 미구현 | 10웨이브 보스, 성공·실패, 한 판 상태 초기화 필요 |
-| 게임 UI·사운드·완성도 | 미구현 | 임시 폭발 구체만 제공; HUD·보상·결과 UI, 사운드·파티클·애니메이션·밸런스·성능 개선 필요 |
+| 게임 UI·사운드·완성도 | 시각 프로토타입, 나머지 미구현 | X Bot 이동·점프·상체 동작, 임시 소총과 폭발 구체 제공; HUD·보상·결과 UI, 사운드·파티클·추가 애니메이션·밸런스·성능 개선 필요 |
 
 ### 코드와 에셋의 위치
 
@@ -121,6 +121,8 @@
 | `Assets/Scripts/Player/PlayerInputReader.cs` | 독립 `PlayerControls` InputActionMap 생성, 상태 수집, 커서 관리 |
 | `Assets/Scripts/Player/PlayerController.cs` | 카메라 Yaw로 입력을 월드 이동 명령으로 변환, 점프 요청, 버튼 로그 |
 | `Assets/Scripts/Player/PlayerMotor.cs` | 한 프레임 명령을 소비해 이동·회전·중력·점프·충돌 처리 |
+| `Assets/Scripts/Player/PlayerAnimationController.cs` | Motor 상태로 이동·점프 파라미터 갱신, 발사 성공 이벤트·R로 상체 동작 실행, 일시정지 시 Animator 평가 정지 |
+| `Assets/Scripts/Player/PlayerAimController.cs` | 카메라 갱신 후 척추·가슴 회전, 소총·총구 조준, 양팔 IK·가까운 조준점에서 소총 후퇴 |
 | `Assets/Scripts/Player/PlayerCameraController.cs` | 시점 회전, 플레이어 추적, 카메라 장애물 검사 |
 | `Assets/Scripts/Player/PlayerProjectileLauncher.cs` | 발사 입력·총구·화면 중앙 조준 계산, 풀에 발사 요청 |
 | `Assets/Scripts/Projectiles/Projectile.cs` | 추상 기반 클래스; Rigidbody 초기화, 수명, 충돌 전달, 발사자 충돌 제외·복구, 반환 |
@@ -130,14 +132,18 @@
 | `Assets/Scenes/SampleScene.unity` | 현재 테스트 씬과 직렬화된 컴포넌트 참조 |
 | `Assets/Prefabs/Projectiles/` | `Bullet.prefab`, `Grenade.prefab`, 물리 머티리얼과 시각 머티리얼 |
 | `Assets/Characters/Soldier/Models/` | 임시 Soldier의 `X Bot.fbx`; Humanoid Avatar와 전신 스킨드 메시 |
-| `Assets/Characters/Soldier/Animations/` | Mixamo의 사격·재장전·소총 대기·전후좌우 달리기·Jump Up/Loop/Down 클립 10개; 씬 미적용 |
+| `Assets/Characters/Soldier/Animations/` | Mixamo의 사격·재장전·소총 대기·전후좌우 달리기·Jump Up/Loop/Down 클립 10개; Soldier Animator에서 사용 |
+| `Assets/Characters/Soldier/Animator/` | `Soldier.controller`와 `SoldierUpperBody.mask` |
+| `Assets/Characters/Soldier/Materials/` | 임시 소총의 URP/Lit 머티리얼 2개 |
 | `Assets/Editor/ProjectileValidation.cs` | 기존 씬·프리팹을 사용하는 투사체 배치 검증 |
 | `Assets/Editor/MortalValidation.cs` | 씬을 저장하지 않는 공통 체력·피해·사망 검증; 에디터 메뉴 또는 배치 실행 |
+| `Assets/Editor/PlayerAnimationValidation.cs` | 씬을 저장하지 않는 이동·점프·상체 동작·조준·총구 발사·일시정지 검증과 선택적 렌더링 |
 | `Packages/manifest.json`, `ProjectSettings/ProjectVersion.txt` | 패키지·Unity 버전의 기준 |
 
 ### 유지해야 할 현재 구조
 
-- `Update` 순서는 Reader **-200** → Camera **-100** → Controller **-50** → Motor **0**이다. Camera의 `LateUpdate` 뒤 Launcher **100**이 발사한다. Controller는 같은 프레임의 `Yaw`를 사용한다.
+- `Update` 순서는 Reader **-200** → Camera **-100** → Controller **-50** → Motor **0** → Animation **50**이다. Animator 평가 후 `LateUpdate`에서 Camera **-100** → Aim **75** → Launcher **100** 순서로 카메라 배치·상체와 총구 정렬·발사를 처리한다. Controller는 같은 프레임의 `Yaw`를 사용한다.
+- 이동은 Motor가 담당하며 Animator의 Apply Root Motion은 끈다. Animation은 Motor의 실제 속도·접지 상태를 읽고, Aim은 본과 소총의 시각 자세만 변경한다. Launcher의 `GetAimPoint()`를 조준과 발사가 공유하며 `PrimaryFired`는 풀에서 Bullet 발사가 성공한 뒤에만 발생한다.
 - Reader는 입력 수집, Controller는 행동 명령, Motor는 실제 이동을 담당한다. Motor는 입력과 카메라를 참조하지 않으며 이동·점프 명령은 한 업데이트에 소비한다.
 - 입력은 코드에서 만든 액션 맵을 사용한다. 템플릿 `Assets/InputSystem_Actions.inputactions`는 현재 플레이어 조작에 사용하지 않는다.
 - 입력 매핑은 `Dash`=좌·우 Shift, `Skill1`=E, `Skill2`=F다. 세 입력은 현재 로그만 출력하며 이동기 자원·스킬 효과를 실행하지 않는다.
@@ -173,15 +179,16 @@
 - 대시는 스태미나를 소모하고 쿨타임을 두지 않는 기획이다. 현재 스태미나 클래스·수치·소모·회복·부족 시 사용 제한과 실제 대시 이동은 구현하지 않았다.
 - Bullet: 속력 45m/s, 수명 4초, 중력 없음, 사전 생성 24개, 최대 생성 128개.
 - Grenade: 속력 14m/s, 수명 2.5초, 중력 있음, 폭발 구체 연출 약 0.2초, 연출 반경 설정 4m, 사전 생성 8개, 최대 생성 32개.
-- Launcher: 총구 로컬 오프셋 `(0.35, 0.55, 0.65)`, 조준 거리 100m, 수류탄 발사각 보정 12도. 두 입력 모두 `Pressed`를 사용해 클릭당 한 번 발사한다.
+- Launcher: 씬에 연결된 `Soldier Visual/Prototype Rifle/Muzzle`의 실제 위치에서 발사한다. 총구 참조가 없을 때만 로컬 오프셋 `(0.35, 0.55, 0.65)`을 사용한다. 조준 거리 100m, 수류탄 발사각 보정 12도이며 두 입력 모두 `Pressed`를 사용해 클릭당 한 번 발사한다.
 - **물리 Bullet은 히트스캔 소총 완성을 의미하지 않는다.** 향후 소총과 적 투사체의 역할을 구분하고, 기획이 바뀌면 목표도 명시적으로 수정한다.
 - **우클릭 수류탄은 현재 프로토타입 연결이다.** 정밀 조준·수류탄 스킬 구현 시 우클릭과 E의 역할을 목표에 맞춰 연결한다.
 - `IDamageable`은 존재하지 않는다. 피해 대상 탐색·피해 호출·중복 피해 방지는 주석이며 프리팹 YAML의 옛 `damage/damageMask` 값도 현재 피해 기능의 근거가 아니다.
 - 공통 `Mortal`의 HP 기본값은 100이며 Inspector에서 시작값을 설정한다. 공격자는 `GameObject`이며 환경 피해는 null을 허용한다. 무적·사망 상태와 0 이하 피해는 무시하고 HP는 0 아래로 감소하지 않는다. `Dead()` 직접 호출은 무적과 무관하게 HP를 0으로 만들며, 이동·사격 중단·애니메이션·객체 삭제·부활은 처리하지 않는다. 씬·프리팹에는 아직 연결하지 않았다.
-- X Bot은 임시 시각 에셋이며 임포트만 완료했다. 기존 `Run Backwards`는 삭제하고 사용자 제공 `X Bot@Run Backward.fbx`로 교체했다. 새 후진은 0.5초·60 FPS이며 원본 루트 이동을 보정하지 않고 검사한 수평 누적 변위가 한 주기 약 0.0034mm, 5주기 약 0.0175mm로 큰 누적 이동이 없다. 주기 중 루트의 최대 수평 편차 약 2.43cm는 남으므로 완전히 고정된 루트로 기록하지 않는다. 무기 메시·손 IK·상체 마스크·점프·대시·투척·사망 애니메이션 연결은 아직 진행하지 않았다.
-- 점프 3종은 X Bot Avatar를 공유하는 Humanoid로 임포트했다. `Jump Up`은 0~32프레임·약 0.533초, `Jump Loop`는 0~60프레임·1초, `Jump Down`은 0~40프레임·약 0.667초이며 모두 60 FPS·압축 Off다. Loop Time은 Loop만 켰고 Loop Pose와 루트 Bake Into Pose는 모두 껐다. 루트 이동은 유지했으며 Up·Down에는 각각 약 8.52cm·8.52cm의 한 주기 수평 변위가 있다. Loop의 5주기 종료 수평 변위는 약 0.0134mm, 검사 중 최대 수평 편차는 약 4.07mm다. 점프 상태 전환과 PlayerMotor 연결, 전환 타이밍·시각 외형의 수동 검증은 남아 있다.
+- X Bot은 임시 시각 에셋이며 현재 씬에 적용했다. 기존 `Run Backwards`는 삭제하고 `Run Backward`로 교체했다. 이전 원본 루트 검사에서는 수평 누적 변위가 한 주기 약 0.0034mm, 5주기 약 0.0175mm, 주기 중 최대 편차가 약 2.43cm였다. 현재는 Animator의 Apply Root Motion을 끄고 Motor가 이동한다. 상체 마스크·양팔 IK·점프 연결은 구현했으며 소총은 기본 도형으로 만든 임시 메시다. 최종 무기 에셋·손가락 정렬과 대시·투척·사망 애니메이션은 남아 있다.
+- 점프 3종은 X Bot Avatar를 공유하며 `Jump Up`은 약 0.533초, `Jump Loop`는 1초, `Jump Down`은 약 0.667초다. 모두 60 FPS·압축 Off이며 Loop만 Loop Time을 켰다. 원본 루트 이동은 에셋에 남아 있지만 씬 Animator에서는 적용하지 않는다. 실제 접지·수직 속도로 상승·공중·착지 상태를 전환한다. 임시 재생 속도는 Up 1.5배, Down 1.4배이며 실제 키 조작 감각과 전환 타이밍의 세부 조정은 남아 있다.
+- R은 약 3.3초의 상체 재장전 시각 동작이며 탄창·탄약을 변경하거나 사격을 막지 않는다. 재장전 중 발사하면 조준 자세와 사격 동작으로 전환한다. 사격 트리거는 실제 발사 성공 뒤 다음 Animator 평가에서 처리되며 총구 조준과 Bullet 발사는 같은 프레임에 처리된다. Time.timeScale이 0이면 Animator 평가와 조준 보정을 함께 멈추고 재개 시 복구한다.
 - 폭발 구체는 시각 연출이다. 실제 범위 피해, 넉백, 엄폐물 차단, 거리별 감쇠는 구현하지 않았다. 수류탄 조준은 초기 발사각만 보정하며 정확한 착탄 탄도 계산은 없다.
-- 풀은 프리팹별 고정 등록 방식으로 동적 등록·자동 축소를 지원하지 않는다. 투사체끼리의 충돌 제외도 별도로 설정하지 않았다. 조준 `RaycastAll`에는 배열 할당이 있다.
+- 풀은 프리팹별 고정 등록 방식으로 동적 등록·자동 축소를 지원하지 않는다. 투사체끼리의 충돌 제외도 별도로 설정하지 않았다. 조준은 32개 버퍼의 `RaycastNonAlloc`을 사용하며 버퍼가 가득 찬 경우 정확한 최근접 판정을 위해 `RaycastAll`로 재검사한다.
 - 임시 `OnGUI` 크로스헤어와 `PlayerPrototypeSetup`, `PlayerInputValidation`, `ProjectilePrototypeSetup`은 제거된 상태다. 삭제된 도구의 실행을 전제로 작업하지 않는다.
 
 ## 5. 앞으로의 구현 순서
@@ -209,10 +216,10 @@
 
 변경한 기능에 맞게 컴파일, 씬·프리팹 참조, 실제 동작을 확인한다. 문서만 변경한 경우 내용·경로·링크 검사를 수행한다. 플레이 감각은 `SampleScene`의 Game 뷰에서 확인한다.
 
-자동 검증은 `ProjectU.Editor.ProjectileValidation.Run()`과 `ProjectU.Editor.MortalValidation.Run()`이다. 투사체 검증은 동일 프로젝트를 연 Unity 에디터가 닫힌 상태에서 다음 PowerShell 명령을 사용한다.
+자동 검증은 `ProjectU.Editor.ProjectileValidation.Run()`, `ProjectU.Editor.MortalValidation.Run()`, `ProjectU.Editor.PlayerAnimationValidation.Run()`이다. 투사체 검증은 동일 프로젝트를 연 Unity 에디터가 닫힌 상태에서 다음 PowerShell 명령을 사용한다.
 
 ```powershell
-& 'C:/Program Files/Unity/Hub/Editor/6000.3.25f1/Editor/Unity.exe' -batchmode -nographics -projectPath 'C:/UnityProjects/ProjectU' -executeMethod ProjectU.Editor.ProjectileValidation.Run -logFile 'C:/UnityProjects/ProjectU/Logs/ProjectileValidation.log'
+& 'C:/Program Files/6000.3.25f1/Editor/Unity.exe' -batchmode -nographics -projectPath 'C:/Unity Projects/ProjectU' -executeMethod ProjectU.Editor.ProjectileValidation.Run -logFile 'C:/Unity Projects/ProjectU/Logs/ProjectileValidation.log'
 ```
 
 검증기는 플레이 모드 진입 후 자체적으로 성공 코드 0 또는 실패 코드 1로 Unity를 종료한다. 이 흐름에는 `-quit`을 추가하지 않는다. 수량·타이밍을 바꾸면 검증 기대값도 함께 수정한다.
@@ -230,5 +237,6 @@
 - 2026-10-10 에셋 임포트에서는 사용자 제공 FBX 8개의 복사 전후 SHA256 일치와 Unity 6000.3.25f1 배치 임포트 종료 코드 0을 확인했다. X Bot의 유효한 Humanoid Avatar, 스킨드 메시 2개와 URP/Lit 머티리얼 2개, 모든 애니메이션의 동일한 65개 Mixamo 본 구조, 7개 클립의 60 FPS·양수 재생 길이·Humanoid 변환을 확인했다. 임시 Preview Scene에서 각 클립의 한 주기를 60회 샘플링해 실제 Humanoid 포즈 변화와 유한한 값을 확인했고, `Logs/SoldierAssetImport.log`의 `SOLDIER ASSET IMPORT PASSED` 및 `Logs/SoldierAssetImportReport.json`을 기록했다. 대기·달리기는 Loop Time을 켜고 사격·재장전은 끈 상태로 임포트했으며 원본 루트 이동은 유지했다. `Run Backwards`의 큰 루트 이동을 후속 제약으로 기록했다. 임시 에디터 검사 스크립트는 검증 후 제거했다. SampleScene의 SHA256과 기존 씬·프리팹·런타임 코드·패키지·프로젝트 설정의 변경 없음, 문서 참조와 `git diff --check`를 확인했다. Animator Controller·상체 마스크·플레이어 연결과 수동 시각 검증, 기존 투사체·체력 검증은 이번 작업에서 실행하지 않았다.
 - 2026-10-10 후속 후진 교체에서는 이전 `Run Backwards` FBX와 meta 경로를 제거하고 새 `Run Backward`를 임포트했다. 기존 GUID와 클립 내부 ID, X Bot Avatar 참조를 유지하고 새 파일의 프레임 범위 0~30, Loop Time 켬, 압축 Off를 적용했다. 새 FBX의 원본·복사본 SHA256 일치, 동일한 65개 본과 Humanoid 재생, Unity 배치 종료 코드 0을 확인했다. 루트 이동 보정을 적용하지 않고 `Apply Root Motion`을 켠 임시 Preview Scene에서 5주기를 주기당 60회 샘플링했다. 수평 변위는 한 주기 약 0.0034mm, 5주기 약 0.0175mm이고, 한 주기 중 최대 수평 편차는 약 2.43cm다. 검사 결과는 `Logs/SoldierBackwardImport.log`의 `SOLDIER BACKWARD IMPORT PASSED`와 `Logs/SoldierBackwardImportReport.json`에 기록했다. 기존 모델·다른 클립·씬·코드·설정 등 81개 파일의 작업 전후 SHA256 일치를 확인했으며 임시 검증 스크립트를 제거하고 문서·경로와 `git diff --check`를 확인했다. 씬 적용·수동 시각 검증과 기존 투사체·체력 검증은 수행하지 않았다.
 - 2026-10-10 점프 추가 임포트에서는 사용자 제공 `X Bot@Jump Up.fbx`·`X Bot@Jump Loop.fbx`·`X Bot@Jump Down.fbx`의 원본·복사본 SHA256 일치, X Bot Avatar 참조와 동일한 65개 본 구조, 세 클립의 60 FPS·Humanoid 변환·저장된 반복 설정을 확인했다. Unity 6000.3.25f1 배치 컴파일·임포트 종료 코드 0과 `Logs/SoldierJumpImport.log`의 `SOLDIER JUMP IMPORT PASSED`, `Logs/SoldierJumpImportReport.json`을 기록했다. 루트 Bake를 끄고 `Apply Root Motion`을 켠 임시 Preview Scene에서 Up·Down은 한 주기당 120회, Loop는 5주기 총 600회 샘플링해 포즈 변화·유한한 근육 및 본 Transform 값을 확인했다. 기존 Assets·Packages·ProjectSettings의 131개 파일은 작업 전후 SHA256이 일치했다. 임시 검사 스크립트와 meta를 제거하고 문서 경로·링크와 `git diff --check`를 확인했다. 씬·Animator 연결, 수동 시각 검증과 기존 투사체·체력 검증은 이번 작업에서 수행하지 않았다.
+- 2026-10-10 애니메이션 씬 적용에서는 Unity 6000.3.25f1로 Soldier Animator·상체 마스크·임시 소총과 씬 참조를 생성하고 컴파일했다. `PlayerAnimationValidation.Run()`의 플레이 모드 검사에서 전후좌우·대각 이동과 카메라 기준 회전, 점프 3상태, 12개 Yaw/pitch 조합의 발사, 점프 중 발사, 재장전의 실제 사격 상태 전환, 일시정지·재장전 재개, 총구 앞 장애물, 가까운 경계 벽, 같은 프레임의 카메라 급회전·이동 사격을 확인했다. 총 17발의 발사, 총구·투사체 방향 최대 오차 약 0.028도, 왼손 목표 최대 거리 약 0.415mm를 기록했으며 종료 코드 0과 `Logs/PlayerAnimationValidation.log`의 `PLAYER ANIMATION VALIDATION PASSED`, `Logs/PlayerAnimationValidationReport.json`을 확인했다. Game 카메라와 관찰 카메라의 PNG 12개를 렌더링하고 상하 조준·점프·재장전·벽 근처 자세를 이미지로 확인했다. 기존 투사체 검증도 다시 실행해 종료 코드 0과 `Logs/ProjectileAnimationRegression.log`의 `PROJECTILE VALIDATION PASSED`를 확인했다. 기존 FBX·임포트 설정·투사체 프리팹·패키지·프로젝트 설정을 유지했고 임시 생성 스크립트와 불필요하게 생성된 SceneTemplateSettings를 제거했다. 문서·참조 경로·링크와 `git diff --check`를 확인했다. 자동 입력 주입으로 검사했으며 실제 키보드·마우스 수동 플레이와 기존 Mortal 검증은 이번 작업에서 실행하지 않았다.
 
 후속 작업에서는 기준 날짜와 함께 구현한 기능, 남은 제약, 실제 수행한 검증을 갱신해 이 문서의 진행 상태를 최신으로 유지한다.

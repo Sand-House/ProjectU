@@ -22,6 +22,11 @@ namespace ProjectU
         private bool hasMoveCommand;
         private bool jumpRequested;
 
+        public bool IsGrounded => controller != null && controller.isGrounded;
+        public float VerticalSpeed => verticalSpeed;
+        public float MoveSpeed => moveSpeed;
+        public Vector3 HorizontalVelocity { get; private set; }
+
         private void Awake()
         {
             controller = GetComponent<CharacterController>();
@@ -51,7 +56,10 @@ namespace ProjectU
             bool shouldRotate = hasMoveCommand;
             ClearCommands();
             if (Time.deltaTime <= 0f)
+            {
+                HorizontalVelocity = Vector3.zero;
                 return;
+            }
 
             if (shouldRotate)
                 transform.rotation = Quaternion.Euler(0f, facingYaw, 0f);
@@ -63,7 +71,10 @@ namespace ProjectU
 
             verticalSpeed -= gravity * Time.deltaTime;
             velocity.y = verticalSpeed;
+            Vector3 previousPosition = transform.position;
             CollisionFlags collisions = controller.Move(velocity * Time.deltaTime);
+            Vector3 actualVelocity = (transform.position - previousPosition) / Time.deltaTime;
+            HorizontalVelocity = new Vector3(actualVelocity.x, 0f, actualVelocity.z);
             if ((collisions & CollisionFlags.Above) != 0 && verticalSpeed > 0f)
                 verticalSpeed = 0f;
             if ((collisions & CollisionFlags.Below) != 0 && verticalSpeed < 0f)
@@ -80,6 +91,7 @@ namespace ProjectU
         private void OnDisable()
         {
             verticalSpeed = 0f;
+            HorizontalVelocity = Vector3.zero;
             ClearCommands();
         }
 
