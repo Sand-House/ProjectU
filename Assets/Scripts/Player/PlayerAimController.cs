@@ -20,7 +20,6 @@ namespace ProjectU
         private PlayerInputReader input;
         private Transform spine;
         private Transform chest;
-        private Transform neck;
         private Transform rightHand;
         private Transform rightUpperArm;
         private Transform rightForearm;
@@ -42,14 +41,13 @@ namespace ProjectU
             }
             spine = animator.GetBoneTransform(HumanBodyBones.Spine);
             chest = animator.GetBoneTransform(HumanBodyBones.Chest);
-            neck = animator.GetBoneTransform(HumanBodyBones.Neck);
             rightHand = animator.GetBoneTransform(HumanBodyBones.RightHand);
             rightUpperArm = animator.GetBoneTransform(HumanBodyBones.RightUpperArm);
             rightForearm = animator.GetBoneTransform(HumanBodyBones.RightLowerArm);
             leftUpperArm = animator.GetBoneTransform(HumanBodyBones.LeftUpperArm);
             leftForearm = animator.GetBoneTransform(HumanBodyBones.LeftLowerArm);
             leftHand = animator.GetBoneTransform(HumanBodyBones.LeftHand);
-            if (spine == null || chest == null || neck == null || rightHand == null || rightUpperArm == null || rightForearm == null || leftUpperArm == null ||
+            if (spine == null || chest == null || rightHand == null || rightUpperArm == null || rightForearm == null || leftUpperArm == null ||
                 leftForearm == null || leftHand == null)
                 FailConfiguration();
         }
@@ -71,16 +69,7 @@ namespace ProjectU
                 Vector3 bodyDirection = AimPoint - chest.position;
                 if (bodyDirection.sqrMagnitude > 0.0001f)
                 {
-                    // Humanoid clips can twist the torso independently of the player root.
-                    // Use the evaluated shoulder/neck pose; bone-local +Z is not a reliable
-                    // facing axis across imported rigs. Both axes are below Chest, so the
-                    // distributed Spine/Chest turn rotates this frame as a whole.
-                    Vector3 bodyRight = rightUpperArm.position - leftUpperArm.position;
-                    Vector3 bodyUp = neck.position - chest.position;
-                    Vector3 bodyForward = Vector3.Cross(bodyRight, bodyUp);
-                    if (bodyForward.sqrMagnitude < 0.000001f)
-                        bodyForward = transform.forward;
-                    Quaternion turn = Quaternion.FromToRotation(bodyForward.normalized, bodyDirection.normalized);
+                    Quaternion turn = Quaternion.FromToRotation(transform.forward, bodyDirection.normalized);
                     turn = Quaternion.RotateTowards(Quaternion.identity, turn, maximumBodyAngle);
                     spine.rotation = Quaternion.Slerp(Quaternion.identity, turn, spineWeight) * spine.rotation;
                     chest.rotation = Quaternion.Slerp(Quaternion.identity, turn, 1f - spineWeight) * chest.rotation;

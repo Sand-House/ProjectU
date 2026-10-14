@@ -84,7 +84,6 @@ namespace ProjectU.Editor
             public float maximumProjectileAngle;
             public float maximumLeftGripDistance;
             public float maximumRightGripDistance;
-            public float maximumTorsoAimAngle;
             public bool jumpUp;
             public bool jumpLoop;
             public bool jumpDown;
@@ -360,22 +359,6 @@ namespace ProjectU.Editor
                 float rightDistance = Vector3.Distance(animator.GetBoneTransform(HumanBodyBones.RightHand).position, weapon.position);
                 report.maximumRightGripDistance = Mathf.Max(report.maximumRightGripDistance, rightDistance);
                 Check(rightDistance < 0.03f, "Right-hand grip at phase " + phase + ": " + rightDistance);
-            }
-            if (Time.deltaTime > 0f && !animationController.IsReloading && phase != 21)
-            {
-                Transform chest = animator.GetBoneTransform(HumanBodyBones.Chest);
-                Vector3 target = aim.AimPoint - chest.position;
-                // Close targets and large turns can intentionally reach the body-angle limit.
-                // Distant forward targets should align the evaluated torso, including while moving.
-                if (target.sqrMagnitude >= 25f && Vector3.Angle(input.transform.forward, target) < 50f)
-                {
-                    Vector3 shoulders = animator.GetBoneTransform(HumanBodyBones.RightUpperArm).position -
-                        animator.GetBoneTransform(HumanBodyBones.LeftUpperArm).position;
-                    Vector3 upperBody = animator.GetBoneTransform(HumanBodyBones.Neck).position - chest.position;
-                    float angle = Vector3.Angle(Vector3.Cross(shoulders, upperBody), target);
-                    report.maximumTorsoAimAngle = Mathf.Max(report.maximumTorsoAimAngle, angle);
-                    Check(angle < 1f, "Torso alignment at phase " + phase + ": " + angle);
-                }
             }
             if (phase >= 1 && phase <= 6 && elapsed > 0.32f)
             {
