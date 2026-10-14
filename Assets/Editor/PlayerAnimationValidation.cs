@@ -84,6 +84,7 @@ namespace ProjectU.Editor
             public float maximumProjectileAngle;
             public float maximumLeftGripDistance;
             public float maximumRightGripDistance;
+            public float maximumTorsoAimAngle;
             public bool jumpUp;
             public bool jumpLoop;
             public bool jumpDown;
@@ -102,7 +103,7 @@ namespace ProjectU.Editor
         private PlayerInputReader input;
         private PlayerMotor motor;
         private PlayerCameraController cameraController;
-        private PlayerAnimationController animation;
+        private PlayerAnimationController animationController;
         private PlayerAimController aim;
         private PlayerProjectileLauncher launcher;
         private ProjectilePool pool;
@@ -132,14 +133,14 @@ namespace ProjectU.Editor
                 input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();
                 motor = input.GetComponent<PlayerMotor>();
                 cameraController = UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>();
-                animation = input.GetComponent<PlayerAnimationController>();
+                animationController = input.GetComponent<PlayerAnimationController>();
                 aim = input.GetComponent<PlayerAimController>();
                 launcher = input.GetComponent<PlayerProjectileLauncher>();
                 pool = UnityEngine.Object.FindFirstObjectByType<ProjectilePool>();
                 animator = input.GetComponentInChildren<Animator>();
                 leftGrip = input.transform.Find("Soldier Visual/Prototype Rifle/Left Grip");
                 weapon = leftGrip.parent;
-                Check(animation != null && aim != null && animation.enabled && aim.enabled && launcher.Muzzle != null,
+                Check(animationController != null && aim != null && animationController.enabled && aim.enabled && launcher.Muzzle != null,
                     "Configured runtime components and muzzle.");
                 Check(animator.isHuman && !animator.applyRootMotion && animator.runtimeAnimatorController != null,
                     "Humanoid Animator with code-driven root motion.");
@@ -225,7 +226,7 @@ namespace ProjectU.Editor
                     }
                     if (elapsed > 0.40f && !shotRequested)
                     {
-                        Check(animation.IsReloading, "Reload visual is active before interrupting.");
+                        Check(animationController.IsReloading, "Reload visual is active before interrupting.");
                         SetInput("PrimaryFire", Pressed());
                         shotRequested = true;
                     }
@@ -294,7 +295,7 @@ namespace ProjectU.Editor
                     }
                     if (elapsed > 0.20f && pauseFrames == 0)
                     {
-                        Check(StateName(1) == "Reloading" && animation.IsReloading, "Reload started before pausing.");
+                        Check(StateName(1) == "Reloading" && animationController.IsReloading, "Reload started before pausing.");
                         Time.timeScale = 0f;
                         pauseFrames = 1;
                     }
@@ -338,14 +339,14 @@ namespace ProjectU.Editor
             }
             if (phase == 26)
             {
-                Check(animation.IsReloading && upperState == "Reloading", "Reload state resumes after pause.");
+                Check(animationController.IsReloading && upperState == "Reloading", "Reload state resumes after pause.");
                 Check(animator.GetCurrentAnimatorStateInfo(1).normalizedTime >= pausedReloadTime - 0.0001f,
                     "Reload resumes from the saved time instead of restarting.");
                 report.reloadPauseResumed = true;
             }
             if (phase == 20 && elapsed > 0.46f && elapsed < 0.60f)
                 Check(upperState == "Firing Rifle", "Actual fire animation interrupts the reload state.");
-            if (phase >= 7 && !animation.IsReloading && phase != 21)
+            if (phase >= 7 && !animationController.IsReloading && phase != 21)
             {
                 float angle = Vector3.Angle(launcher.Muzzle.forward, aim.AimPoint - launcher.Muzzle.position);
                 report.maximumMuzzleAngle = Mathf.Max(report.maximumMuzzleAngle, angle);
@@ -359,6 +360,22 @@ namespace ProjectU.Editor
                 float rightDistance = Vector3.Distance(animator.GetBoneTransform(HumanBodyBones.RightHand).position, weapon.position);
                 report.maximumRightGripDistance = Mathf.Max(report.maximumRightGripDistance, rightDistance);
                 Check(rightDistance < 0.03f, "Right-hand grip at phase " + phase + ": " + rightDistance);
+            }
+            if (Time.deltaTime > 0f && !animationController.IsReloading && phase != 21)
+            {
+                Transform chest = animator.GetBoneTransform(HumanBodyBones.Chest);
+                Vector3 target = aim.AimPoint - chest.position;
+                // Close targets and large turns can intentionally reach the body-angle limit.
+                // Distant forward targets should align the evaluated torso, including while moving.
+                if (target.sqrMagnitude >= 25f && Vector3.Angle(input.transform.forward, target) < 50f)
+                {
+                    Vector3 shoulders = animator.GetBoneTransform(HumanBodyBones.RightUpperArm).position -
+                        animator.GetBoneTransform(HumanBodyBones.LeftUpperArm).position;
+                    Vector3 upperBody = animator.GetBoneTransform(HumanBodyBones.Neck).position - chest.position;
+                    float angle = Vector3.Angle(Vector3.Cross(shoulders, upperBody), target);
+                    report.maximumTorsoAimAngle = Mathf.Max(report.maximumTorsoAimAngle, angle);
+                    Check(angle < 1f, "Torso alignment at phase " + phase + ": " + angle);
+                }
             }
             if (phase >= 1 && phase <= 6 && elapsed > 0.32f)
             {
@@ -422,7 +439,7 @@ namespace ProjectU.Editor
                 report.shots++;
                 if (phase == 20)
                 {
-                    Check(!animation.IsReloading, "Shot interrupts visual reload.");
+                    Check(!animationController.IsReloading, "Shot interrupts visual reload.");
                     report.reloadInterrupted = true;
                 }
                 if (phase == 22)
