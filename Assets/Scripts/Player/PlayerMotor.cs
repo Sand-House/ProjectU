@@ -2,20 +2,19 @@ using UnityEngine;
 
 namespace ProjectU
 {
-    [RequireComponent(typeof(CharacterController))]
+    [RequireComponent(typeof(CharacterController), typeof(PlayerStat))]
     public sealed class PlayerMotor : MonoBehaviour
     {
         private const float GroundStickSpeed = -2f;
 
         [Header("Movement")]
-        [SerializeField, Min(0f), Tooltip("Horizontal movement speed in meters per second.")]
-        private float moveSpeed = 6f;
         [SerializeField, Min(0f), Tooltip("Jump height in meters.")]
         private float jumpHeight = 1.5f;
         [SerializeField, Min(0.1f), Tooltip("Downward acceleration in meters per second squared.")]
         private float gravity = 25f;
 
         private CharacterController controller;
+        private PlayerStat playerStat;
         private float verticalSpeed;
         private Vector3 moveDirection;
         private float facingYaw;
@@ -24,12 +23,13 @@ namespace ProjectU
 
         public bool IsGrounded => controller != null && controller.isGrounded;
         public float VerticalSpeed => verticalSpeed;
-        public float MoveSpeed => moveSpeed;
+        public float MoveSpeed => playerStat.MoveSpeed;
         public Vector3 HorizontalVelocity { get; private set; }
 
         private void Awake()
         {
             controller = GetComponent<CharacterController>();
+            playerStat = GetComponent<PlayerStat>();
         }
 
         // Commands are world-space requests, valid for one Motor update only.
@@ -51,7 +51,7 @@ namespace ProjectU
 
         private void Update()
         {
-            Vector3 velocity = moveDirection * moveSpeed;
+            Vector3 velocity = moveDirection * MoveSpeed;
             bool shouldJump = jumpRequested;
             bool shouldRotate = hasMoveCommand;
             ClearCommands();
@@ -97,7 +97,6 @@ namespace ProjectU
 
         private void OnValidate()
         {
-            moveSpeed = Mathf.Max(0f, moveSpeed);
             jumpHeight = Mathf.Max(0f, jumpHeight);
             gravity = Mathf.Max(0.1f, gravity);
         }

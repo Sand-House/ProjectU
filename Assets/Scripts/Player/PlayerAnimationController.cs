@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Text;
 using UnityEngine;
 
 namespace ProjectU
@@ -19,17 +17,12 @@ namespace ProjectU
         [SerializeField, Min(0f)] private float movementDampTime = 0.08f;
         [SerializeField, Min(0.01f), Tooltip("Visual reload duration; ammunition is not implemented yet.")]
         private float reloadPreviewDuration = 3.3f;
-        [SerializeField] private bool logAnimationBlending = true;
-        [SerializeField, Min(0.1f)] private float animationBlendLogInterval = 0.2f;
 
         private PlayerMotor motor;
         private PlayerInputReader input;
         private PlayerProjectileLauncher launcher;
         private float reloadRemaining;
         private bool animatorPaused;
-        private float nextAnimationBlendLog;
-        private readonly List<AnimatorClipInfo> clipInfos = new List<AnimatorClipInfo>(8);
-        private readonly StringBuilder animationBlendLog = new StringBuilder(512);
 
         public bool IsReloading => reloadRemaining > 0f;
 
@@ -51,7 +44,6 @@ namespace ProjectU
 
         private void OnEnable()
         {
-            nextAnimationBlendLog = 0f;
             if (launcher != null)
                 launcher.PrimaryFired += OnPrimaryFired;
         }
@@ -86,52 +78,6 @@ namespace ProjectU
                 reloadRemaining = reloadPreviewDuration;
                 animator.ResetTrigger(Fire);
                 animator.SetTrigger(Reload);
-            }
-        }
-
-        private void LateUpdate()
-        {
-            // Read clip weights after this frame's Animator evaluation.
-            if (!logAnimationBlending || Time.deltaTime <= 0f || !animator.isActiveAndEnabled ||
-                Time.unscaledTime < nextAnimationBlendLog)
-                return;
-
-            nextAnimationBlendLog = Time.unscaledTime + animationBlendLogInterval;
-            animationBlendLog.Clear();
-            animationBlendLog.Append("[Player Animation Blend]");
-            for (int layer = 0; layer < animator.layerCount; layer++)
-            {
-                // The base layer always supplies the base pose at full weight.
-                float layerWeight = layer == 0 ? 1f : animator.GetLayerWeight(layer);
-                animationBlendLog.AppendFormat("\n{0} | Layer Weight: {1:F2}% | Current: ",
-                    animator.GetLayerName(layer), layerWeight * 100f);
-                clipInfos.Clear();
-                animator.GetCurrentAnimatorClipInfo(layer, clipInfos);
-                AppendClipWeights();
-                if (animator.IsInTransition(layer))
-                {
-                    animationBlendLog.Append(" | Next: ");
-                    clipInfos.Clear();
-                    animator.GetNextAnimatorClipInfo(layer, clipInfos);
-                    AppendClipWeights();
-                }
-            }
-            Debug.Log(animationBlendLog.ToString(), this);
-        }
-
-        private void AppendClipWeights()
-        {
-            if (clipInfos.Count == 0)
-            {
-                animationBlendLog.Append("None");
-                return;
-            }
-            for (int i = 0; i < clipInfos.Count; i++)
-            {
-                if (i > 0) animationBlendLog.Append(", ");
-                AnimatorClipInfo clipInfo = clipInfos[i];
-                animationBlendLog.AppendFormat("{0}={1:F2}%",
-                    clipInfo.clip != null ? clipInfo.clip.name : "None", clipInfo.weight * 100f);
             }
         }
 

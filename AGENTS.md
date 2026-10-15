@@ -1,6 +1,6 @@
 # ProjectU 프로젝트 지침
 
-진행 현황 기준: **2026-10-15**. Soldier용 X Bot 메시와 Humanoid 애니메이션 10개를 SampleScene의 플레이어에 적용했다. 사용자 확인으로 Soldier 이동 관련 문제 해결과 대기·전후좌우 이동·점프·사격·재장전의 기본 애니메이션 작업을 완료했다. 남은 Soldier 애니메이션은 **Dash·Skill1·Skill2·Ultimate 4개**다. 대기·전후좌우 이동 5개 클립은 Loop Pose와 루트 회전·이동의 Bake Into Pose를 사용하며 Rotation Offset은 모두 0이다. 상체 보정은 플레이어의 `transform.forward`를 기준으로 하고 총구 정렬·양손 IK로 실제 조준점을 맞춘다. 실제 발사 성공 이벤트로 사격 동작을 실행하며 R은 탄약 처리 없는 재장전 시각 동작이다. Dash·Skill1·Skill2·Ultimate의 입력·로그는 구현되어 있으나 실제 대시·스태미나·스킬·궁극기 기능과 체력·피해의 씬·투사체 연결은 남아 있다.
+진행 현황 기준: **2026-10-15**. Soldier용 X Bot 메시와 Humanoid 애니메이션 10개를 SampleScene의 플레이어에 적용했다. 사용자 확인으로 Soldier 이동 관련 문제 해결과 대기·전후좌우 이동·점프·사격·재장전의 기본 애니메이션 작업을 완료했다. 남은 Soldier 애니메이션은 **Dash·Skill1·Skill2·Ultimate 4개**다. 대기·전후좌우 이동 5개 클립은 Loop Pose와 루트 회전·이동의 Bake Into Pose를 사용하며 Rotation Offset은 모두 0이다. 상체 보정은 플레이어의 `transform.forward`를 기준으로 하고 총구 정렬·양손 IK로 실제 조준점을 맞춘다. 실제 발사 성공 이벤트로 사격 동작을 실행하며 R은 탄약 처리 없는 재장전 시각 동작이다. PlayerStat의 7개 능력치와 PlayerStamina의 소모·지연 자동 회복을 구현해 씬에 연결했다. Shift는 누름당 스태미나만 소모한다. 실제 대시 이동·스킬·궁극기 기능과 체력·피해의 씬·투사체 연결은 남아 있다.
 
 ## 1. 작업할 때의 기준
 
@@ -64,7 +64,7 @@
 | 우클릭 | 정밀 조준 | 클릭당 Grenade 투척에 임시 연결 |
 | R | 재장전 | 입력·로그와 상체 재장전 동작; 탄약 처리 없음 |
 | Space | 점프 | 지상 점프와 Jump Up/Loop/Down 애니메이션 구현 |
-| 왼쪽·오른쪽 Shift | 스태미나를 소모하는 대시, 쿨타임 없음 | `Dash` 입력 상태와 로그만 구현 |
+| 왼쪽·오른쪽 Shift | 스태미나를 소모하는 대시, 쿨타임 없음 | 누름당 스태미나 25 소모, 부족 시 소모 거절, 지연 자동 회복; 실제 대시 이동 없음 |
 | E | Skill1: 수류탄 투척 | `Skill1` 입력 상태와 로그만 구현 |
 | F | Skill2: 효과 미정 | `Skill2` 입력 상태와 로그만 구현 |
 | Q | 궁극기 | `Ultimate` 입력 상태와 로그만 구현 |
@@ -102,7 +102,8 @@
 | 투사체·풀 | 구현 | 공통 생명주기, Bullet, Grenade, 프리팹별 사전 생성·확장·대여·반환·용량 제한 |
 | 수류탄 스킬 | 일부 구현 | 물리 이동·튕김·지연 폭발 연출; E의 Skill1 입력은 로그만 출력하며 투척 연결·쿨다운·실제 범위 피해는 미구현 |
 | 소총·탄약·재장전 | 사격·재장전 시각 동작만 연결 | 물리 Bullet 발사는 시험용이며 R은 상체 재장전 애니메이션만 재생; 히트스캔 소총, 연사, 탄창·실제 재장전 필요 |
-| 대시·스태미나 | 입력·로그 구현, 자원 설계 확정 | Shift의 Dash 입력만 제공; 별도 PlayerStamina 컴포넌트로 자원 관리 예정. 실제 대시 이동·스태미나 소모·회복은 미구현. 목표는 스태미나 소모, 쿨타임 없음 |
+| 플레이어 능력치 | 구현·일부 연결 | PlayerStat의 공격력·방어력·최대 체력·최대 스태미나·공격속도·이동속도·최대 탄창을 Inspector와 프로퍼티로 제공. 이동속도는 Motor, 최대 스태미나는 PlayerStamina가 사용. 나머지 능력치의 실제 전투·HP·탄약 적용은 후속 작업 |
+| 대시·스태미나 | 자원 구현·씬 연결 | PlayerStamina의 잔량 검증·소모·회복·이벤트와 게임 시간 기준 지연 자동 회복 구현. Shift.Pressed에서 소모하며 홀딩 반복·사용 쿨타임 없음. 실제 대시 이동·무적·행동 제한·애니메이션은 미구현 |
 | 정밀 조준·Skill2·궁극기 | 미구현 | F의 Skill2와 Q의 Ultimate는 입력·로그만 구현; 우클릭 정밀 조준 연결과 스킬 효과 구현 필요 |
 | 체력·피해·사망 | 기반 클래스 구현 | `Mortal`의 정수 HP, 무적, 공격자 전달, 피해·사망 이벤트 구현; 캐릭터·씬 연결과 실제 공격의 피해 전달·사망 행동은 미구현 |
 | 적 AI·적 공격 | 미구현 | Striker·Gunner의 추적, 거리 유지, 공격 예고, 공격·사망 처리 필요 |
@@ -117,7 +118,7 @@
 
 | 애니메이션 | 입력 | 현재 기능과 남은 범위 |
 |---|---|---|
-| Dash | 좌·우 Shift | 애니메이션 추가 예정; 입력·로그만 구현, 실제 대시·스태미나 처리 필요 |
+| Dash | 좌·우 Shift | 스태미나 소모·자동 회복 구현; 애니메이션·실제 대시 이동·무적·행동 제한은 후속 작업 |
 | Skill1 | E | 애니메이션 추가 예정; 입력·로그만 구현, 수류탄 스킬 연결·실제 범위 피해 필요 |
 | Skill2 | F | 애니메이션 추가 예정; 입력·로그만 구현, 효과 설계·실행 기능 필요 |
 | Ultimate | Q | 애니메이션 추가 예정; 입력·로그만 구현, 효과·발동 조건 설계·실행 기능 필요 |
@@ -131,7 +132,9 @@
 | `Assets/Scripts/Mortal.cs` | 플레이어·적 공통 체력, 무적, 피해·사망 처리 및 이벤트 기반 클래스 |
 | `Assets/Scripts/Player/ButtonInputState.cs` | 읽어도 소비되지 않는 버튼별 프레임 입력 스냅샷 |
 | `Assets/Scripts/Player/PlayerInputReader.cs` | 독립 `PlayerControls` InputActionMap 생성, 상태 수집, 커서 관리 |
-| `Assets/Scripts/Player/PlayerController.cs` | 카메라 Yaw로 입력을 월드 이동 명령으로 변환, 점프 요청, 버튼 로그 |
+| `Assets/Scripts/Player/PlayerStat.cs` | 플레이어 7개 능력치의 Inspector 설정과 읽기·쓰기 프로퍼티; 이동속도·최대 스태미나의 원본 |
+| `Assets/Scripts/Player/PlayerStamina.cs` | 현재 스태미나, 소모 검증·차감·회복, 지연 자동 회복과 값 변경 이벤트 |
+| `Assets/Scripts/Player/PlayerController.cs` | 카메라 Yaw로 입력을 월드 이동 명령으로 변환, 점프 요청, Shift 스태미나 소모, 버튼 로그 |
 | `Assets/Scripts/Player/PlayerMotor.cs` | 한 프레임 명령을 소비해 이동·회전·중력·점프·충돌 처리 |
 | `Assets/Scripts/Player/PlayerAnimationController.cs` | Motor 상태로 이동·점프 파라미터 갱신, 발사 성공 이벤트·R로 상체 동작 실행, 일시정지 시 Animator 평가 정지 |
 | `Assets/Scripts/Player/PlayerAimController.cs` | 카메라 갱신 후 척추·가슴 회전, 소총·총구 조준, 양팔 IK·가까운 조준점에서 소총 후퇴 |
@@ -150,15 +153,16 @@
 | `Assets/Editor/ProjectileValidation.cs` | 기존 씬·프리팹을 사용하는 투사체 배치 검증 |
 | `Assets/Editor/MortalValidation.cs` | 씬을 저장하지 않는 공통 체력·피해·사망 검증; 에디터 메뉴 또는 배치 실행 |
 | `Assets/Editor/PlayerAnimationValidation.cs` | 씬을 저장하지 않는 이동·점프·상체 동작·조준·총구 발사·일시정지 검증과 선택적 렌더링 |
+| `Assets/Editor/PlayerStaminaValidation.cs` | 씬을 저장하지 않는 능력치·자원 API·Shift 소모·자동 회복·일시정지 검증 |
 | `Packages/manifest.json`, `ProjectSettings/ProjectVersion.txt` | 패키지·Unity 버전의 기준 |
 
 ### 유지해야 할 현재 구조
 
-- `Update` 순서는 Reader **-200** → Camera **-100** → Controller **-50** → Motor **0** → Animation **50**이다. Animator 평가 후 `LateUpdate`에서 Camera **-100** → Aim **75** → Launcher **100** 순서로 카메라 배치·상체와 총구 정렬·발사를 처리한다. Controller는 같은 프레임의 `Yaw`를 사용한다.
+- `Update` 순서는 Reader **-200** → Camera **-100** → Stamina **-75** → Controller **-50** → Motor **0** → Animation **50**이다. Animator 평가 후 `LateUpdate`에서 Camera **-100** → Aim **75** → Launcher **100** 순서로 카메라 배치·상체와 총구 정렬·발사를 처리한다. Controller는 같은 프레임의 `Yaw`를 사용한다.
 - 이동은 Motor가 담당하며 Animator의 Apply Root Motion은 끈다. Animation은 Motor의 실제 속도·접지 상태를 읽고, Aim은 본과 소총의 시각 자세만 변경한다. Launcher의 `GetAimPoint()`를 조준과 발사가 공유하며 `PrimaryFired`는 풀에서 Bullet 발사가 성공한 뒤에만 발생한다.
 - Reader는 입력 수집, Controller는 행동 명령, Motor는 실제 이동을 담당한다. Motor는 입력과 카메라를 참조하지 않으며 이동·점프 명령은 한 업데이트에 소비한다.
 - 입력은 코드에서 만든 액션 맵을 사용한다. 템플릿 `Assets/InputSystem_Actions.inputactions`는 현재 플레이어 조작에 사용하지 않는다.
-- 입력 매핑은 `Dash`=좌·우 Shift, `Skill1`=E, `Skill2`=F다. 세 입력은 현재 로그만 출력하며 이동기 자원·스킬 효과를 실행하지 않는다.
+- 입력 매핑은 `Dash`=좌·우 Shift, `Skill1`=E, `Skill2`=F다. Dash.Pressed는 PlayerStamina.TryConsume을 호출한다. Skill1·Skill2는 현재 로그만 출력하며 스킬 효과를 실행하지 않는다. 실제 대시 이동은 없다.
 - 액션·공개 멤버·로그 상태명은 PascalCase, 비공개 필드·지역 변수는 camelCase를 따른다. Inspector 설정은 `[SerializeField]` 필드로 관리한다.
 - `Mortal.isDead`는 사용자가 요청한 공개 이름을 그대로 유지하는 예외다. `HP`와 `isDead`는 읽기 전용, `IsInvincible`은 읽기·쓰기가 가능하다. `TakeDamage(int damage, GameObject attacker)`는 실제 HP 감소량과 공격자를 `OnDamaged`에 전달하고, 치명 피해에서는 이후 `Dead(attacker)`로 `OnDead`를 한 번 발생시킨다. 파생 클래스는 재정의 시 기본 구현을 호출한다.
 - 투사체 이동은 Rigidbody가 담당한다. `ProjectilePool.Spawn()`이 `Launch()`까지 호출하며 반환은 `Despawn()`을 사용한다. 외부의 직접 비활성화·삭제는 풀의 대여 상태를 어긋나게 할 수 있다.
@@ -168,27 +172,28 @@
 
 ### 스태미나·대시 설계 결정
 
-2026-10-09 결정이며 아래 자원 컴포넌트와 대시 실행 흐름은 **아직 구현하지 않았다**.
+2026-10-09 자원 분리 설계를 바탕으로 2026-10-15 PlayerStat·PlayerStamina와 Shift 소모 시험 연결을 구현했다. 실제 대시 이동은 사용자 요청에 따라 구현하지 않았다.
 스태미나는 별도 `PlayerStamina` 컴포넌트로 관리한다. 체력과 스태미나의 소모·회복 규칙을 각각 관리해 강화와 밸런스 조정을 쉽게 한다.
 
 | 구성 | 책임 |
 |---|---|
 | `Mortal` | 공통 HP, 무적, 피해·사망 처리 |
-| `PlayerStamina` | 현재·최대 스태미나, 소모 가능 여부, 소모·회복과 값 변경 알림; 추가 예정 |
-| `PlayerController` | 대시 입력과 행동 가능 상태 확인, 스태미나 소모 시도, 이동 요청; 대시 연결 예정 |
+| `PlayerStat` | 7개 능력치 보관·변경; 최대 스태미나와 이동속도의 원본 |
+| `PlayerStamina` | 현재 스태미나와 PlayerStat을 참조하는 최대량, 소모 검증·소모·회복과 값 변경 알림 |
+| `PlayerController` | Dash.Pressed에서 스태미나 소모 시도; 대시 상태 확인·이동 요청은 후속 연결 |
 | `PlayerMotor` | 실제 대시 이동과 충돌 처리; 대시 기능 추가 예정 |
 
-- `PlayerStamina`는 읽기 전용 `Current`, `Max` 프로퍼티와 `TryConsume(float amount)`를 제공하는 방향이다. 자원이 충분하면 차감하고 true를 반환하며, 부족하면 값을 유지하고 false를 반환한다.
-- 최대 스태미나·대시 소모량·초당 회복량·마지막 소모 후 회복 지연 시간은 Inspector에서 조절한다. 구체적인 수치는 플레이 감각을 확인하며 결정한다.
-- 회복은 소모 후 설정한 지연 시간이 지나면 초당 회복량에 따라 자동으로 진행하고 최대량을 넘지 않게 한다. 회복과 지연 시간은 `Time.deltaTime`을 기준으로 처리해 전투 일시정지 중 함께 멈추도록 한다. 회복 지연 시간은 대시 사용을 막는 쿨타임이 아니다.
-- HUD 연결을 위한 값 변경 이벤트를 제공한다. HUD가 자원 값을 직접 변경하지 않도록 한다.
+- `PlayerStamina`는 읽기 전용 `Current`, `Max`, `RecoveryDelayRemaining`, 읽기·쓰기 `RecoveryDelay`, `RecoveryRate`와 `CanConsume(float amount)`, `TryConsume(float amount)`, `Recover(float amount)`를 제공한다. `Current`는 Inspector의 current 필드로 편집한다. 검증 함수는 값을 바꾸지 않으며, 소모는 양수·유한한 양과 충분한 잔량·활성 컴포넌트일 때만 성공한다.
+- 최대 스태미나는 PlayerStat, 소모량은 Controller, 현재량·회복 대기·초당 회복량은 PlayerStamina의 Inspector에서 조절한다. 시험 기본값은 최대·시작 100, 1회 소모 25, 회복 대기 1초, 초당 20이다. 최종 밸런스는 미정이다.
+- 성공한 소모마다 회복 대기를 다시 시작하고, 부족하거나 유효하지 않은 요청은 잔량·대기를 바꾸지 않는다. `Time.deltaTime`으로 대기를 줄이고 대기를 초과한 프레임 시간에만 자동 회복한다. 일시정지 중 대기·자동 회복은 함께 멈춘다. 비활성화·재활성화는 잔량·대기를 초기화하지 않으며 비활성 중 자동 회복하지 않는다. 회복 지연 시간은 사용 쿨타임이 아니다.
+- `Recover`는 실제 회복량을 반환하고 최대량을 넘지 않는다. 명시적 회복은 대기를 무시하되 타이머를 바꾸지 않는다. 최대량 증가 시 잔량을 유지하고 감소 시 잔량을 제한한다. 런타임 최대량·Inspector 현재량 변경은 다음 Stamina.Update에서 동기화하고 `OnChanged(current, max)`를 알린다. HUD는 이벤트를 구독하고 초기값은 직접 읽으며 자원을 직접 변경하지 않는다.
 - 대시 실행 흐름은 **입력 → 대시 가능한 상태 확인 → 스태미나 소모 성공 → Motor에 이동 요청**이다. 행동 제한으로 실행할 수 없는 대시에 자원만 소모하지 않도록 상태를 먼저 확인한다. 대시를 마친 뒤에는 자원이 충분하고 행동 가능한 상태면 쿨타임 없이 다시 사용할 수 있게 한다.
 - `PlayerMortal`은 플레이어 고유의 피해 판정이나 사망 처리가 필요할 때 도입한다. 스태미나 추가를 위해 만들지는 않는다. 사망 시 입력 중단 같은 반응은 우선 `Mortal.OnDead`를 구독하는 컴포넌트로 연결할 수 있다.
 
 ### 현재 설정과 제약
 
 - 이동 속도 6m/s, 점프 높이 1.5m, Motor 중력 25m/s². 수류탄은 별도로 프로젝트 Physics 중력을 사용한다.
-- 대시는 스태미나를 소모하고 쿨타임을 두지 않는 기획이다. 현재 스태미나 클래스·수치·소모·회복·부족 시 사용 제한과 실제 대시 이동은 구현하지 않았다.
+- 스태미나 소모·부족 시 거절·지연 자동 회복은 구현했다. Shift 입력은 자원 소모 시험용이며 실제 대시 이동·무적·행동 제한과 대시 애니메이션은 미구현이다. PlayerStat의 공격속도는 기본 발사속도의 배율(기본 1)이고, 공격력·방어력·최대 체력·공격속도·최대 탄창은 아직 실제 전투·Mortal·탄약에 연결하지 않았다.
 - Bullet: 속력 45m/s, 수명 4초, 중력 없음, 사전 생성 24개, 최대 생성 128개.
 - Grenade: 속력 14m/s, 수명 2.5초, 중력 있음, 폭발 구체 연출 약 0.2초, 연출 반경 설정 4m, 사전 생성 8개, 최대 생성 32개.
 - Launcher: 씬에 연결된 `Soldier Visual/Prototype Rifle/Muzzle`의 실제 위치에서 발사한다. 총구 참조가 없을 때만 로컬 오프셋 `(0.35, 0.55, 0.65)`을 사용한다. 조준 거리 100m, 수류탄 발사각 보정 12도이며 두 입력 모두 `Pressed`를 사용해 클릭당 한 번 발사한다.
@@ -210,7 +215,7 @@
 
 1. **조작 확인:** 입력·이동·카메라 기반과 Soldier 기본 애니메이션 작업·이동 문제 해결은 완료했다. 후속 Soldier 애니메이션은 Dash·Skill1·Skill2·Ultimate이며 새 행동·전투 기능을 연결하면서 실제 조작 감각을 확인한다.
 2. **최소 전투:** 체력·피해·사망, 소총 사격·탄창·재장전, 근접형·원거리형 적을 작은 테스트 아레나에서 연결하고 검증한다.
-3. **반복 플레이:** 웨이브·클리어 판정·강화 3개 중 선택·강화 적용을 만들고 Shift 대시·스태미나와 E의 Skill1 수류탄을 연결한다. F의 Skill2 효과, 정밀 조준과 행동 제한도 구체화한다.
+3. **반복 플레이:** 웨이브·클리어 판정·강화 3개 중 선택·강화 적용을 만들고 Shift 실제 대시를 구현한 스태미나 자원에 연결하며 E의 Skill1 수류탄을 연결한다. F의 Skill2 효과, 정밀 조준과 행동 제한도 구체화한다.
 4. **한 판 완성:** 10웨이브, 보스 패턴과 단계 변화, 성공·실패·결과·재시작 및 상태 초기화를 완성한다.
 5. **완성도 개선:** HUD·보상·결과 UI, 사운드·효과·애니메이션, 밸런스, 테스트와 성능 개선을 진행한다.
 6. **확장:** 초기 흐름 완성 후 Assassin·Tank를 진행하고 Charger·강화 개체 등 추가 콘텐츠를 검토한다.
@@ -229,7 +234,7 @@
 
 변경한 기능에 맞게 컴파일, 씬·프리팹 참조, 실제 동작을 확인한다. 문서만 변경한 경우 내용·경로·링크 검사를 수행한다. 플레이 감각은 `SampleScene`의 Game 뷰에서 확인한다.
 
-자동 검증은 `ProjectU.Editor.ProjectileValidation.Run()`, `ProjectU.Editor.MortalValidation.Run()`, `ProjectU.Editor.PlayerAnimationValidation.Run()`이다. 투사체 검증은 동일 프로젝트를 연 Unity 에디터가 닫힌 상태에서 다음 PowerShell 명령을 사용한다.
+자동 검증은 `ProjectU.Editor.ProjectileValidation.Run()`, `ProjectU.Editor.MortalValidation.Run()`, `ProjectU.Editor.PlayerAnimationValidation.Run()`, `ProjectU.Editor.PlayerStaminaValidation.Run()`이다. 투사체 검증은 동일 프로젝트를 연 Unity 에디터가 닫힌 상태에서 다음 PowerShell 명령을 사용한다.
 
 ```powershell
 & 'C:/Program Files/6000.3.25f1/Editor/Unity.exe' -batchmode -nographics -projectPath 'C:/Unity Projects/ProjectU' -executeMethod ProjectU.Editor.ProjectileValidation.Run -logFile 'C:/Unity Projects/ProjectU/Logs/ProjectileValidation.log'
@@ -245,7 +250,7 @@
 - 2026-10-08 작업에서 Unity 6000.3.25f1의 임시 별도 프로젝트(`Temp/MortalValidationProject`)로 새 두 스크립트를 컴파일하고 `MortalValidation.Run()`을 직접 실행했다. 종료 코드 0과 `Logs/MortalValidation.log`의 `MORTAL VALIDATION PASSED`를 확인했다. 당시 기존 투사체 검증과 SampleScene 수동 플레이는 다시 실행하지 않았다.
 - 이전 수동 확인: WASD·마우스·점프, 좌·우클릭 단발, 벽 충돌, 수류탄 튕김·폭발 연출, Esc 입력 중단, 재잠금 클릭의 사격 억제, 크로스헤어 미표시.
 - 2026-10-09 입력 변경 작업에서는 Unity 6000.3.25f1로 원본 프로젝트를 배치 컴파일했다. 종료 코드 0과 `Logs/PlayerInputCompile.log`의 컴파일 완료·정상 종료를 확인했으며 C# 컴파일 오류는 없었다. Shift=Dash·E=Skill1·F=Skill2 바인딩, 입력 수집·초기화, 8개 버튼 로그 인덱스를 소스로 대조했고 씬의 Log Input 활성 설정, 이전 매핑 제거, 문서 경로·링크와 `git diff --check`를 확인했다. 실제 키 입력·SampleScene 수동 플레이와 기존 투사체·체력 검증은 당시 실행하지 않았다.
-- 후속 수동 확인: 좌·우 Shift의 Dash, E의 Skill1, F의 Skill2가 각각 Pressed·Held·Released로 출력되는지, 동시 입력의 로그가 독립적인지, Esc·포커스 상실·일시정지 시 입력이 초기화되는지 Game 뷰에서 확인한다. 현재 세 버튼은 실제 이동·스킬·스태미나 처리를 실행하지 않는다.
+- 2026-10-09 작업의 후속 수동 확인 항목: 좌·우 Shift의 Dash, E의 Skill1, F의 Skill2가 각각 Pressed·Held·Released로 출력되는지, 동시 입력의 로그가 독립적인지, Esc·포커스 상실·일시정지 시 입력이 초기화되는지 Game 뷰에서 확인한다. 당시 세 버튼은 실제 이동·스킬·스태미나 처리를 실행하지 않았다. 2026-10-15에는 Shift 자원 소모 연결을 추가했다.
 - 2026-10-09 스태미나 설계 문서 반영에서는 AGENTS.md만 수정했다. 별도 PlayerStamina 컴포넌트와 클래스별 책임, 소모·회복 API 및 대시 실행 흐름을 미구현 설계로 기록했다. 문서 내용·참조 경로·링크와 `git diff --check`를 확인했으며 Unity 컴파일·자동 검증·수동 플레이는 이번 문서 작업에서 실행하지 않았다.
 - 2026-10-10 에셋 임포트에서는 사용자 제공 FBX 8개의 복사 전후 SHA256 일치와 Unity 6000.3.25f1 배치 임포트 종료 코드 0을 확인했다. X Bot의 유효한 Humanoid Avatar, 스킨드 메시 2개와 URP/Lit 머티리얼 2개, 모든 애니메이션의 동일한 65개 Mixamo 본 구조, 7개 클립의 60 FPS·양수 재생 길이·Humanoid 변환을 확인했다. 임시 Preview Scene에서 각 클립의 한 주기를 60회 샘플링해 실제 Humanoid 포즈 변화와 유한한 값을 확인했고, `Logs/SoldierAssetImport.log`의 `SOLDIER ASSET IMPORT PASSED` 및 `Logs/SoldierAssetImportReport.json`을 기록했다. 대기·달리기는 Loop Time을 켜고 사격·재장전은 끈 상태로 임포트했으며 원본 루트 이동은 유지했다. `Run Backwards`의 큰 루트 이동을 후속 제약으로 기록했다. 임시 에디터 검사 스크립트는 검증 후 제거했다. SampleScene의 SHA256과 기존 씬·프리팹·런타임 코드·패키지·프로젝트 설정의 변경 없음, 문서 참조와 `git diff --check`를 확인했다. Animator Controller·상체 마스크·플레이어 연결과 수동 시각 검증, 기존 투사체·체력 검증은 이번 작업에서 실행하지 않았다.
 - 2026-10-10 후속 후진 교체에서는 이전 `Run Backwards` FBX와 meta 경로를 제거하고 새 `Run Backward`를 임포트했다. 기존 GUID와 클립 내부 ID, X Bot Avatar 참조를 유지하고 새 파일의 프레임 범위 0~30, Loop Time 켬, 압축 Off를 적용했다. 새 FBX의 원본·복사본 SHA256 일치, 동일한 65개 본과 Humanoid 재생, Unity 배치 종료 코드 0을 확인했다. 루트 이동 보정을 적용하지 않고 `Apply Root Motion`을 켠 임시 Preview Scene에서 5주기를 주기당 60회 샘플링했다. 수평 변위는 한 주기 약 0.0034mm, 5주기 약 0.0175mm이고, 한 주기 중 최대 수평 편차는 약 2.43cm다. 검사 결과는 `Logs/SoldierBackwardImport.log`의 `SOLDIER BACKWARD IMPORT PASSED`와 `Logs/SoldierBackwardImportReport.json`에 기록했다. 기존 모델·다른 클립·씬·코드·설정 등 81개 파일의 작업 전후 SHA256 일치를 확인했으며 임시 검증 스크립트를 제거하고 문서·경로와 `git diff --check`를 확인했다. 씬 적용·수동 시각 검증과 기존 투사체·체력 검증은 수행하지 않았다.
@@ -259,5 +264,9 @@
 - 2026-10-14 후속 Rotation Offset 롤백에서는 5개 이동 클립 meta의 `orientationOffsetY`만 각각 0으로 변경했다. 원본과 작업 전 meta를 대조해 Loop Pose·Bake Into Pose·Original 기준·GUID·클립 ID·프레임 범위 등 다른 값이 동일함을 확인했다. 나머지 프로젝트 파일 148개는 SHA256이 일치하며 런타임 코드·씬·Controller도 유지했다. 별도 복사본에서 Unity 6000.3.25f1 임포트·컴파일과 `PlayerAnimationValidation.Run()`을 직접 실행해 종료 코드 0, 이동·점프·17발 사격·재장전 중단·일시정지·장애물·급회전 통과를 확인했다. 총구 최대 오차는 약 0.028도, 투사체 약 0.020도, 왼손 목표 최대 거리는 약 0.408mm였다. 기록은 `Logs/SoldierOffsetRollback_20261014/`에 보존했다. 평균 골반 방향의 정면 정렬은 현재 검증 목표가 아니며 이전 정렬 후 0도 기록은 과거 설정의 결과다. 루트 60주기 반복 검사·이미지 렌더링·실제 키 입력 수동 플레이·투사체·Mortal 독립 검증은 이번에 다시 실행하지 않았다.
 
 - 2026-10-15 문서 갱신에서는 사용자의 Soldier 이동 문제 해결·작업 완료 확인을 반영해 기본 애니메이션 작업을 완료로 기록하고, 남은 Soldier 애니메이션을 Dash·Skill1·Skill2·Ultimate 4개로 정리했다. 이는 사용자 확인 기록이며 에이전트가 새 수동 플레이를 수행한 결과가 아니다. Dash·스킬·궁극기의 실제 기능은 코드상 입력·로그 단계임을 대조해 기존 미구현 현황을 유지했다. AGENTS.md와 플레이어 조작 가이드의 날짜·현재 상태·후속 작업을 동기화하고 문서 링크·경로와 `git diff --check`, 코드·씬·에셋의 작업 전후 SHA256을 확인했다. 이번에는 문서만 수정했으며 Unity 컴파일·자동 검증·새 수동 플레이를 실행하지 않았다.
+
+- 2026-10-15 PlayerStat·PlayerStamina 작업에서는 능력치 7개와 자원 API·지연 자동 회복·값 변경 이벤트를 구현하고 SampleScene의 Player에 연결했다. Controller의 Dash.Pressed는 1회 25를 소모하며 실제 대시 이동은 추가하지 않았다. 이동속도 6m/s를 Motor에서 PlayerStat으로 이전했다. 열린 원본 에디터는 유지하고 `Logs/PlayerStamina_20261015/Project`의 복사본에서 Unity 6000.3.25f1로 컴파일·자동 플레이를 직접 실행했다. `PlayerStaminaValidation.Run()`의 종료 코드 0과 `PlayerStaminaValidation.log`의 `PLAYER STAMINA VALIDATION PASSED`를 확인했다. 7개 능력치·씬 참조·Shift 두 바인딩, 합성 입력의 누름당 소모·홀딩 반복 방지·대시 변위 없음, 부족·유효하지 않은 소모·정확한 소진, Inspector 시작량, 직접 회복·최대량 제한·최대량 변경, 회복 대기·재사용 시 초기화·초당 회복·회복률 0, 일시정지·재개·이벤트를 검사했다. 기존 `PlayerAnimationValidation.Run()`도 실행해 종료 코드 0과 `PlayerAnimationRegression.log`의 `PLAYER ANIMATION VALIDATION PASSED`를 확인했다. 이동·점프 3상태·17발 사격·재장전 중단·일시정지·장애물·급회전을 통과했으며 총구·투사체 최대 오차는 약 0.028도였다. 씬 ID·GUID·참조, 문서 링크·날짜, 검증 복사본과 원본의 관련 소스 SHA256 일치 및 `git diff --check`를 확인했다. 이번 검증은 합성 입력을 사용한 자동 플레이이며 실제 키보드·마우스 수동 플레이·이미지 렌더링과 투사체·Mortal 독립 검증은 다시 실행하지 않았다. 실제 대시·HUD·전투 능력치의 피해·HP·탄약 적용은 남아 있다.
+
+- 2026-10-15 애니메이션 블렌드 로그 제거에서는 PlayerAnimationController의 클립·레이어 가중치 로그 출력, 전용 LateUpdate·문자열 버퍼·클립 목록·타이머와 Inspector 설정을 삭제했다. 이동·점프·사격·재장전 애니메이션 실행 코드는 유지했다. 원본 Assembly-CSharp.csproj를 직접 컴파일해 경고 0·오류 0과 종료 코드 0을 확인했으며 Assets에서 관련 로그 코드·설정의 남은 참조가 없고 `git diff --check`가 통과함을 확인했다. 상세 가이드도 동기화했다. 이번에는 Unity 자동 플레이·수동 플레이를 다시 실행하지 않았으며 앞선 자동 플레이 기록과 구분한다.
 
 후속 작업에서는 기준 날짜와 함께 구현한 기능, 남은 제약, 실제 수행한 검증을 갱신해 이 문서의 진행 상태를 최신으로 유지한다.

@@ -4,21 +4,26 @@ namespace ProjectU
 {
     [DefaultExecutionOrder(-50)]
     [RequireComponent(typeof(PlayerInputReader), typeof(PlayerMotor))]
+    [RequireComponent(typeof(PlayerStamina))]
     public sealed class PlayerController : MonoBehaviour
     {
         [SerializeField] private PlayerCameraController playerCamera;
         [SerializeField] private bool logInput = true;
         [SerializeField, Min(0.1f), Tooltip("Seconds between held-input logs for each action.")]
         private float heldLogInterval = 0.5f;
+        [SerializeField, Min(0f), Tooltip("Stamina consumed per Dash press. Dash movement is not implemented yet.")]
+        private float dashStaminaCost = 25f;
 
         private PlayerInputReader input;
         private PlayerMotor motor;
+        private PlayerStamina stamina;
         private readonly float[] nextHeldLog = new float[8];
 
         private void Awake()
         {
             input = GetComponent<PlayerInputReader>();
             motor = GetComponent<PlayerMotor>();
+            stamina = GetComponent<PlayerStamina>();
             if (playerCamera == null)
             {
                 Debug.LogError("PlayerController requires a Player Camera reference.", this);
@@ -33,6 +38,10 @@ namespace ProjectU
             motor.SetMoveCommand(moveDirection, playerCamera.Yaw);
             if (input.Jump.Pressed)
                 motor.RequestJump();
+
+            // Resource-only preview: no dash movement, invincibility or cooldown.
+            if (input.Dash.Pressed && Time.deltaTime > 0f && stamina.TryConsume(dashStaminaCost) && logInput)
+                Debug.Log($"[Player Stamina] Consumed {dashStaminaCost}: {stamina.Current}/{stamina.Max}", this);
 
             if (!logInput)
                 return;
@@ -63,6 +72,12 @@ namespace ProjectU
                 Debug.Log($"[Player Input] {label}: Released", this);
             if (!state.Held)
                 nextHeldLog[index] = 0f;
+        }
+
+        private void OnValidate()
+        {
+            dashStaminaCost = float.IsNaN(dashStaminaCost) || float.IsInfinity(dashStaminaCost)
+                ? 0f : Mathf.Max(0f, dashStaminaCost);
         }
     }
 }
