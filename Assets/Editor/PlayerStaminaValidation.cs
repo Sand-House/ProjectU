@@ -77,9 +77,9 @@ namespace ProjectU.Editor
                 var dash = actions.FindAction("Dash", true);
                 Check(dash.bindings.Count == 2 && dash.bindings[0].path == "<Keyboard>/leftShift" &&
                     dash.bindings[1].path == "<Keyboard>/rightShift", "Both Shift bindings.");
-                Check(stat.AttackPower == 10 && stat.Defense == 0 && stat.MaxHealth == 100 && stat.MaxMagazine == 30 &&
+                Check(stat.AttackMultiplier == 1f && stat.MaxHealth == 100 && stat.MaxMagazine == 30 &&
                     stat.AttackSpeed == 1f && stat.MoveSpeed == 6f && stamina.Current == 100f && stamina.Max == 100f,
-                    "Scene defaults and seven stats.");
+                    "Scene defaults and six stats.");
 
                 // Use an isolated resource to check API edge cases without altering scene defaults.
                 var unit = new GameObject("Stamina API Validation");
@@ -112,8 +112,7 @@ namespace ProjectU.Editor
                 typeof(PlayerStamina).GetMethod("Update", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(resource, null);
                 testStat.MaxStamina = 150f;
                 Check(resource.Current == 5f, "Higher maximum does not refill.");
-                testStat.AttackPower = -1;
-                testStat.Defense = -1;
+                testStat.AttackMultiplier = -1f;
                 testStat.MaxHealth = 0;
                 testStat.MaxMagazine = 0;
                 testStat.MaxStamina = float.NaN;
@@ -121,7 +120,7 @@ namespace ProjectU.Editor
                 testStat.AttackSpeed = float.PositiveInfinity;
                 resource.RecoveryDelay = -1f;
                 resource.RecoveryRate = float.NaN;
-                Check(testStat.AttackPower == 0 && testStat.Defense == 0 && testStat.MaxHealth == 1 &&
+                Check(testStat.AttackMultiplier == 0f && testStat.MaxHealth == 1 &&
                     testStat.MaxMagazine == 1 && testStat.MaxStamina == 0f && testStat.MoveSpeed == 0f &&
                     testStat.AttackSpeed == 0.01f && resource.RecoveryDelay == 0f && resource.RecoveryRate == 0f,
                     "Invalid stat and recovery settings are clamped.");
@@ -247,7 +246,7 @@ namespace ProjectU.Editor
                     stat.MoveSpeed = 3f;
                     Check(motor.MoveSpeed == 3f, "Motor uses PlayerStat.MoveSpeed.");
                     Check(notifications >= 4, "Resource changes emit notifications.");
-                    Debug.Log("PLAYER STAMINA VALIDATION PASSED: seven stats, scene references, both Shift bindings, press/hold, insufficient/invalid consumption, recovery delay/reset/rate/clamp, pause/resume, max changes, Inspector starting amount, events, movement-speed source, no dash displacement.");
+                    Debug.Log("PLAYER STAMINA VALIDATION PASSED: six stats, scene references, both Shift bindings, press/hold, insufficient/invalid consumption, recovery delay/reset/rate/clamp, pause/resume, max changes, Inspector starting amount, events, movement-speed source, no dash displacement.");
                     finished = true;
                     PlayerStaminaValidation.Finish(0);
                 }

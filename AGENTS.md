@@ -1,6 +1,6 @@
 # ProjectU 프로젝트 지침
 
-진행 현황 기준: **2026-10-15**. Soldier용 X Bot 메시와 Humanoid 애니메이션 10개를 SampleScene의 플레이어에 적용했다. 사용자 확인으로 Soldier 이동 관련 문제 해결과 대기·전후좌우 이동·점프·사격·재장전의 기본 애니메이션 작업을 완료했다. 남은 Soldier 애니메이션은 **Dash·Skill1·Skill2·Ultimate 4개**다. 대기·전후좌우 이동 5개 클립은 Loop Pose와 루트 회전·이동의 Bake Into Pose를 사용하며 Rotation Offset은 모두 0이다. 상체 보정은 플레이어의 `transform.forward`를 기준으로 하고 총구 정렬·양손 IK로 실제 조준점을 맞춘다. 실제 발사 성공 이벤트로 사격 동작을 실행하며 R은 탄약 처리 없는 재장전 시각 동작이다. PlayerStat의 7개 능력치와 PlayerStamina의 소모·지연 자동 회복을 구현해 씬에 연결했다. Shift는 누름당 스태미나만 소모한다. 실제 대시 이동·스킬·궁극기 기능과 체력·피해의 씬·투사체 연결은 남아 있다.
+진행 현황 기준: **2026-10-15**. Soldier용 X Bot 메시와 Humanoid 애니메이션 10개를 SampleScene의 플레이어에 적용했다. 사용자 확인으로 Soldier 이동 관련 문제 해결과 대기·전후좌우 이동·점프·사격·재장전의 기본 애니메이션 작업을 완료했다. 남은 Soldier 애니메이션은 **Dash·Skill1·Skill2·Ultimate 4개**다. 대기·전후좌우 이동 5개 클립은 Loop Pose와 루트 회전·이동의 Bake Into Pose를 사용하며 Rotation Offset은 모두 0이다. 상체 보정은 플레이어의 `transform.forward`를 기준으로 하고 총구 정렬·양손 IK로 실제 조준점을 맞춘다. 실제 발사 성공 이벤트로 사격 동작을 실행하며 R은 탄약 처리 없는 재장전 시각 동작이다. PlayerStat의 6개 능력치(공격력 배율·최대 체력·최대 스태미나·공격속도·이동속도·최대 탄창)와 PlayerStamina의 소모·지연 자동 회복을 구현해 씬에 연결했다. Shift는 누름당 스태미나만 소모한다. 실제 대시 이동·스킬·궁극기 기능과 체력·피해의 씬·투사체 연결은 남아 있다.
 
 ## 1. 작업할 때의 기준
 
@@ -102,7 +102,7 @@
 | 투사체·풀 | 구현 | 공통 생명주기, Bullet, Grenade, 프리팹별 사전 생성·확장·대여·반환·용량 제한 |
 | 수류탄 스킬 | 일부 구현 | 물리 이동·튕김·지연 폭발 연출; E의 Skill1 입력은 로그만 출력하며 투척 연결·쿨다운·실제 범위 피해는 미구현 |
 | 소총·탄약·재장전 | 사격·재장전 시각 동작만 연결 | 물리 Bullet 발사는 시험용이며 R은 상체 재장전 애니메이션만 재생; 히트스캔 소총, 연사, 탄창·실제 재장전 필요 |
-| 플레이어 능력치 | 구현·일부 연결 | PlayerStat의 공격력·방어력·최대 체력·최대 스태미나·공격속도·이동속도·최대 탄창을 Inspector와 프로퍼티로 제공. 이동속도는 Motor, 최대 스태미나는 PlayerStamina가 사용. 나머지 능력치의 실제 전투·HP·탄약 적용은 후속 작업 |
+| 플레이어 능력치 | 구현·일부 연결 | PlayerStat의 공격력 배율·최대 체력·최대 스태미나·공격속도·이동속도·최대 탄창을 Inspector와 프로퍼티로 제공. 방어력은 제거했다. 이동속도는 Motor, 최대 스태미나는 PlayerStamina가 사용. 나머지 능력치의 실제 전투·HP·탄약 적용은 후속 작업 |
 | 대시·스태미나 | 자원 구현·씬 연결 | PlayerStamina의 잔량 검증·소모·회복·이벤트와 게임 시간 기준 지연 자동 회복 구현. Shift.Pressed에서 소모하며 홀딩 반복·사용 쿨타임 없음. 실제 대시 이동·무적·행동 제한·애니메이션은 미구현 |
 | 정밀 조준·Skill2·궁극기 | 미구현 | F의 Skill2와 Q의 Ultimate는 입력·로그만 구현; 우클릭 정밀 조준 연결과 스킬 효과 구현 필요 |
 | 체력·피해·사망 | 기반 클래스 구현 | `Mortal`의 정수 HP, 무적, 공격자 전달, 피해·사망 이벤트 구현; 캐릭터·씬 연결과 실제 공격의 피해 전달·사망 행동은 미구현 |
@@ -132,7 +132,7 @@
 | `Assets/Scripts/Mortal.cs` | 플레이어·적 공통 체력, 무적, 피해·사망 처리 및 이벤트 기반 클래스 |
 | `Assets/Scripts/Player/ButtonInputState.cs` | 읽어도 소비되지 않는 버튼별 프레임 입력 스냅샷 |
 | `Assets/Scripts/Player/PlayerInputReader.cs` | 독립 `PlayerControls` InputActionMap 생성, 상태 수집, 커서 관리 |
-| `Assets/Scripts/Player/PlayerStat.cs` | 플레이어 7개 능력치의 Inspector 설정과 읽기·쓰기 프로퍼티; 이동속도·최대 스태미나의 원본 |
+| `Assets/Scripts/Player/PlayerStat.cs` | 플레이어 6개 능력치의 Inspector 설정과 읽기·쓰기 프로퍼티; 이동속도·최대 스태미나의 원본 |
 | `Assets/Scripts/Player/PlayerStamina.cs` | 현재 스태미나, 소모 검증·차감·회복, 지연 자동 회복과 값 변경 이벤트 |
 | `Assets/Scripts/Player/PlayerController.cs` | 카메라 Yaw로 입력을 월드 이동 명령으로 변환, 점프 요청, Shift 스태미나 소모, 버튼 로그 |
 | `Assets/Scripts/Player/PlayerMotor.cs` | 한 프레임 명령을 소비해 이동·회전·중력·점프·충돌 처리 |
@@ -178,7 +178,7 @@
 | 구성 | 책임 |
 |---|---|
 | `Mortal` | 공통 HP, 무적, 피해·사망 처리 |
-| `PlayerStat` | 7개 능력치 보관·변경; 최대 스태미나와 이동속도의 원본 |
+| `PlayerStat` | 6개 능력치 보관·변경; 최대 스태미나와 이동속도의 원본 |
 | `PlayerStamina` | 현재 스태미나와 PlayerStat을 참조하는 최대량, 소모 검증·소모·회복과 값 변경 알림 |
 | `PlayerController` | Dash.Pressed에서 스태미나 소모 시도; 대시 상태 확인·이동 요청은 후속 연결 |
 | `PlayerMotor` | 실제 대시 이동과 충돌 처리; 대시 기능 추가 예정 |
@@ -193,7 +193,7 @@
 ### 현재 설정과 제약
 
 - 이동 속도 6m/s, 점프 높이 1.5m, Motor 중력 25m/s². 수류탄은 별도로 프로젝트 Physics 중력을 사용한다.
-- 스태미나 소모·부족 시 거절·지연 자동 회복은 구현했다. Shift 입력은 자원 소모 시험용이며 실제 대시 이동·무적·행동 제한과 대시 애니메이션은 미구현이다. PlayerStat의 공격속도는 기본 발사속도의 배율(기본 1)이고, 공격력·방어력·최대 체력·공격속도·최대 탄창은 아직 실제 전투·Mortal·탄약에 연결하지 않았다.
+- 스태미나 소모·부족 시 거절·지연 자동 회복은 구현했다. Shift 입력은 자원 소모 시험용이며 실제 대시 이동·무적·행동 제한과 대시 애니메이션은 미구현이다. PlayerStat.AttackMultiplier는 기본 공격력에 곱할 float 배율(기본 1, 최소 0)이고 방어력은 없다. 공격속도는 기본 발사속도의 배율(기본 1)이다. 공격력 배율·최대 체력·공격속도·최대 탄창은 아직 실제 전투·Mortal·탄약에 연결하지 않았다.
 - Bullet: 속력 45m/s, 수명 4초, 중력 없음, 사전 생성 24개, 최대 생성 128개.
 - Grenade: 속력 14m/s, 수명 2.5초, 중력 있음, 폭발 구체 연출 약 0.2초, 연출 반경 설정 4m, 사전 생성 8개, 최대 생성 32개.
 - Launcher: 씬에 연결된 `Soldier Visual/Prototype Rifle/Muzzle`의 실제 위치에서 발사한다. 총구 참조가 없을 때만 로컬 오프셋 `(0.35, 0.55, 0.65)`을 사용한다. 조준 거리 100m, 수류탄 발사각 보정 12도이며 두 입력 모두 `Pressed`를 사용해 클릭당 한 번 발사한다.
@@ -268,5 +268,9 @@
 - 2026-10-15 PlayerStat·PlayerStamina 작업에서는 능력치 7개와 자원 API·지연 자동 회복·값 변경 이벤트를 구현하고 SampleScene의 Player에 연결했다. Controller의 Dash.Pressed는 1회 25를 소모하며 실제 대시 이동은 추가하지 않았다. 이동속도 6m/s를 Motor에서 PlayerStat으로 이전했다. 열린 원본 에디터는 유지하고 `Logs/PlayerStamina_20261015/Project`의 복사본에서 Unity 6000.3.25f1로 컴파일·자동 플레이를 직접 실행했다. `PlayerStaminaValidation.Run()`의 종료 코드 0과 `PlayerStaminaValidation.log`의 `PLAYER STAMINA VALIDATION PASSED`를 확인했다. 7개 능력치·씬 참조·Shift 두 바인딩, 합성 입력의 누름당 소모·홀딩 반복 방지·대시 변위 없음, 부족·유효하지 않은 소모·정확한 소진, Inspector 시작량, 직접 회복·최대량 제한·최대량 변경, 회복 대기·재사용 시 초기화·초당 회복·회복률 0, 일시정지·재개·이벤트를 검사했다. 기존 `PlayerAnimationValidation.Run()`도 실행해 종료 코드 0과 `PlayerAnimationRegression.log`의 `PLAYER ANIMATION VALIDATION PASSED`를 확인했다. 이동·점프 3상태·17발 사격·재장전 중단·일시정지·장애물·급회전을 통과했으며 총구·투사체 최대 오차는 약 0.028도였다. 씬 ID·GUID·참조, 문서 링크·날짜, 검증 복사본과 원본의 관련 소스 SHA256 일치 및 `git diff --check`를 확인했다. 이번 검증은 합성 입력을 사용한 자동 플레이이며 실제 키보드·마우스 수동 플레이·이미지 렌더링과 투사체·Mortal 독립 검증은 다시 실행하지 않았다. 실제 대시·HUD·전투 능력치의 피해·HP·탄약 적용은 남아 있다.
 
 - 2026-10-15 애니메이션 블렌드 로그 제거에서는 PlayerAnimationController의 클립·레이어 가중치 로그 출력, 전용 LateUpdate·문자열 버퍼·클립 목록·타이머와 Inspector 설정을 삭제했다. 이동·점프·사격·재장전 애니메이션 실행 코드는 유지했다. 원본 Assembly-CSharp.csproj를 직접 컴파일해 경고 0·오류 0과 종료 코드 0을 확인했으며 Assets에서 관련 로그 코드·설정의 남은 참조가 없고 `git diff --check`가 통과함을 확인했다. 상세 가이드도 동기화했다. 이번에는 Unity 자동 플레이·수동 플레이를 다시 실행하지 않았으며 앞선 자동 플레이 기록과 구분한다.
+
+- 2026-10-15 PlayerStat 후속 변경에서는 방어력 필드·프로퍼티를 제거하고 정수 AttackPower를 float AttackMultiplier(기본 1, 최소 0)로 변경했다. SampleScene 저장값을 attackMultiplier: 1로 바꾸고 기존 공격력·방어력 저장값을 제거했으며 PlayerStaminaValidation의 기대값·표기를 6개 능력치에 맞췄다. ProjectU.sln의 런타임·에디터 코드를 직접 컴파일해 경고 0·오류 0을 확인했다. 기존 별도 복사본에 최신 Assets를 동기화해 Unity 6000.3.25f1의 PlayerStaminaValidation.Run을 다시 실행했고, 종료 코드 0과 `Logs/PlayerStamina_20261015/PlayerStatMultiplierValidation.log`의 `PLAYER STAMINA VALIDATION PASSED: six stats`를 확인했다. 이전 능력치의 Assets 참조 없음과 `git diff --check`도 확인했다. 앞선 7개 능력치 검증 기록은 변경 전 결과다. 이번에는 실제 키보드·마우스 수동 플레이와 이동·애니메이션·투사체·Mortal 독립 검증을 다시 실행하지 않았다. 공격력 배율은 값 제공 단계이며 실제 피해 계산 연결은 남아 있다.
+
+- 2026-10-15 공격력 배율 이름 정리에서는 공개 프로퍼티를 AttackMultiplier, 비공개 직렬화 필드를 attackMultiplier로 통일했다. SampleScene·기존 검증 코드·상세 가이드의 참조를 함께 변경했고 기존 직렬화 필드 이름을 읽을 수 있도록 FormerlySerializedAs를 추가했다. float 형식·기본값 1·최소값 0과 값 제공 단계라는 구현 범위는 유지했다. ProjectU.sln의 런타임·에디터 코드를 직접 컴파일해 경고 0·오류 0을 확인했으며 이전 이름은 직렬화 이관 속성 한 곳에만 남아 있고 `git diff --check`가 통과했다. 이번 이름 변경에서는 Unity 자동·수동 플레이를 다시 실행하지 않았다.
 
 후속 작업에서는 기준 날짜와 함께 구현한 기능, 남은 제약, 실제 수행한 검증을 갱신해 이 문서의 진행 상태를 최신으로 유지한다.

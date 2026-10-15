@@ -1,12 +1,14 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace ProjectU
 {
     [DisallowMultipleComponent]
     public sealed class PlayerStat : MonoBehaviour
     {
-        [SerializeField, Min(0)] private int attackPower = 10;
-        [SerializeField, Min(0)] private int defense;
+        [SerializeField, Min(0f), Tooltip("Attack power multiplier. 1 means the weapon's base damage.")]
+        [FormerlySerializedAs("attackPowerMultiplier")]
+        private float attackMultiplier = 1f;
         [SerializeField, Min(1)] private int maxHealth = 100;
         [SerializeField, Min(0f)] private float maxStamina = 100f;
         [SerializeField, Min(0.01f), Tooltip("Attack speed multiplier. 1 means the weapon's base fire rate.")]
@@ -15,16 +17,10 @@ namespace ProjectU
         private float moveSpeed = 6f;
         [SerializeField, Min(1)] private int maxMagazine = 30;
 
-        public int AttackPower
+        public float AttackMultiplier
         {
-            get => attackPower;
-            set => attackPower = Mathf.Max(0, value);
-        }
-
-        public int Defense
-        {
-            get => defense;
-            set => defense = Mathf.Max(0, value);
+            get => attackMultiplier;
+            set => attackMultiplier = ClampFinite(value, 0f);
         }
 
         public int MaxHealth
@@ -59,8 +55,7 @@ namespace ProjectU
 
         private void OnValidate()
         {
-            AttackPower = attackPower;
-            Defense = defense;
+            AttackMultiplier = attackMultiplier;
             MaxHealth = maxHealth;
             MaxStamina = maxStamina;
             AttackSpeed = attackSpeed;

@@ -1987,8 +1987,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4a9554ca389a4ff7a155ac47ec78b5fe, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerStat
-  attackPower: 10
-  defense: 0
+  attackMultiplier: 1
   maxHealth: 100
   maxStamina: 100
   attackSpeed: 1
