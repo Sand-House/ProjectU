@@ -56,6 +56,9 @@ namespace ProjectU
         }
 
         public Projectile Spawn(Projectile prefab, GameObject owner, Vector3 position, Vector3 direction)
+            => Spawn(prefab, owner, position, direction, default);
+
+        public Projectile Spawn(Projectile prefab, GameObject owner, Vector3 position, Vector3 direction, in ProjectileLaunchData attackInfo)
         {
             if (!isActiveAndEnabled || prefab == null || !buckets.TryGetValue(prefab, out Bucket bucket)) return null;
             Projectile instance;
@@ -64,7 +67,7 @@ namespace ProjectU
             else return null;
             rented.Add(instance);
             instance.transform.SetParent(transform, true);
-            instance.Launch(owner, position, direction);
+            instance.Launch(owner, position, direction, attackInfo);
             return instance;
         }
 

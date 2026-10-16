@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace ProjectU
 {
-    // Runs after the camera and Animator, before Launcher.LateUpdate emits a projectile.
+    // Runs after camera and Animator, before Launcher requests attacks and Attack executes.
     [DefaultExecutionOrder(75)]
     [RequireComponent(typeof(PlayerAnimationController), typeof(PlayerProjectileLauncher), typeof(PlayerInputReader))]
     public sealed class PlayerAimController : MonoBehaviour
@@ -63,7 +63,9 @@ namespace ProjectU
             if (Time.deltaTime <= 0f)
                 return;
             AimPoint = launcher.GetAimPoint();
-            bool aim = !animationController.IsReloading || input.PrimaryFire.Pressed;
+            bool aim = !animationController.IsReloading ||
+                input.PrimaryFire.Pressed || input.PrimaryFire.Held ||
+                input.SecondaryFire.Pressed || input.SecondaryFire.Held;
             if (aim)
             {
                 Vector3 bodyDirection = AimPoint - chest.position;

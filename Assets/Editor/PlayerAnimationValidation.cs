@@ -81,7 +81,8 @@ namespace ProjectU.Editor
             public int shots;
             public int aimedFrames;
             public float maximumMuzzleAngle;
-            public float maximumProjectileAngle;
+            public float maximumAttackAngle;
+            public float maximumMuzzleOriginDistance;
             public float maximumLeftGripDistance;
             public float maximumRightGripDistance;
             public bool jumpUp;
@@ -90,7 +91,7 @@ namespace ProjectU.Editor
             public bool firing;
             public bool reload;
             public bool reloadInterrupted;
-            public bool obstructedSpawn;
+            public bool obstructedOrigin;
             public bool pauseStable;
             public bool nearWall;
             public bool cameraFlick;
@@ -179,6 +180,7 @@ namespace ProjectU.Editor
                 SetInput("Reload", default(ButtonInputState));
                 SetInput("PrimaryFire", default(ButtonInputState));
                 SetInput("SecondaryFire", default(ButtonInputState));
+                SetInput("Skill1", default(ButtonInputState));
                 float elapsed = Time.time - phaseStarted;
                 float yaw = 0f;
                 float pitch = 0f;
@@ -245,9 +247,11 @@ namespace ProjectU.Editor
                         obstruction.transform.localScale = Vector3.one * 0.08f;
                         Physics.IgnoreCollision(obstruction.GetComponent<Collider>(), input.GetComponent<CharacterController>());
                     }
-                    // Offset camera-center ray misses this narrow chest-to-muzzle blocker.
+                    // Place a blocker between the character and the animated muzzle.
+                    Vector3 muzzleLocal = input.transform.InverseTransformPoint(launcher.Muzzle.position);
                     obstruction.transform.position = Vector3.Lerp(
-                        animator.GetBoneTransform(HumanBodyBones.Chest).position, launcher.Muzzle.position, 0.6f);
+                        input.transform.TransformPoint(new Vector3(0f, muzzleLocal.y, 0f)),
+                        launcher.Muzzle.position, 0.6f);
                     Physics.SyncTransforms();
                     if (elapsed > 0.10f && !shotRequested)
                     {
@@ -413,12 +417,19 @@ namespace ProjectU.Editor
         {
             try
             {
-                ProjectileBullet bullet = pool.GetComponentsInChildren<ProjectileBullet>()
-                    .Where(item => item.IsActive).OrderBy(item => Vector3.Distance(item.transform.position, launcher.Muzzle.position)).First();
-                Vector3 expected = aim.AimPoint - bullet.transform.position;
-                float angle = Vector3.Angle(bullet.GetComponent<Rigidbody>().linearVelocity, expected);
-                report.maximumProjectileAngle = Mathf.Max(report.maximumProjectileAngle, angle);
-                Check(angle < 0.1f, "Projectile direction uses the same-frame aim point: " + angle);
+                HitscanAttack primary = launcher.PrimaryAttack;
+                Vector3 origin = primary.LastAttackPosition;
+                Vector3 expected = aim.AimPoint - origin;
+                float angle = Vector3.Angle(primary.LastShotDirection, expected);
+                report.maximumAttackAngle = Mathf.Max(report.maximumAttackAngle, angle);
+                Check(angle < 0.1f, "Hitscan direction uses the same-frame aim point: " + angle);
+                Check(pool.ActiveCount == 0, "Primary hitscan does not allocate a projectile.");
+                if (phase != 22 && phase != 23)
+                {
+                    float muzzleDistance = Vector3.Distance(origin, launcher.Muzzle.position);
+                    report.maximumMuzzleOriginDistance = Mathf.Max(report.maximumMuzzleOriginDistance, muzzleDistance);
+                    Check(muzzleDistance < 0.001f, "Hitscan starts at the same-frame animated muzzle.");
+                }
                 report.shots++;
                 if (phase == 20)
                 {
@@ -427,16 +438,16 @@ namespace ProjectU.Editor
                 }
                 if (phase == 22)
                 {
-                    Check(Vector3.Distance(bullet.transform.position, launcher.Muzzle.position) > 0.05f,
-                        "Obstruction moves spawn to the player side.");
-                    Check(!obstruction.GetComponent<Collider>().bounds.Contains(bullet.transform.position),
-                        "Obstructed projectile starts outside the blocker.");
-                    report.obstructedSpawn = true;
+                    Check(Vector3.Distance(origin, primary.WorldAttackPosition) > 0.05f,
+                        "Obstruction moves attack origin to the player side.");
+                    Check(!obstruction.GetComponent<Collider>().bounds.Contains(origin),
+                        "Obstructed hitscan starts outside the blocker.");
+                    report.obstructedOrigin = true;
                 }
                 if (phase == 23)
                 {
-                    Check(launcher.Muzzle.position.z < 19.5f && bullet.transform.position.z < 19.5f,
-                        "Near-wall muzzle and projectile remain on the player side.");
+                    Check(launcher.Muzzle.position.z < 19.5f && origin.z < 19.5f,
+                        "Near-wall visual muzzle and hitscan origin remain on the player side.");
                     Check(Vector3.Distance(launcher.Muzzle.position, aim.AimPoint) >= 0.07f,
                         "Near-wall barrel retracts from the aim point.");
                     report.nearWall = true;
@@ -508,7 +519,7 @@ namespace ProjectU.Editor
         {
             Check(report.shots == 17, "Expected 12 angle shots, jump, reload interrupt, obstruction, near wall and camera flick shots.");
             Check(report.jumpUp && report.jumpLoop && report.jumpDown && report.firing && report.reload &&
-                report.reloadInterrupted && report.obstructedSpawn && report.pauseStable && report.nearWall && report.cameraFlick &&
+                report.reloadInterrupted && report.obstructedOrigin && report.pauseStable && report.nearWall && report.cameraFlick &&
                 report.reloadPauseResumed,
                 "All runtime scenarios passed.");
             File.WriteAllText("Logs/PlayerAnimationValidationReport.json", JsonUtility.ToJson(report, true));

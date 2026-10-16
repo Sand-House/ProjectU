@@ -7,33 +7,59 @@ namespace ProjectU
     [DefaultExecutionOrder(100)]
     public sealed class PlayerProjectileLauncher : MonoBehaviour
     {
-        [SerializeField] private ProjectilePool pool;
-        [SerializeField] private ProjectileBullet bulletPrefab;
-        [SerializeField] private ProjectileGrenade grenadePrefab;
+        [SerializeField] private HitscanAttack primaryAttack;
+        [SerializeField] private ProjectileAttack secondaryAttack;
+        [SerializeField] private ProjectileAttack grenadeAttack;
         [SerializeField] private Camera aimCamera;
         [SerializeField] private Transform muzzle;
-        [SerializeField] private Transform obstructionOrigin;
-        [SerializeField] private Vector3 muzzleOffset = new Vector3(0.35f, 0.55f, 0.65f);
         [SerializeField, Min(1f)] private float aimDistance = 100f;
-        [SerializeField, Range(0f, 45f)] private float grenadeLiftAngle = 12f;
         private PlayerInputReader input;
+        private PlayerStat stat;
         private readonly RaycastHit[] aimHits = new RaycastHit[32];
 
         public event Action PrimaryFired;
+        public event Action SecondaryFired;
+        public event Action GrenadeThrown;
+        public event Action WeaponFired;
         public Transform Muzzle => muzzle;
+        public HitscanAttack PrimaryAttack => primaryAttack;
+        public ProjectileAttack SecondaryAttack => secondaryAttack;
+        public ProjectileAttack GrenadeAttack => grenadeAttack;
 
         private void Awake()
         {
             input = GetComponent<PlayerInputReader>();
-            if (pool != null && bulletPrefab != null && grenadePrefab != null && aimCamera != null) return;
-            Debug.LogError("PlayerProjectileLauncher requires pool, prefabs and aim camera.", this);
+            stat = GetComponent<PlayerStat>();
+            if (primaryAttack != null && secondaryAttack != null && grenadeAttack != null && aimCamera != null && muzzle != null) return;
+            Debug.LogError("PlayerProjectileLauncher requires three attack components, an aim camera and a muzzle.", this);
             enabled = false;
+        }
+
+        private void OnEnable()
+        {
+            if (primaryAttack != null) primaryAttack.OnExecuted += OnPrimaryExecuted;
+            if (secondaryAttack != null) secondaryAttack.OnExecuted += OnSecondaryExecuted;
+            if (grenadeAttack != null) grenadeAttack.OnExecuted += OnGrenadeExecuted;
         }
 
         private void LateUpdate()
         {
-            if (input.PrimaryFire.Pressed) Fire(bulletPrefab, false);
-            if (input.SecondaryFire.Pressed) Fire(grenadePrefab, true);
+            if (Time.deltaTime <= 0f) return;
+            Vector3 point = GetAimPoint();
+            Prepare(primaryAttack, point);
+            Prepare(secondaryAttack, point);
+            Prepare(grenadeAttack, point);
+            // Keep short taps, and retry held fire when Attack's timing permits another shot.
+            if (input.PrimaryFire.Pressed || input.PrimaryFire.Held) primaryAttack.TryAttack(muzzle, point);
+            if (input.SecondaryFire.Pressed || input.SecondaryFire.Held) secondaryAttack.TryAttack(muzzle, point);
+            if (input.Skill1.Pressed) grenadeAttack.TryAttack(muzzle, point);
+        }
+
+        private void Prepare(Attack attack, Vector3 point)
+        {
+            attack.SetAimPoint(point);
+            attack.DamageMultiplier = stat != null ? stat.AttackMultiplier : 1f;
+            attack.SpeedMultiplier = stat != null ? stat.AttackSpeed : 1f;
         }
 
         // Both the pose controller and projectiles converge on this camera-center target.
@@ -42,11 +68,13 @@ namespace ProjectU
             Ray ray = aimCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f));
             Vector3 aimPoint = ray.GetPoint(aimDistance);
             float closest = aimDistance;
-            int count = Physics.RaycastNonAlloc(ray, aimHits, aimDistance, Physics.DefaultRaycastLayers,
-                QueryTriggerInteraction.Ignore);
+            int mask = (primaryAttack != null && primaryAttack.Data != null ? (int)primaryAttack.Data.HitMask : 0) |
+                (secondaryAttack != null && secondaryAttack.Data != null ? (int)secondaryAttack.Data.HitMask : 0) |
+                (grenadeAttack != null && grenadeAttack.Data != null ? (int)grenadeAttack.Data.HitMask : 0);
+            int count = Physics.RaycastNonAlloc(ray, aimHits, aimDistance, mask, QueryTriggerInteraction.Collide);
             // A full buffer may omit the closest hit, so use the complete set in this rare case.
             RaycastHit[] hits = count == aimHits.Length
-                ? Physics.RaycastAll(ray, aimDistance, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
+                ? Physics.RaycastAll(ray, aimDistance, mask, QueryTriggerInteraction.Collide)
                 : aimHits;
             if (hits != aimHits)
                 count = hits.Length;
@@ -54,6 +82,7 @@ namespace ProjectU
             {
                 RaycastHit hit = hits[i];
                 if (hit.transform.IsChildOf(transform) || hit.collider.GetComponentInParent<Projectile>() != null) continue;
+                if (hit.collider.isTrigger && !Hitbox.TryResolve(hit.collider, out _, out _)) continue;
                 if (hit.distance >= closest) continue;
                 closest = hit.distance;
                 aimPoint = hit.point;
@@ -61,23 +90,25 @@ namespace ProjectU
             return aimPoint;
         }
 
-        private void Fire(Projectile prefab, bool lob)
+        private void OnPrimaryExecuted()
         {
-            Vector3 origin = muzzle != null ? muzzle.position : transform.TransformPoint(muzzleOffset);
-            Vector3 aimPoint = GetAimPoint();
-            // Start at the player side of any close obstruction instead of beyond a wall.
-            Vector3 shoulder = obstructionOrigin != null
-                ? obstructionOrigin.position : transform.position + Vector3.up * muzzleOffset.y;
-            if (Physics.Linecast(shoulder, origin, out RaycastHit obstruction, 1, QueryTriggerInteraction.Ignore))
-                origin = obstruction.point - (origin - shoulder).normalized * 0.2f;
-            Vector3 direction = aimPoint - origin;
-            if (direction.sqrMagnitude < 0.0001f)
-                direction = aimCamera.transform.forward;
-            direction.Normalize();
-            if (lob)
-                direction = Quaternion.AngleAxis(-grenadeLiftAngle, aimCamera.transform.right) * direction;
-            if (pool.Spawn(prefab, gameObject, origin, direction) != null && !lob)
-                PrimaryFired?.Invoke();
+            WeaponFired?.Invoke();
+            PrimaryFired?.Invoke();
+        }
+
+        private void OnSecondaryExecuted()
+        {
+            WeaponFired?.Invoke();
+            SecondaryFired?.Invoke();
+        }
+
+        private void OnGrenadeExecuted() => GrenadeThrown?.Invoke();
+
+        private void OnDisable()
+        {
+            if (primaryAttack != null) { primaryAttack.OnExecuted -= OnPrimaryExecuted; primaryAttack.CancelAttack(); }
+            if (secondaryAttack != null) { secondaryAttack.OnExecuted -= OnSecondaryExecuted; secondaryAttack.CancelAttack(); }
+            if (grenadeAttack != null) { grenadeAttack.OnExecuted -= OnGrenadeExecuted; grenadeAttack.CancelAttack(); }
         }
     }
 }

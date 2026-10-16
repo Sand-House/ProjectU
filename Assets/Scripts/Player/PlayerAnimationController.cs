@@ -45,7 +45,7 @@ namespace ProjectU
         private void OnEnable()
         {
             if (launcher != null)
-                launcher.PrimaryFired += OnPrimaryFired;
+                launcher.WeaponFired += OnPrimaryFired;
         }
 
         private void Update()
@@ -73,7 +73,9 @@ namespace ProjectU
             animator.SetBool(Grounded, motor.IsGrounded);
             animator.SetFloat(VerticalSpeed, motor.VerticalSpeed);
             reloadRemaining = Mathf.Max(0f, reloadRemaining - Time.deltaTime);
-            if (input.Reload.Pressed && !IsReloading && !input.PrimaryFire.Pressed)
+            if (input.Reload.Pressed && !IsReloading &&
+                !input.PrimaryFire.Pressed && !input.PrimaryFire.Held &&
+                !input.SecondaryFire.Pressed && !input.SecondaryFire.Held)
             {
                 reloadRemaining = reloadPreviewDuration;
                 animator.ResetTrigger(Fire);
@@ -91,7 +93,7 @@ namespace ProjectU
         private void OnDisable()
         {
             if (launcher != null)
-                launcher.PrimaryFired -= OnPrimaryFired;
+                launcher.WeaponFired -= OnPrimaryFired;
             reloadRemaining = 0f;
             if (animatorPaused && animator != null)
             {
