@@ -45,7 +45,7 @@ namespace ProjectU
         private void OnEnable()
         {
             if (launcher != null)
-                launcher.WeaponFired += OnPrimaryFired;
+                launcher.AttackExecuted += OnAttackExecuted;
         }
 
         private void Update()
@@ -83,8 +83,9 @@ namespace ProjectU
             }
         }
 
-        private void OnPrimaryFired()
+        private void OnAttackExecuted(AttackSlot slot)
         {
+            if (slot != AttackSlot.PrimaryFire && slot != AttackSlot.SecondaryFire) return;
             reloadRemaining = 0f;
             animator.ResetTrigger(Reload);
             animator.SetTrigger(Fire);
@@ -93,7 +94,7 @@ namespace ProjectU
         private void OnDisable()
         {
             if (launcher != null)
-                launcher.WeaponFired -= OnPrimaryFired;
+                launcher.AttackExecuted -= OnAttackExecuted;
             reloadRemaining = 0f;
             if (animatorPaused && animator != null)
             {

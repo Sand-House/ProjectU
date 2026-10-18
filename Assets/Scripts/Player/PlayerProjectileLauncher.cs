@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ProjectU
@@ -7,52 +8,92 @@ namespace ProjectU
     [DefaultExecutionOrder(100)]
     public sealed class PlayerProjectileLauncher : MonoBehaviour
     {
-        [SerializeField] private HitscanAttack primaryAttack;
-        [SerializeField] private ProjectileAttack secondaryAttack;
-        [SerializeField] private ProjectileAttack grenadeAttack;
+        [SerializeField] private PlayerAttackBinding[] attackBindings = Array.Empty<PlayerAttackBinding>();
         [SerializeField] private Camera aimCamera;
-        [SerializeField] private Transform muzzle;
         [SerializeField, Min(1f)] private float aimDistance = 100f;
         private PlayerInputReader input;
         private PlayerStat stat;
         private readonly RaycastHit[] aimHits = new RaycastHit[32];
+        private readonly Dictionary<Attack, Action> executionHandlers = new Dictionary<Attack, Action>();
 
-        public event Action PrimaryFired;
-        public event Action SecondaryFired;
-        public event Action GrenadeThrown;
-        public event Action WeaponFired;
-        public Transform Muzzle => muzzle;
-        public HitscanAttack PrimaryAttack => primaryAttack;
-        public ProjectileAttack SecondaryAttack => secondaryAttack;
-        public ProjectileAttack GrenadeAttack => grenadeAttack;
+        public event Action<AttackSlot> AttackExecuted;
+        public IReadOnlyList<PlayerAttackBinding> AttackBindings => attackBindings;
+
+        public PlayerAttackBinding GetBinding(AttackSlot slot)
+        {
+            foreach (PlayerAttackBinding binding in attackBindings)
+                if (binding != null && binding.Slot == slot) return binding;
+            return null;
+        }
 
         private void Awake()
         {
             input = GetComponent<PlayerInputReader>();
             stat = GetComponent<PlayerStat>();
-            if (primaryAttack != null && secondaryAttack != null && grenadeAttack != null && aimCamera != null && muzzle != null) return;
-            Debug.LogError("PlayerProjectileLauncher requires three attack components, an aim camera and a muzzle.", this);
-            enabled = false;
         }
 
         private void OnEnable()
         {
-            if (primaryAttack != null) primaryAttack.OnExecuted += OnPrimaryExecuted;
-            if (secondaryAttack != null) secondaryAttack.OnExecuted += OnSecondaryExecuted;
-            if (grenadeAttack != null) grenadeAttack.OnExecuted += OnGrenadeExecuted;
+            if (!ValidateBindings())
+            {
+                enabled = false;
+                return;
+            }
+            foreach (PlayerAttackBinding binding in attackBindings)
+            {
+                Action handler = () => AttackExecuted?.Invoke(binding.Slot);
+                executionHandlers.Add(binding.Attack, handler);
+                binding.Attack.OnExecuted += handler;
+            }
+        }
+
+        private bool ValidateBindings()
+        {
+            if (aimCamera == null)
+            {
+                Debug.LogError("PlayerProjectileLauncher requires an aim camera.", this);
+                return false;
+            }
+            var slots = new HashSet<AttackSlot>();
+            var attacks = new HashSet<Attack>();
+            foreach (PlayerAttackBinding binding in attackBindings)
+            {
+                if (binding == null || !Enum.IsDefined(typeof(AttackSlot), binding.Slot) ||
+                    binding.Attack == null || binding.Origin == null || binding.Attack.gameObject != gameObject ||
+                    !slots.Add(binding.Slot) || !attacks.Add(binding.Attack))
+                {
+                    Debug.LogError("PlayerProjectileLauncher bindings require a unique slot, a unique Attack on this player and an origin.", this);
+                    return false;
+                }
+            }
+            return true;
         }
 
         private void LateUpdate()
         {
             if (Time.deltaTime <= 0f) return;
             Vector3 point = GetAimPoint();
-            Prepare(primaryAttack, point);
-            Prepare(secondaryAttack, point);
-            Prepare(grenadeAttack, point);
-            // Keep short taps, and retry held fire when Attack's timing permits another shot.
-            if (input.PrimaryFire.Pressed || input.PrimaryFire.Held) primaryAttack.TryAttack(muzzle, point);
-            if (input.SecondaryFire.Pressed || input.SecondaryFire.Held) secondaryAttack.TryAttack(muzzle, point);
-            if (input.Skill1.Pressed) grenadeAttack.TryAttack(muzzle, point);
+            foreach (PlayerAttackBinding binding in attackBindings)
+            {
+                if (binding.Attack == null) continue;
+                Prepare(binding.Attack, point);
+                ButtonInputState state = ReadInput(binding.Slot);
+                if (state.Pressed || (binding.RepeatWhileHeld && state.Held))
+                    binding.Attack.TryAttack(binding.Origin, point);
+            }
+        }
+
+        private ButtonInputState ReadInput(AttackSlot slot)
+        {
+            switch (slot)
+            {
+                case AttackSlot.PrimaryFire: return input.PrimaryFire;
+                case AttackSlot.SecondaryFire: return input.SecondaryFire;
+                case AttackSlot.Skill1: return input.Skill1;
+                case AttackSlot.Skill2: return input.Skill2;
+                case AttackSlot.Ultimate: return input.Ultimate;
+                default: return default;
+            }
         }
 
         private void Prepare(Attack attack, Vector3 point)
@@ -68,9 +109,10 @@ namespace ProjectU
             Ray ray = aimCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f));
             Vector3 aimPoint = ray.GetPoint(aimDistance);
             float closest = aimDistance;
-            int mask = (primaryAttack != null && primaryAttack.Data != null ? (int)primaryAttack.Data.HitMask : 0) |
-                (secondaryAttack != null && secondaryAttack.Data != null ? (int)secondaryAttack.Data.HitMask : 0) |
-                (grenadeAttack != null && grenadeAttack.Data != null ? (int)grenadeAttack.Data.HitMask : 0);
+            int mask = 0;
+            foreach (PlayerAttackBinding binding in attackBindings)
+                if (binding != null && binding.Attack != null && binding.Attack.Data != null)
+                    mask |= binding.Attack.Data.HitMask;
             int count = Physics.RaycastNonAlloc(ray, aimHits, aimDistance, mask, QueryTriggerInteraction.Collide);
             // A full buffer may omit the closest hit, so use the complete set in this rare case.
             RaycastHit[] hits = count == aimHits.Length
@@ -90,25 +132,15 @@ namespace ProjectU
             return aimPoint;
         }
 
-        private void OnPrimaryExecuted()
-        {
-            WeaponFired?.Invoke();
-            PrimaryFired?.Invoke();
-        }
-
-        private void OnSecondaryExecuted()
-        {
-            WeaponFired?.Invoke();
-            SecondaryFired?.Invoke();
-        }
-
-        private void OnGrenadeExecuted() => GrenadeThrown?.Invoke();
-
         private void OnDisable()
         {
-            if (primaryAttack != null) { primaryAttack.OnExecuted -= OnPrimaryExecuted; primaryAttack.CancelAttack(); }
-            if (secondaryAttack != null) { secondaryAttack.OnExecuted -= OnSecondaryExecuted; secondaryAttack.CancelAttack(); }
-            if (grenadeAttack != null) { grenadeAttack.OnExecuted -= OnGrenadeExecuted; grenadeAttack.CancelAttack(); }
+            foreach (KeyValuePair<Attack, Action> subscription in executionHandlers)
+            {
+                if (subscription.Key == null) continue;
+                subscription.Key.OnExecuted -= subscription.Value;
+                subscription.Key.CancelAttack();
+            }
+            executionHandlers.Clear();
         }
     }
 }

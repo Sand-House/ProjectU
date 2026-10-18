@@ -106,6 +106,7 @@ namespace ProjectU.Editor
         private PlayerAnimationController animationController;
         private PlayerAimController aim;
         private PlayerProjectileLauncher launcher;
+        private HitscanAttackData alignmentAttackData;
         private ProjectilePool pool;
         private Animator animator;
         private Transform leftGrip;
@@ -140,7 +141,7 @@ namespace ProjectU.Editor
                 animator = input.GetComponentInChildren<Animator>();
                 leftGrip = input.transform.Find("Soldier Visual/Prototype Rifle/Left Grip");
                 weapon = leftGrip.parent;
-                Check(animationController != null && aim != null && animationController.enabled && aim.enabled && launcher.Muzzle != null,
+                Check(animationController != null && aim != null && animationController.enabled && aim.enabled && aim.Muzzle != null,
                     "Configured runtime components and muzzle.");
                 Check(animator.isHuman && !animator.applyRootMotion && animator.runtimeAnimatorController != null,
                     "Humanoid Animator with code-driven root motion.");
@@ -148,10 +149,23 @@ namespace ProjectU.Editor
                 Check(!input.GetComponent<MeshRenderer>().enabled, "Prototype capsule hidden.");
                 Check(input.transform.Find("Soldier Visual").GetComponentsInChildren<Collider>().Length == 0,
                     "Visuals must not add self-colliders.");
+                // Isolate pose/origin alignment from the saved weapon's spread and fire interval.
+                // PlayerAttackValidation covers the actual saved data and attack timing separately.
+                Attack primary = launcher.GetBinding(AttackSlot.PrimaryFire).Attack;
+                alignmentAttackData = Instantiate((HitscanAttackData)primary.Data);
+                var alignmentData = new SerializedObject(alignmentAttackData);
+                alignmentData.FindProperty("spreadAngle").floatValue = 0f;
+                alignmentData.FindProperty("windupTime").floatValue = 0f;
+                alignmentData.FindProperty("recoveryTime").floatValue = 0f;
+                alignmentData.FindProperty("cooldown").floatValue = 0f;
+                alignmentData.ApplyModifiedPropertiesWithoutUndo();
+                var primaryComponent = new SerializedObject(primary);
+                primaryComponent.FindProperty("data").objectReferenceValue = alignmentAttackData;
+                primaryComponent.ApplyModifiedPropertiesWithoutUndo();
                 var controller = new SerializedObject(input.GetComponent<PlayerController>());
                 controller.FindProperty("logInput").boolValue = false;
                 controller.ApplyModifiedPropertiesWithoutUndo();
-                launcher.PrimaryFired += ValidateShot;
+                launcher.AttackExecuted += slot => { if (slot == AttackSlot.PrimaryFire) ValidateShot(); };
                 report.unityVersion = Application.unityVersion;
                 phaseStarted = Time.time;
                 wallStarted = EditorApplication.timeSinceStartup;
@@ -248,10 +262,10 @@ namespace ProjectU.Editor
                         Physics.IgnoreCollision(obstruction.GetComponent<Collider>(), input.GetComponent<CharacterController>());
                     }
                     // Place a blocker between the character and the animated muzzle.
-                    Vector3 muzzleLocal = input.transform.InverseTransformPoint(launcher.Muzzle.position);
+                    Vector3 muzzleLocal = input.transform.InverseTransformPoint(aim.Muzzle.position);
                     obstruction.transform.position = Vector3.Lerp(
                         input.transform.TransformPoint(new Vector3(0f, muzzleLocal.y, 0f)),
-                        launcher.Muzzle.position, 0.6f);
+                        aim.Muzzle.position, 0.6f);
                     Physics.SyncTransforms();
                     if (elapsed > 0.10f && !shotRequested)
                     {
@@ -351,7 +365,7 @@ namespace ProjectU.Editor
                 Check(upperState == "Firing Rifle", "Actual fire animation interrupts the reload state.");
             if (phase >= 7 && !animationController.IsReloading && phase != 21)
             {
-                float angle = Vector3.Angle(launcher.Muzzle.forward, aim.AimPoint - launcher.Muzzle.position);
+                float angle = Vector3.Angle(aim.Muzzle.forward, aim.AimPoint - aim.Muzzle.position);
                 report.maximumMuzzleAngle = Mathf.Max(report.maximumMuzzleAngle, angle);
                 report.aimedFrames++;
                 Check(angle < 0.1f, "Muzzle alignment at phase " + phase + ": " + angle);
@@ -417,7 +431,7 @@ namespace ProjectU.Editor
         {
             try
             {
-                HitscanAttack primary = launcher.PrimaryAttack;
+                HitscanAttack primary = (HitscanAttack)launcher.GetBinding(AttackSlot.PrimaryFire).Attack;
                 Vector3 origin = primary.LastAttackPosition;
                 Vector3 expected = aim.AimPoint - origin;
                 float angle = Vector3.Angle(primary.LastShotDirection, expected);
@@ -426,7 +440,7 @@ namespace ProjectU.Editor
                 Check(pool.ActiveCount == 0, "Primary hitscan does not allocate a projectile.");
                 if (phase != 22 && phase != 23)
                 {
-                    float muzzleDistance = Vector3.Distance(origin, launcher.Muzzle.position);
+                    float muzzleDistance = Vector3.Distance(origin, aim.Muzzle.position);
                     report.maximumMuzzleOriginDistance = Mathf.Max(report.maximumMuzzleOriginDistance, muzzleDistance);
                     Check(muzzleDistance < 0.001f, "Hitscan starts at the same-frame animated muzzle.");
                 }
@@ -446,9 +460,9 @@ namespace ProjectU.Editor
                 }
                 if (phase == 23)
                 {
-                    Check(launcher.Muzzle.position.z < 19.5f && origin.z < 19.5f,
+                    Check(aim.Muzzle.position.z < 19.5f && origin.z < 19.5f,
                         "Near-wall visual muzzle and hitscan origin remain on the player side.");
-                    Check(Vector3.Distance(launcher.Muzzle.position, aim.AimPoint) >= 0.07f,
+                    Check(Vector3.Distance(aim.Muzzle.position, aim.AimPoint) >= 0.07f,
                         "Near-wall barrel retracts from the aim point.");
                     report.nearWall = true;
                 }
@@ -537,6 +551,10 @@ namespace ProjectU.Editor
         }
 
         private void SetInput(string name, object value) => typeof(PlayerInputReader).GetProperty(name).SetValue(input, value);
+        private void OnDestroy()
+        {
+            if (alignmentAttackData != null) Destroy(alignmentAttackData);
+        }
         private static void SetPrivate(object target, string name, object value) => target.GetType()
             .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(target, value);
         private static ButtonInputState Pressed() => (ButtonInputState)typeof(ButtonInputState)

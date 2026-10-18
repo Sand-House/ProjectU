@@ -16,7 +16,7 @@ MonoBehaviour:
   canCritical: 0
   criticalMultiplier: 2
   windupTime: 0
-  recoveryTime: 0
+  recoveryTime: 0.5
   cooldown: 0
   targetRule: 0
   hitMask:

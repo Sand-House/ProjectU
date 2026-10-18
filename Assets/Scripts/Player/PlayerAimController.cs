@@ -9,6 +9,7 @@ namespace ProjectU
     {
         [SerializeField] private Animator animator;
         [SerializeField] private Transform weapon;
+        [SerializeField] private Transform muzzle;
         [SerializeField] private Transform leftGrip;
         [SerializeField] private Quaternion rightHandRotationOffset = Quaternion.identity;
         [SerializeField] private Quaternion leftHandRotationOffset = Quaternion.identity;
@@ -28,13 +29,14 @@ namespace ProjectU
         private Transform leftHand;
 
         public Vector3 AimPoint { get; private set; }
+        public Transform Muzzle => muzzle;
 
         private void Awake()
         {
             animationController = GetComponent<PlayerAnimationController>();
             launcher = GetComponent<PlayerProjectileLauncher>();
             input = GetComponent<PlayerInputReader>();
-            if (animator == null || !animator.isHuman || weapon == null || leftGrip == null || launcher.Muzzle == null)
+            if (animator == null || !animator.isHuman || weapon == null || leftGrip == null || muzzle == null)
             {
                 FailConfiguration();
                 return;
@@ -85,7 +87,7 @@ namespace ProjectU
             if (aim && direction.sqrMagnitude > 0.0001f)
             {
                 weapon.rotation = Quaternion.LookRotation(direction, transform.up);
-                float minimumDistance = Vector3.Distance(weapon.position, launcher.Muzzle.position) + 0.08f;
+                float minimumDistance = Vector3.Distance(weapon.position, muzzle.position) + 0.08f;
                 if (direction.magnitude < minimumDistance)
                     weapon.position -= direction.normalized * (minimumDistance - direction.magnitude);
             }

@@ -1987,11 +1987,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 810bdef62c39a4b4c94901ea221cd967, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerProjectileLauncher
-  primaryAttack: {fileID: 1295477706}
-  secondaryAttack: {fileID: 1295477707}
-  grenadeAttack: {fileID: 1295477708}
+  attackBindings:
+  - slot: 0
+    attack: {fileID: 1295477706}
+    origin: {fileID: 962656585}
+    repeatWhileHeld: 1
+  - slot: 1
+    attack: {fileID: 1295477707}
+    origin: {fileID: 962656585}
+    repeatWhileHeld: 1
+  - slot: 2
+    attack: {fileID: 1295477708}
+    origin: {fileID: 962656585}
+    repeatWhileHeld: 0
   aimCamera: {fileID: 330585545}
-  muzzle: {fileID: 962656585}
   aimDistance: 100
 --- !u!114 &1295477700
 MonoBehaviour:
@@ -2007,6 +2016,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerAimController
   animator: {fileID: 220890195}
   weapon: {fileID: 1991367555}
+  muzzle: {fileID: 962656585}
   leftGrip: {fileID: 132303006}
   rightHandRotationOffset: {x: 0.7937202, y: -0.57928777, z: -0.17711921, w: 0.055345204}
   leftHandRotationOffset: {x: 0.13408364, y: 0.56332535, z: 0.8127624, w: -0.06405773}

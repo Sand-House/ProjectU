@@ -46,6 +46,13 @@ namespace ProjectU.Editor
     {
         private PlayerInputReader input;
         private PlayerProjectileLauncher launcher;
+        private PlayerAimController aim;
+        private HitscanAttack primaryAttack;
+        private ProjectileAttack secondaryAttack;
+        private ProjectileAttack grenadeAttack;
+        private PlayerInputReader alternativeInput;
+        private int alternativePressMask;
+        private int alternativeHeldMask;
         private PlayerAnimationController animationController;
         private PlayerStat stat;
         private ProjectilePool pool;
@@ -88,23 +95,33 @@ namespace ProjectU.Editor
         {
             input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();
             launcher = input.GetComponent<PlayerProjectileLauncher>();
+            aim = input.GetComponent<PlayerAimController>();
+            primaryAttack = launcher.GetBinding(AttackSlot.PrimaryFire).Attack as HitscanAttack;
+            secondaryAttack = launcher.GetBinding(AttackSlot.SecondaryFire).Attack as ProjectileAttack;
+            grenadeAttack = launcher.GetBinding(AttackSlot.Skill1).Attack as ProjectileAttack;
             animationController = input.GetComponent<PlayerAnimationController>();
             stat = input.GetComponent<PlayerStat>();
             pool = UnityEngine.Object.FindFirstObjectByType<ProjectilePool>();
             Check(launcher.enabled && input.GetComponent<Combatant>().Faction == Faction.Player && input.GetComponent<Mortal>().HP == 100,
                 "saved player combat identity and HP");
-            Check(launcher.PrimaryAttack != null && launcher.SecondaryAttack != null && launcher.GrenadeAttack != null &&
-                launcher.SecondaryAttack != launcher.GrenadeAttack && input.GetComponents<Attack>().Length == 3,
+            Check(primaryAttack != null && secondaryAttack != null && grenadeAttack != null &&
+                secondaryAttack != grenadeAttack && input.GetComponents<Attack>().Length == 3,
                 "three distinct saved attack components");
-            Check(launcher.PrimaryAttack.Data.name == "TempPrimaryFire" && launcher.PrimaryAttack.Data.Damage == 30f &&
-                launcher.SecondaryAttack.Data.name == "TempSecondaryFire" && launcher.SecondaryAttack.Data.Damage == 50f &&
-                launcher.GrenadeAttack.Data.name == "TempGrenade" && launcher.GrenadeAttack.Data.Damage == 100f,
+            Check(launcher.AttackBindings.Count == 3 &&
+                launcher.GetBinding(AttackSlot.PrimaryFire).RepeatWhileHeld &&
+                launcher.GetBinding(AttackSlot.SecondaryFire).RepeatWhileHeld &&
+                !launcher.GetBinding(AttackSlot.Skill1).RepeatWhileHeld &&
+                launcher.GetBinding(AttackSlot.Skill2) == null && launcher.GetBinding(AttackSlot.Ultimate) == null,
+                "saved prefab bindings retain repeat policies and leave unused slots empty");
+            Check(primaryAttack.Data.name == "TempPrimaryFire" && primaryAttack.Data.Damage == 30f &&
+                secondaryAttack.Data.name == "TempSecondaryFire" && secondaryAttack.Data.Damage == 50f &&
+                grenadeAttack.Data.name == "TempGrenade" && grenadeAttack.Data.Damage == 100f,
                 "requested asset names and base damage");
-            var bulletData = (ProjectileAttackData)launcher.SecondaryAttack.Data;
-            var grenadeData = (ProjectileAttackData)launcher.GrenadeAttack.Data;
+            var bulletData = (ProjectileAttackData)secondaryAttack.Data;
+            var grenadeData = (ProjectileAttackData)grenadeAttack.Data;
             Check(bulletData.ProjectilePrefab is ProjectileBullet && grenadeData.ProjectilePrefab is ProjectileGrenade &&
                 bulletData.LaunchAngle == 0f && grenadeData.LaunchAngle == 12f &&
-                launcher.SecondaryAttack.Pool == pool && launcher.GrenadeAttack.Pool == pool,
+                secondaryAttack.Pool == pool && grenadeAttack.Pool == pool,
                 "original bullet and grenade prefabs, angles and pool references");
             var actions = (InputActionMap)typeof(PlayerInputReader).GetField("actions", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(input);
             Check(actions.FindAction("PrimaryFire").bindings[0].path == "<Mouse>/leftButton" &&
@@ -118,8 +135,8 @@ namespace ProjectU.Editor
             UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>().enabled = false;
             input.transform.SetPositionAndRotation(new Vector3(1000f, 1000f, 1000f), Quaternion.identity);
             Camera camera = UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>().GetComponent<Camera>();
-            Vector3 muzzle = launcher.Muzzle.position;
-            Check(launcher.Muzzle.name == "Muzzle" && launcher.Muzzle.parent.name == "Prototype Rifle",
+            Vector3 muzzle = aim.Muzzle.position;
+            Check(aim.Muzzle.name == "Muzzle" && aim.Muzzle.parent.name == "Prototype Rifle",
                 "saved muzzle marker is attached to the rifle");
             camera.transform.SetPositionAndRotation(muzzle - Vector3.forward * 5f, Quaternion.identity);
             root = new GameObject("Player Attack Validation Targets");
@@ -127,14 +144,14 @@ namespace ProjectU.Editor
             Combatant friendly = Target("Friendly", muzzle + Vector3.forward * 2f, Faction.Player);
             Physics.SyncTransforms();
 
-            launcher.PrimaryFired += () => primaryShots++;
-            launcher.SecondaryFired += () => secondaryShots++;
-            launcher.WeaponFired += () => weaponShots++;
-            launcher.GrenadeThrown += () =>
+            launcher.AttackExecuted += slot =>
             {
+                if (slot == AttackSlot.PrimaryFire) { primaryShots++; weaponShots++; }
+                if (slot == AttackSlot.SecondaryFire) { secondaryShots++; weaponShots++; }
+                if (slot != AttackSlot.Skill1) return;
                 grenades++;
                 // Keep this isolated damage probe in place; normal prefab ballistics are tested separately.
-                Rigidbody body = launcher.GrenadeAttack.LastProjectile.GetComponent<Rigidbody>();
+                Rigidbody body = grenadeAttack.LastProjectile.GetComponent<Rigidbody>();
                 body.linearVelocity = Vector3.zero;
                 body.useGravity = false;
                 body.constraints = RigidbodyConstraints.FreezeAll;
@@ -146,7 +163,7 @@ namespace ProjectU.Editor
                 "left click executes only primary and gun animation event");
             Check(enemy.Mortal.HP == 170 && friendly.Mortal.HP == 200, "primary applies exactly 30 hostile hitscan damage");
             Check(pool.ActiveCount == 0, "primary creates no physical bullet");
-            Check(Vector3.Distance(launcher.PrimaryAttack.LastAttackPosition, muzzle) < 0.001f,
+            Check(Vector3.Distance(primaryAttack.LastAttackPosition, muzzle) < 0.001f,
                 "primary receives actual muzzle position from launcher");
             yield return new WaitForSeconds(0.15f);
             Check(primaryShots == 1, "released primary does not repeat after a short tap");
@@ -161,8 +178,8 @@ namespace ProjectU.Editor
             Check(enemy.Mortal.HP == 120 && friendly.Mortal.HP == 200,
                 "secondary applies exactly 50 damage and passes friendly");
             Check(!animationController.IsReloading, "secondary interrupts visual reload");
-            Check(!launcher.SecondaryAttack.LastProjectile.IsActive, "secondary bullet returns after enemy impact");
-            Check(Vector3.Distance(launcher.SecondaryAttack.LastAttackPosition, muzzle) < 0.001f,
+            Check(!secondaryAttack.LastProjectile.IsActive, "secondary bullet returns after enemy impact");
+            Check(Vector3.Distance(secondaryAttack.LastAttackPosition, muzzle) < 0.001f,
                 "secondary receives actual muzzle position from launcher");
 
             Combatant blastTarget = Target("Blast Target", muzzle + Vector3.right, Faction.Enemy);
@@ -178,14 +195,14 @@ namespace ProjectU.Editor
             yield return new WaitForSeconds(0.2f);
             Check(grenades == 1 && primaryShots == 1 && secondaryShots == 1 && weaponShots == 2,
                 "E launches only grenade without gun animation event");
-            Check(blastTarget.Mortal.HP == 200 && launcher.GrenadeAttack.LastProjectile.IsActive,
+            Check(blastTarget.Mortal.HP == 200 && grenadeAttack.LastProjectile.IsActive,
                 "grenade does not damage before fuse expires");
-            Check(Vector3.Distance(launcher.GrenadeAttack.LastAttackPosition, muzzle) < 0.001f,
+            Check(Vector3.Distance(grenadeAttack.LastAttackPosition, muzzle) < 0.001f,
                 "grenade receives caller-supplied muzzle position");
             yield return new WaitForSeconds(2.6f);
             Check(blastTarget.Mortal.HP == 100 && blastNotifications == 1 && friendly.Mortal.HP == 200,
                 "grenade explodes for exactly 100 damage once and excludes allies");
-            Check(!launcher.GrenadeAttack.LastProjectile.IsActive && pool.ActiveCount == 0, "grenade effect completes and returns");
+            Check(!grenadeAttack.LastProjectile.IsActive && pool.ActiveCount == 0, "grenade effect completes and returns");
             Check(grenades == 1, "holding E does not repeat grenade throws");
             heldMask = 0;
 
@@ -207,18 +224,18 @@ namespace ProjectU.Editor
 
             // Runtime-only data copies exercise held fire with nonzero timings; never save them.
             scaledTarget.Mortal.IsInvincible = true;
-            AttackData primaryData = launcher.PrimaryAttack.Data;
-            AttackData secondaryData = launcher.SecondaryAttack.Data;
+            AttackData primaryData = primaryAttack.Data;
+            AttackData secondaryData = secondaryAttack.Data;
             AttackData timedPrimary = TimedData(primaryData, 0.12f);
             AttackData timedSecondary = TimedData(secondaryData, 0.16f);
-            SetData(launcher.PrimaryAttack, timedPrimary);
-            SetData(launcher.SecondaryAttack, timedSecondary);
+            SetData(primaryAttack, timedPrimary);
+            SetData(secondaryAttack, timedSecondary);
             var primaryTimes = new List<double>();
             var secondaryTimes = new List<double>();
             Action recordPrimary = () => primaryTimes.Add(Time.timeAsDouble);
             Action recordSecondary = () => secondaryTimes.Add(Time.timeAsDouble);
-            launcher.PrimaryFired += recordPrimary;
-            launcher.SecondaryFired += recordSecondary;
+            primaryAttack.OnExecuted += recordPrimary;
+            secondaryAttack.OnExecuted += recordSecondary;
             pressMask = 8;
             yield return new WaitForSeconds(0.08f);
             Check(animationController.IsReloading, "reload starts before held-only fire");
@@ -251,10 +268,10 @@ namespace ProjectU.Editor
             yield return new WaitForSeconds(0.25f);
             Check(primaryShots == releasedPrimary && secondaryShots == releasedSecondary,
                 "release stops both repeat requests after pending windup completes");
-            launcher.PrimaryFired -= recordPrimary;
-            launcher.SecondaryFired -= recordSecondary;
-            SetData(launcher.PrimaryAttack, primaryData);
-            SetData(launcher.SecondaryAttack, secondaryData);
+            primaryAttack.OnExecuted -= recordPrimary;
+            secondaryAttack.OnExecuted -= recordSecondary;
+            SetData(primaryAttack, primaryData);
+            SetData(secondaryAttack, secondaryData);
             Destroy(timedPrimary);
             Destroy(timedSecondary);
 
@@ -265,6 +282,96 @@ namespace ProjectU.Editor
             yield return new WaitForSeconds(0.1f + 4f / bulletData.ProjectilePrefab.Speed);
             Check(primaryShots == releasedPrimary && secondaryShots == releasedSecondary && grenades == 1 && pool.ActiveCount == 0,
                 "dead player cannot execute pressed or held attacks");
+            heldMask = 0;
+
+            // A second actor has no Soldier visual, animation, motor, stamina or stat component.
+            var actor = new GameObject("Alternative Character");
+            actor.SetActive(false);
+            actor.transform.SetParent(root.transform);
+            actor.transform.position = input.transform.position + Vector3.right * 30f;
+            actor.AddComponent<Combatant>().Faction = Faction.Player;
+            alternativeInput = actor.AddComponent<PlayerInputReader>();
+            var melee = actor.AddComponent<MeleeAttack>();
+            var ranged = actor.AddComponent<HitscanAttack>();
+            var projectile = actor.AddComponent<ProjectileAttack>();
+            var alternativeLauncher = actor.AddComponent<PlayerProjectileLauncher>();
+            var meleeData = ScriptableObject.CreateInstance<MeleeAttackData>();
+            SetData(melee, meleeData);
+            var rangedData = (HitscanAttackData)TimedData(primaryData, 0.1f);
+            SetData(ranged, rangedData);
+            SetData(projectile, secondaryData);
+            var serializedProjectile = new SerializedObject(projectile);
+            serializedProjectile.FindProperty("pool").objectReferenceValue = pool;
+            serializedProjectile.ApplyModifiedPropertiesWithoutUndo();
+            Transform meleeOrigin = Marker(actor.transform, "Melee Origin", new Vector3(0.35f, 0f, 0.1f));
+            Transform handOrigin = Marker(actor.transform, "Hand Origin", new Vector3(-0.35f, 0.5f, 0.2f));
+            Transform shoulderOrigin = Marker(actor.transform, "Shoulder Origin", new Vector3(0.6f, 0.8f, 0.1f));
+            var configuration = new SerializedObject(alternativeLauncher);
+            configuration.FindProperty("aimCamera").objectReferenceValue = camera;
+            SerializedProperty bindings = configuration.FindProperty("attackBindings");
+            bindings.arraySize = 3;
+            SetBinding(bindings.GetArrayElementAtIndex(0), AttackSlot.PrimaryFire, melee, meleeOrigin, false);
+            SetBinding(bindings.GetArrayElementAtIndex(1), AttackSlot.Skill2, ranged, handOrigin, true);
+            SetBinding(bindings.GetArrayElementAtIndex(2), AttackSlot.Ultimate, projectile, shoulderOrigin, false);
+            configuration.ApplyModifiedPropertiesWithoutUndo();
+            var executedSlots = new List<AttackSlot>();
+            alternativeLauncher.AttackExecuted += slot => executedSlots.Add(slot);
+            actor.SetActive(true);
+            camera.transform.SetPositionAndRotation(actor.transform.position + new Vector3(0f, 0.8f, -5f), Quaternion.identity);
+            Combatant meleeTarget = Target("Alternative Melee Target", actor.transform.position + new Vector3(0.35f, 1f, 1.2f), Faction.Enemy);
+            Combatant rangedTarget = Target("Alternative Ranged Target", actor.transform.position + new Vector3(0f, 0.8f, 8f), Faction.Enemy);
+            rangedTarget.Mortal.IsInvincible = true;
+            Physics.SyncTransforms();
+            Check(alternativeLauncher.enabled && actor.GetComponent<Animator>() == null && actor.GetComponent<PlayerStat>() == null,
+                "same launcher works without Soldier components or mandatory attack slots");
+
+            alternativePressMask = alternativeHeldMask = 1;
+            yield return new WaitForSeconds(0.4f);
+            Check(executedSlots.Count == 1 && executedSlots[0] == AttackSlot.PrimaryFire && meleeTarget.Mortal.HP == 180,
+                "primary accepts MeleeAttack and press-only configuration prevents held repeats");
+            Check(Vector3.Distance(melee.LastAttackPosition, meleeOrigin.position) < 0.001f,
+                "melee receives its independently configured origin");
+            // Keep this nearby melee target out of the later shoulder projectile's path.
+            meleeTarget.gameObject.SetActive(false);
+            Physics.SyncTransforms();
+            alternativeHeldMask = 16;
+            yield return new WaitForSeconds(0.4f);
+            Check(executedSlots.Count >= 3 && executedSlots.FindAll(slot => slot == AttackSlot.Skill2).Count >= 2,
+                "Skill2 reads F and can repeat from Held alone");
+            Check(Vector3.Distance(ranged.LastAttackPosition, handOrigin.position) < 0.001f && ranged.DamageMultiplier == 1f,
+                "Skill2 uses its hand origin and default multiplier without PlayerStat");
+
+            alternativeHeldMask = 0;
+            yield return new WaitForSeconds(0.1f);
+            alternativePressMask = alternativeHeldMask = 32;
+            yield return new WaitForSeconds(0.2f);
+            Check(executedSlots.FindAll(slot => slot == AttackSlot.Ultimate).Count == 1 && projectile.LastProjectile != null &&
+                Vector3.Distance(projectile.LastAttackPosition, shoulderOrigin.position) < 0.001f,
+                "Ultimate reads Q, executes once while held and uses a separate origin");
+            alternativeHeldMask = 0;
+
+            // Re-enabling must replace subscriptions, not accumulate execution notifications.
+            alternativeLauncher.enabled = false;
+            alternativeLauncher.enabled = true;
+            meleeTarget.gameObject.SetActive(true);
+            Physics.SyncTransforms();
+            int beforeReenableShot = executedSlots.Count;
+            alternativePressMask = 1;
+            yield return new WaitForSeconds(0.15f);
+            Check(executedSlots.Count == beforeReenableShot + 1 && meleeTarget.Mortal.HP == 160,
+                "reenabling subscribes once and retains configured attacks");
+            Check(ranged.TryAttack(handOrigin, alternativeLauncher.GetAimPoint()) && ranged.Phase == AttackPhase.Windup,
+                "bound attack accepts a pending windup before disable");
+            alternativeLauncher.enabled = false;
+            int beforeCancellation = executedSlots.Count;
+            yield return new WaitForSeconds(0.1f);
+            Check(executedSlots.Count == beforeCancellation && ranged.Phase != AttackPhase.Windup,
+                "disabling cancels pending bound attacks and removes event handlers");
+            alternativeInput = null;
+            actor.SetActive(false);
+            pool.ReturnAll();
+            Destroy(meleeData);
+            Destroy(rangedData);
         }
 
         private void Update()
@@ -278,6 +385,34 @@ namespace ProjectU.Editor
             SetInput("SecondaryFire", State((pressMask & 2) != 0, (heldMask & 2) != 0));
             SetInput("Skill1", State((pressMask & 4) != 0, (heldMask & 4) != 0));
             pressMask = 0;
+            if (alternativeInput != null)
+            {
+                SetAlternativeInput("PrimaryFire", 1);
+                SetAlternativeInput("SecondaryFire", 2);
+                SetAlternativeInput("Skill1", 4);
+                SetAlternativeInput("Skill2", 16);
+                SetAlternativeInput("Ultimate", 32);
+                alternativePressMask = 0;
+            }
+        }
+
+        private void SetAlternativeInput(string name, int mask) => typeof(PlayerInputReader).GetProperty(name).SetValue(alternativeInput,
+            State((alternativePressMask & mask) != 0, (alternativeHeldMask & mask) != 0));
+
+        private static Transform Marker(Transform parent, string name, Vector3 localPosition)
+        {
+            var marker = new GameObject(name).transform;
+            marker.SetParent(parent, false);
+            marker.localPosition = localPosition;
+            return marker;
+        }
+
+        private static void SetBinding(SerializedProperty binding, AttackSlot slot, Attack attack, Transform origin, bool repeat)
+        {
+            binding.FindPropertyRelative("slot").enumValueIndex = (int)slot;
+            binding.FindPropertyRelative("attack").objectReferenceValue = attack;
+            binding.FindPropertyRelative("origin").objectReferenceValue = origin;
+            binding.FindPropertyRelative("repeatWhileHeld").boolValue = repeat;
         }
 
         private Combatant Target(string name, Vector3 position, Faction faction)
