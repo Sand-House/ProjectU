@@ -18,6 +18,7 @@ MonoBehaviour:
   windupTime: 0
   recoveryTime: 0
   cooldown: 0.1
+  repeatWhileHeld: 1
   targetRule: 0
   hitMask:
     serializedVersion: 2

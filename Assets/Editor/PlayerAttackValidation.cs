@@ -108,11 +108,11 @@ namespace ProjectU.Editor
                 secondaryAttack != grenadeAttack && input.GetComponents<Attack>().Length == 3,
                 "three distinct saved attack components");
             Check(launcher.AttackBindings.Count == 3 &&
-                launcher.GetBinding(AttackSlot.PrimaryFire).RepeatWhileHeld &&
-                launcher.GetBinding(AttackSlot.SecondaryFire).RepeatWhileHeld &&
-                !launcher.GetBinding(AttackSlot.Skill1).RepeatWhileHeld &&
+                primaryAttack.Data.RepeatWhileHeld &&
+                secondaryAttack.Data.RepeatWhileHeld &&
+                !grenadeAttack.Data.RepeatWhileHeld &&
                 launcher.GetBinding(AttackSlot.Skill2) == null && launcher.GetBinding(AttackSlot.Ultimate) == null,
-                "saved prefab bindings retain repeat policies and leave unused slots empty");
+                "saved attack assets retain repeat policies and unused slots remain empty");
             Check(primaryAttack.Data.name == "TempPrimaryFire" && primaryAttack.Data.Damage == 30f &&
                 secondaryAttack.Data.name == "TempSecondaryFire" && secondaryAttack.Data.Damage == 50f &&
                 grenadeAttack.Data.name == "TempGrenade" && grenadeAttack.Data.Damage == 100f,
@@ -299,7 +299,9 @@ namespace ProjectU.Editor
             SetData(melee, meleeData);
             var rangedData = (HitscanAttackData)TimedData(primaryData, 0.1f);
             SetData(ranged, rangedData);
-            SetData(projectile, secondaryData);
+            var projectileData = Instantiate(secondaryData);
+            SetRepeat(projectileData, false);
+            SetData(projectile, projectileData);
             var serializedProjectile = new SerializedObject(projectile);
             serializedProjectile.FindProperty("pool").objectReferenceValue = pool;
             serializedProjectile.ApplyModifiedPropertiesWithoutUndo();
@@ -310,9 +312,9 @@ namespace ProjectU.Editor
             configuration.FindProperty("aimCamera").objectReferenceValue = camera;
             SerializedProperty bindings = configuration.FindProperty("attackBindings");
             bindings.arraySize = 3;
-            SetBinding(bindings.GetArrayElementAtIndex(0), AttackSlot.PrimaryFire, melee, meleeOrigin, false);
-            SetBinding(bindings.GetArrayElementAtIndex(1), AttackSlot.Skill2, ranged, handOrigin, true);
-            SetBinding(bindings.GetArrayElementAtIndex(2), AttackSlot.Ultimate, projectile, shoulderOrigin, false);
+            SetBinding(bindings.GetArrayElementAtIndex(0), AttackSlot.PrimaryFire, melee, meleeOrigin);
+            SetBinding(bindings.GetArrayElementAtIndex(1), AttackSlot.Skill2, ranged, handOrigin);
+            SetBinding(bindings.GetArrayElementAtIndex(2), AttackSlot.Ultimate, projectile, shoulderOrigin);
             configuration.ApplyModifiedPropertiesWithoutUndo();
             var executedSlots = new List<AttackSlot>();
             alternativeLauncher.AttackExecuted += slot => executedSlots.Add(slot);
@@ -340,6 +342,20 @@ namespace ProjectU.Editor
                 "Skill2 reads F and can repeat from Held alone");
             Check(Vector3.Distance(ranged.LastAttackPosition, handOrigin.position) < 0.001f && ranged.DamageMultiplier == 1f,
                 "Skill2 uses its hand origin and default multiplier without PlayerStat");
+
+            // Only the runtime data copy changes; bindings and saved assets stay untouched.
+            SetRepeat(rangedData, false);
+            yield return new WaitForSeconds(0.1f);
+            int nonRepeatingShots = executedSlots.FindAll(slot => slot == AttackSlot.Skill2).Count;
+            yield return new WaitForSeconds(0.25f);
+            Check(executedSlots.FindAll(slot => slot == AttackSlot.Skill2).Count == nonRepeatingShots,
+                "changing AttackData repeat policy stops held requests after pending windup completes");
+            alternativePressMask = 16;
+            yield return new WaitForSeconds(0.15f);
+            Check(executedSlots.FindAll(slot => slot == AttackSlot.Skill2).Count == nonRepeatingShots + 1,
+                "press still executes once with the same binding and nonrepeating AttackData");
+            Check(!meleeData.RepeatWhileHeld && primaryData.RepeatWhileHeld && secondaryData.RepeatWhileHeld,
+                "new attack data defaults to press-only and runtime copies preserve original asset policies");
 
             alternativeHeldMask = 0;
             yield return new WaitForSeconds(0.1f);
@@ -372,6 +388,7 @@ namespace ProjectU.Editor
             pool.ReturnAll();
             Destroy(meleeData);
             Destroy(rangedData);
+            Destroy(projectileData);
         }
 
         private void Update()
@@ -407,12 +424,18 @@ namespace ProjectU.Editor
             return marker;
         }
 
-        private static void SetBinding(SerializedProperty binding, AttackSlot slot, Attack attack, Transform origin, bool repeat)
+        private static void SetBinding(SerializedProperty binding, AttackSlot slot, Attack attack, Transform origin)
         {
             binding.FindPropertyRelative("slot").enumValueIndex = (int)slot;
             binding.FindPropertyRelative("attack").objectReferenceValue = attack;
             binding.FindPropertyRelative("origin").objectReferenceValue = origin;
-            binding.FindPropertyRelative("repeatWhileHeld").boolValue = repeat;
+        }
+
+        private static void SetRepeat(AttackData data, bool repeat)
+        {
+            var serialized = new SerializedObject(data);
+            serialized.FindProperty("repeatWhileHeld").boolValue = repeat;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private Combatant Target(string name, Vector3 position, Faction faction)

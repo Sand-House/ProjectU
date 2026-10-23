@@ -75,11 +75,12 @@ namespace ProjectU
             Vector3 point = GetAimPoint();
             foreach (PlayerAttackBinding binding in attackBindings)
             {
-                if (binding.Attack == null) continue;
-                Prepare(binding.Attack, point);
+                Attack attack = binding.Attack;
+                if (attack == null || attack.Data == null) continue;
+                Prepare(attack, point);
                 ButtonInputState state = ReadInput(binding.Slot);
-                if (state.Pressed || (binding.RepeatWhileHeld && state.Held))
-                    binding.Attack.TryAttack(binding.Origin, point);
+                if (state.Pressed || (attack.Data.RepeatWhileHeld && state.Held))
+                    attack.TryAttack(binding.Origin, point);
             }
         }
 

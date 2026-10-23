@@ -1991,15 +1991,12 @@ MonoBehaviour:
   - slot: 0
     attack: {fileID: 1295477706}
     origin: {fileID: 962656585}
-    repeatWhileHeld: 1
   - slot: 1
     attack: {fileID: 1295477707}
     origin: {fileID: 962656585}
-    repeatWhileHeld: 1
   - slot: 2
     attack: {fileID: 1295477708}
     origin: {fileID: 962656585}
-    repeatWhileHeld: 0
   aimCamera: {fileID: 330585545}
   aimDistance: 100
 --- !u!114 &1295477700

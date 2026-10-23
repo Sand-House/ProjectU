@@ -12,11 +12,9 @@ namespace ProjectU
         [SerializeField] private AttackSlot slot;
         [SerializeField] private Attack attack;
         [SerializeField] private Transform origin;
-        [SerializeField] private bool repeatWhileHeld;
 
         public AttackSlot Slot => slot;
         public Attack Attack => attack;
         public Transform Origin => origin;
-        public bool RepeatWhileHeld => repeatWhileHeld;
     }
 }
