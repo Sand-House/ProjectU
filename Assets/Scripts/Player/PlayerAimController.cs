@@ -4,7 +4,7 @@ namespace ProjectU
 {
     // Runs after camera and Animator, before Launcher requests attacks and Attack executes.
     [DefaultExecutionOrder(75)]
-    [RequireComponent(typeof(PlayerAnimationController), typeof(PlayerProjectileLauncher), typeof(PlayerInputReader))]
+    [RequireComponent(typeof(PlayerAnimationController), typeof(PlayerAttackController), typeof(PlayerInputReader))]
     public sealed class PlayerAimController : MonoBehaviour
     {
         [SerializeField] private Animator animator;
@@ -17,7 +17,7 @@ namespace ProjectU
         [SerializeField, Range(0f, 90f)] private float maximumBodyAngle = 80f;
 
         private PlayerAnimationController animationController;
-        private PlayerProjectileLauncher launcher;
+        private PlayerAttackController launcher;
         private PlayerInputReader input;
         private Transform spine;
         private Transform chest;
@@ -34,7 +34,7 @@ namespace ProjectU
         private void Awake()
         {
             animationController = GetComponent<PlayerAnimationController>();
-            launcher = GetComponent<PlayerProjectileLauncher>();
+            launcher = GetComponent<PlayerAttackController>();
             input = GetComponent<PlayerInputReader>();
             if (animator == null || !animator.isHuman || weapon == null || leftGrip == null || muzzle == null)
             {

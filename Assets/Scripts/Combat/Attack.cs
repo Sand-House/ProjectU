@@ -5,7 +5,7 @@ namespace ProjectU
 {
     public enum AttackPhase { Ready, Windup, Recovery }
 
-    // Execute after camera (LateUpdate -100), aim (75), and the existing launcher (100).
+    // Execute after camera (LateUpdate -100), aim (75), and the player attack controller (100).
     [DefaultExecutionOrder(110)]
     [RequireComponent(typeof(Combatant))]
     public abstract class Attack : MonoBehaviour

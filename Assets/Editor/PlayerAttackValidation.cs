@@ -45,7 +45,7 @@ namespace ProjectU.Editor
     public sealed class PlayerAttackValidationDriver : MonoBehaviour
     {
         private PlayerInputReader input;
-        private PlayerProjectileLauncher launcher;
+        private PlayerAttackController launcher;
         private PlayerAimController aim;
         private HitscanAttack primaryAttack;
         private ProjectileAttack secondaryAttack;
@@ -94,7 +94,7 @@ namespace ProjectU.Editor
         private IEnumerator Validate()
         {
             input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();
-            launcher = input.GetComponent<PlayerProjectileLauncher>();
+            launcher = input.GetComponent<PlayerAttackController>();
             aim = input.GetComponent<PlayerAimController>();
             primaryAttack = launcher.GetBinding(AttackSlot.PrimaryFire).Attack as HitscanAttack;
             secondaryAttack = launcher.GetBinding(AttackSlot.SecondaryFire).Attack as ProjectileAttack;
@@ -294,7 +294,7 @@ namespace ProjectU.Editor
             var melee = actor.AddComponent<MeleeAttack>();
             var ranged = actor.AddComponent<HitscanAttack>();
             var projectile = actor.AddComponent<ProjectileAttack>();
-            var alternativeLauncher = actor.AddComponent<PlayerProjectileLauncher>();
+            var alternativeLauncher = actor.AddComponent<PlayerAttackController>();
             var meleeData = ScriptableObject.CreateInstance<MeleeAttackData>();
             SetData(melee, meleeData);
             var rangedData = (HitscanAttackData)TimedData(primaryData, 0.1f);

@@ -6,11 +6,12 @@ namespace ProjectU
 {
     [RequireComponent(typeof(PlayerInputReader))]
     [DefaultExecutionOrder(100)]
-    public sealed class PlayerProjectileLauncher : MonoBehaviour
+    public sealed class PlayerAttackController : MonoBehaviour
     {
         [SerializeField] private PlayerAttackBinding[] attackBindings = Array.Empty<PlayerAttackBinding>();
         [SerializeField] private Camera aimCamera;
-        [SerializeField, Min(1f)] private float aimDistance = 100f;
+        [SerializeField, Min(1f), Tooltip("Maximum camera-center aim-point search distance. Does not limit attack range.")]
+        private float aimDistance = 100f;
         private PlayerInputReader input;
         private PlayerStat stat;
         private readonly RaycastHit[] aimHits = new RaycastHit[32];
@@ -51,7 +52,7 @@ namespace ProjectU
         {
             if (aimCamera == null)
             {
-                Debug.LogError("PlayerProjectileLauncher requires an aim camera.", this);
+                Debug.LogError("PlayerAttackController requires an aim camera.", this);
                 return false;
             }
             var slots = new HashSet<AttackSlot>();
@@ -62,7 +63,7 @@ namespace ProjectU
                     binding.Attack == null || binding.Origin == null || binding.Attack.gameObject != gameObject ||
                     !slots.Add(binding.Slot) || !attacks.Add(binding.Attack))
                 {
-                    Debug.LogError("PlayerProjectileLauncher bindings require a unique slot, a unique Attack on this player and an origin.", this);
+                    Debug.LogError("PlayerAttackController bindings require a unique slot, a unique Attack on this player and an origin.", this);
                     return false;
                 }
             }

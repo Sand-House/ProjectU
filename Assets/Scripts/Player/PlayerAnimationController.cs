@@ -3,7 +3,7 @@ using UnityEngine;
 namespace ProjectU
 {
     [DefaultExecutionOrder(50)]
-    [RequireComponent(typeof(PlayerMotor), typeof(PlayerInputReader), typeof(PlayerProjectileLauncher))]
+    [RequireComponent(typeof(PlayerMotor), typeof(PlayerInputReader), typeof(PlayerAttackController))]
     public sealed class PlayerAnimationController : MonoBehaviour
     {
         private static readonly int MoveX = Animator.StringToHash("MoveX");
@@ -20,7 +20,7 @@ namespace ProjectU
 
         private PlayerMotor motor;
         private PlayerInputReader input;
-        private PlayerProjectileLauncher launcher;
+        private PlayerAttackController launcher;
         private float reloadRemaining;
         private bool animatorPaused;
 
@@ -30,7 +30,7 @@ namespace ProjectU
         {
             motor = GetComponent<PlayerMotor>();
             input = GetComponent<PlayerInputReader>();
-            launcher = GetComponent<PlayerProjectileLauncher>();
+            launcher = GetComponent<PlayerAttackController>();
             if (animator == null || !animator.isHuman || animator.runtimeAnimatorController == null)
             {
                 Debug.LogError("PlayerAnimationController requires a configured Humanoid Animator.", this);

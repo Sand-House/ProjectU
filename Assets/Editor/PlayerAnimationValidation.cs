@@ -105,7 +105,7 @@ namespace ProjectU.Editor
         private PlayerCameraController cameraController;
         private PlayerAnimationController animationController;
         private PlayerAimController aim;
-        private PlayerProjectileLauncher launcher;
+        private PlayerAttackController launcher;
         private HitscanAttackData alignmentAttackData;
         private ProjectilePool pool;
         private Animator animator;
@@ -136,7 +136,7 @@ namespace ProjectU.Editor
                 cameraController = UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>();
                 animationController = input.GetComponent<PlayerAnimationController>();
                 aim = input.GetComponent<PlayerAimController>();
-                launcher = input.GetComponent<PlayerProjectileLauncher>();
+                launcher = input.GetComponent<PlayerAttackController>();
                 pool = UnityEngine.Object.FindFirstObjectByType<ProjectilePool>();
                 animator = input.GetComponentInChildren<Animator>();
                 leftGrip = input.transform.Find("Soldier Visual/Prototype Rifle/Left Grip");

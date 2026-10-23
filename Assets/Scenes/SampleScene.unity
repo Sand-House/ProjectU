@@ -1986,7 +1986,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 810bdef62c39a4b4c94901ea221cd967, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerProjectileLauncher
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerAttackController
   attackBindings:
   - slot: 0
     attack: {fileID: 1295477706}
