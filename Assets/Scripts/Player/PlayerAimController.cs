@@ -65,9 +65,9 @@ namespace ProjectU
             if (Time.deltaTime <= 0f)
                 return;
             AimPoint = launcher.GetAimPoint();
-            bool aim = !animationController.IsReloading ||
+            bool aim = !animationController.IsThrowingGrenade && (!animationController.IsReloading ||
                 input.PrimaryFire.Pressed || input.PrimaryFire.Held ||
-                input.SecondaryFire.Pressed || input.SecondaryFire.Held;
+                input.SecondaryFire.Pressed || input.SecondaryFire.Held);
             if (aim)
             {
                 Vector3 bodyDirection = AimPoint - chest.position;

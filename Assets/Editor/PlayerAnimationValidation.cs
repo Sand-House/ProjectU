@@ -38,7 +38,10 @@ namespace ProjectU.Editor
                     !mask.GetHumanoidBodyPartActive(AvatarMaskBodyPart.Root) &&
                     !mask.GetHumanoidBodyPartActive(AvatarMaskBodyPart.LeftLeg) &&
                     !mask.GetHumanoidBodyPartActive(AvatarMaskBodyPart.RightLeg), "Upper-body mask excludes root/legs.");
-                Check(controller.animationClips.Distinct().Count() == 10, "All ten imported clips are used.");
+                Check(controller.animationClips.Distinct().Count() == 11, "All eleven imported clips are used.");
+                AnimationClip toss = controller.animationClips.Single(clip => clip.name == "Toss Grenade");
+                Check(toss.humanMotion && !toss.isLooping && toss.events.Length == 0,
+                    "Grenade clip is a one-shot Humanoid animation without launch events.");
                 foreach (Transform transform in UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsSortMode.None))
                     Check(GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(transform.gameObject) == 0,
                         "Missing script: " + transform.name);
@@ -96,6 +99,11 @@ namespace ProjectU.Editor
             public bool nearWall;
             public bool cameraFlick;
             public bool reloadPauseResumed;
+            public int grenades;
+            public bool grenadeAnimation;
+            public bool grenadeMovement;
+            public bool grenadePauseResumed;
+            public bool grenadeReturnedToAim;
             public List<string> screenshots = new List<string>();
         }
 
@@ -126,6 +134,8 @@ namespace ProjectU.Editor
         private bool finished;
         private bool positionedNearWall;
         private float pausedReloadTime;
+        private int grenadeRequestFrame;
+        private float pausedGrenadeTime;
 
         private void Start()
         {
@@ -166,6 +176,7 @@ namespace ProjectU.Editor
                 controller.FindProperty("logInput").boolValue = false;
                 controller.ApplyModifiedPropertiesWithoutUndo();
                 launcher.AttackExecuted += slot => { if (slot == AttackSlot.PrimaryFire) ValidateShot(); };
+                launcher.AttackExecuted += slot => { if (slot == AttackSlot.Skill1) ValidateGrenade(); };
                 report.unityVersion = Application.unityVersion;
                 phaseStarted = Time.time;
                 wallStarted = EditorApplication.timeSinceStartup;
@@ -317,6 +328,29 @@ namespace ProjectU.Editor
                         pauseFrames = 1;
                     }
                 }
+                if (phase == 27)
+                {
+                    SetInput("Move", Vector2.up);
+                    if (!shotRequested)
+                    {
+                        CharacterController character = input.GetComponent<CharacterController>();
+                        character.enabled = false;
+                        input.transform.position = new Vector3(0f, 1.05f, 0f);
+                        character.enabled = true;
+                        Physics.SyncTransforms();
+                        SetInput("Skill1", Pressed());
+                        grenadeRequestFrame = Time.frameCount;
+                        shotRequested = true;
+                    }
+                    if (elapsed > 0.35f && pauseFrames == 0)
+                    {
+                        Check(animationController.IsThrowingGrenade, "Grenade animation started before pause.");
+                        Time.timeScale = 0f;
+                        pauseFrames = 1;
+                    }
+                }
+                if (phase == 28)
+                    SetInput("Skill1", Held());
                 SetPrivate(cameraController, "<Yaw>k__BackingField", yaw);
                 SetPrivate(cameraController, "pitch", pitch);
             }
@@ -340,6 +374,43 @@ namespace ProjectU.Editor
             report.jumpDown |= phase == 19 && baseState == "Jump Down";
             report.firing |= upperState == "Firing Rifle";
             report.reload |= upperState == "Reloading";
+            report.grenadeAnimation |= upperState == "Toss Grenade";
+            if (phase == 27 && elapsed > 0.15f && pauseFrames == 0)
+            {
+                Check(report.grenades == 1 && animationController.IsThrowingGrenade && !animationController.IsReloading,
+                    "Successful E attack plays the toss and interrupts only visual reload.");
+                Check(baseState == "Locomotion" && motor.HorizontalVelocity.magnitude > 2f,
+                    "Grenade upper-body animation preserves movement.");
+                report.grenadeMovement = true;
+            }
+            if (phase == 27 && pauseFrames > 0)
+            {
+                pauseFrames++;
+                if (pauseFrames == 2)
+                    pausedGrenadeTime = animator.GetCurrentAnimatorStateInfo(1).normalizedTime;
+                if (pauseFrames >= 7)
+                {
+                    Check(Mathf.Abs(animator.GetCurrentAnimatorStateInfo(1).normalizedTime - pausedGrenadeTime) < 0.0001f,
+                        "Grenade animation freezes during pause.");
+                    Time.timeScale = 1f;
+                    NextPhase();
+                }
+                return;
+            }
+            if (phase == 28)
+            {
+                Check(report.grenades == 1, "Holding E does not repeat the grenade or animation.");
+                if (animationController.IsThrowingGrenade)
+                {
+                    Check(animator.GetCurrentAnimatorStateInfo(1).normalizedTime >= pausedGrenadeTime - 0.0001f,
+                        "Grenade animation resumes from its paused time.");
+                    report.grenadePauseResumed = true;
+                }
+                if (elapsed > 0.1f && !animationController.IsThrowingGrenade && upperState == "Rifle Aim")
+                {
+                    report.grenadeReturnedToAim = true;
+                }
+            }
             if (phase == 25 && pauseFrames > 0)
             {
                 pauseFrames++;
@@ -363,7 +434,9 @@ namespace ProjectU.Editor
             }
             if (phase == 20 && elapsed > 0.46f && elapsed < 0.60f)
                 Check(upperState == "Firing Rifle", "Actual fire animation interrupts the reload state.");
-            if (phase >= 7 && !animationController.IsReloading && phase != 21)
+            // A late E success clears reload after Aim already used that frame's reload pose.
+            if (phase >= 7 && !animationController.IsReloading && !animationController.IsThrowingGrenade && phase != 21 &&
+                !(phase == 27 && Time.frameCount == grenadeRequestFrame))
             {
                 float angle = Vector3.Angle(aim.Muzzle.forward, aim.AimPoint - aim.Muzzle.position);
                 report.maximumMuzzleAngle = Mathf.Max(report.maximumMuzzleAngle, angle);
@@ -412,19 +485,38 @@ namespace ProjectU.Editor
             if (observer != null && !captured &&
                 ((phase == 8 && elapsed > 0.15f) || (phase == 7 && elapsed > 0.15f) ||
                  (phase == 9 && elapsed > 0.15f) || (phase == 19 && elapsed > 0.30f) ||
-                 (phase == 20 && elapsed > 0.22f) || (phase == 23 && elapsed > 0.15f)))
+                 (phase == 20 && elapsed > 0.22f) || (phase == 23 && elapsed > 0.15f) ||
+                 (phase == 27 && elapsed > 0.25f)))
             {
                 Capture("phase-" + phase + "-" + baseState.Replace(" ", "-"));
                 captured = true;
             }
             float duration = phase == 0 ? 0.20f : phase <= 6 ? 0.40f : phase == 19 ? 1.1f : phase == 20 ? 0.75f : 0.30f;
-            if (elapsed >= duration)
+            if (elapsed >= duration && phase < 27)
             {
-                if (phase == 26)
-                    Complete();
-                else
-                    NextPhase();
+                NextPhase();
             }
+            if (phase == 28 && report.grenadeReturnedToAim)
+                Complete();
+        }
+
+        private void ValidateGrenade()
+        {
+            try
+            {
+                PlayerAttackBinding binding = launcher.GetBinding(AttackSlot.Skill1);
+                Check(phase == 27 && Time.frameCount == grenadeRequestFrame,
+                    "Grenade still launches in the E input frame without waiting for the animation.");
+                Check(binding.Origin == aim.Muzzle &&
+                    Vector3.Distance(binding.Attack.LastAttackPosition, aim.Muzzle.position) < 0.001f,
+                    "Grenade still launches from the existing same-frame Muzzle.");
+                Check(binding.Origin.localPosition == new Vector3(0f, 0f, 0.665f), "Muzzle local offset is unchanged.");
+                var data = (ProjectileAttackData)binding.Attack.Data;
+                Check(data.WindupTime == 0f && data.RecoveryTime == 0f && data.Cooldown == 0f && data.LaunchAngle == 12f,
+                    "Saved grenade timing and launch angle remain unchanged.");
+                report.grenades++;
+            }
+            catch (Exception exception) { Fail(exception); }
         }
 
         private void ValidateShot()
@@ -489,7 +581,7 @@ namespace ProjectU.Editor
         {
             AnimatorStateInfo state = animator.IsInTransition(layer)
                 ? animator.GetNextAnimatorStateInfo(layer) : animator.GetCurrentAnimatorStateInfo(layer);
-            foreach (string name in new[] { "Locomotion", "Jump Up", "Jump Loop", "Jump Down", "Rifle Aim", "Firing Rifle", "Reloading" })
+            foreach (string name in new[] { "Locomotion", "Jump Up", "Jump Loop", "Jump Down", "Rifle Aim", "Firing Rifle", "Reloading", "Toss Grenade" })
                 if (state.shortNameHash == Animator.StringToHash(name)) return name;
             return "Unknown";
         }
@@ -536,6 +628,8 @@ namespace ProjectU.Editor
                 report.reloadInterrupted && report.obstructedOrigin && report.pauseStable && report.nearWall && report.cameraFlick &&
                 report.reloadPauseResumed,
                 "All runtime scenarios passed.");
+            Check(report.grenades == 1 && report.grenadeAnimation && report.grenadeMovement &&
+                report.grenadePauseResumed && report.grenadeReturnedToAim, "Grenade visual-only connection passed.");
             File.WriteAllText("Logs/PlayerAnimationValidationReport.json", JsonUtility.ToJson(report, true));
             finished = true;
             Debug.Log("PLAYER ANIMATION VALIDATION PASSED: " + JsonUtility.ToJson(report));
@@ -560,6 +654,9 @@ namespace ProjectU.Editor
         private static ButtonInputState Pressed() => (ButtonInputState)typeof(ButtonInputState)
             .GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, null,
                 new[] { typeof(bool), typeof(bool), typeof(bool) }, null).Invoke(new object[] { true, true, false });
+        private static ButtonInputState Held() => (ButtonInputState)typeof(ButtonInputState)
+            .GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, null,
+                new[] { typeof(bool), typeof(bool), typeof(bool) }, null).Invoke(new object[] { false, true, false });
         private static void Check(bool condition, string message) => PlayerAnimationValidation.Check(condition, message);
     }
 

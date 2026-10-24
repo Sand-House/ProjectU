@@ -12,6 +12,8 @@ namespace ProjectU
         private static readonly int VerticalSpeed = Animator.StringToHash("VerticalSpeed");
         private static readonly int Fire = Animator.StringToHash("Fire");
         private static readonly int Reload = Animator.StringToHash("Reload");
+        private static readonly int Skill1 = Animator.StringToHash("Skill1");
+        private static readonly int TossGrenade = Animator.StringToHash("Toss Grenade");
 
         [SerializeField] private Animator animator;
         [SerializeField, Min(0f)] private float movementDampTime = 0.08f;
@@ -25,6 +27,9 @@ namespace ProjectU
         private bool animatorPaused;
 
         public bool IsReloading => reloadRemaining > 0f;
+        public bool IsThrowingGrenade => animator != null &&
+            (animator.GetCurrentAnimatorStateInfo(1).shortNameHash == TossGrenade ||
+             (animator.IsInTransition(1) && animator.GetNextAnimatorStateInfo(1).shortNameHash == TossGrenade));
 
         private void Awake()
         {
@@ -85,8 +90,18 @@ namespace ProjectU
 
         private void OnAttackExecuted(AttackSlot slot)
         {
+            if (slot == AttackSlot.Skill1)
+            {
+                // Visual playback only: the attack has already launched its grenade.
+                reloadRemaining = 0f;
+                animator.ResetTrigger(Fire);
+                animator.ResetTrigger(Reload);
+                animator.SetTrigger(Skill1);
+                return;
+            }
             if (slot != AttackSlot.PrimaryFire && slot != AttackSlot.SecondaryFire) return;
             reloadRemaining = 0f;
+            animator.ResetTrigger(Skill1);
             animator.ResetTrigger(Reload);
             animator.SetTrigger(Fire);
         }
