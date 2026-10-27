@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace ProjectU
@@ -46,6 +47,9 @@ namespace ProjectU
             Time.deltaTime > 0f && CanPerformActions && IsPositiveFinite(dashDistance) &&
             IsPositiveFinite(dashDuration) && IsPositiveFinite(dashDistance / dashDuration);
 
+        // Raised once after a dash has successfully entered its movement/action-lock state.
+        public event Action OnDashExecuted;
+
         private void Awake()
         {
             controller = GetComponent<CharacterController>();
@@ -83,6 +87,7 @@ namespace ProjectU
             dashPostDelayRemaining = NonNegativeFinite(dashPostDelay);
             dashBlockedFrame = Time.frameCount;
             jumpRequested = false;
+            OnDashExecuted?.Invoke();
             return true;
         }
 

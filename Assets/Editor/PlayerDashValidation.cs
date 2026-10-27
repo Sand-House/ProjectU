@@ -58,6 +58,8 @@ namespace ProjectU.Editor
         private bool fireHeld;
         private int executed;
         private int cancelled;
+        private int dashExecutions;
+        private bool dashEventStateValid = true;
         private double started;
         private readonly List<string> checks = new List<string>();
 
@@ -102,6 +104,11 @@ namespace ProjectU.Editor
                 settings.FindProperty("dashPostDelay").floatValue == 0.3f, "saved Inspector dash settings");
             SetField(input.GetComponent<PlayerController>(), "logInput", false);
             stamina.RecoveryRate = 0f;
+            motor.OnDashExecuted += () =>
+            {
+                dashExecutions++;
+                dashEventStateValid &= motor.IsDashing && !motor.CanPerformActions;
+            };
             attacks.AttackExecuted += slot => executed++;
             foreach (PlayerAttackBinding binding in attacks.AttackBindings)
                 binding.Attack.OnCancelled += () => cancelled++;
@@ -121,10 +128,13 @@ namespace ProjectU.Editor
                 Vector3 expected = Quaternion.Euler(0f, yaw, 0f) *
                     (direction == Vector2.zero ? Vector3.forward : new Vector3(direction.x, 0f, direction.y));
                 Vector3 before = input.transform.position;
+                int dashBaseline = dashExecutions;
                 dashPress = dashHeld = true;
                 yield return null;
                 Check(motor.IsDashing && !motor.CanPerformActions && stamina.Current == 75f,
                     "press starts one dash and consumes 25: " + direction);
+                Check(dashExecutions == dashBaseline + 1 && dashEventStateValid,
+                    "OnDashExecuted fires once after dash state is initialized: " + direction);
                 // Stop normal movement, then turn the camera mid-dash to prove direction is captured.
                 movement = Vector2.zero;
                 typeof(PlayerCameraController).GetProperty("Yaw").SetValue(cameraController, yaw + 80f);
@@ -136,7 +146,8 @@ namespace ProjectU.Editor
                 Check(motor.IsDashPostDelay && !motor.CanPerformActions, "post-delay blocks actions");
                 while (!motor.CanPerformActions) yield return null;
                 yield return new WaitForSeconds(0.1f);
-                Check(stamina.Current == 75f, "held Shift never repeats after recovery");
+                Check(stamina.Current == 75f && dashExecutions == dashBaseline + 1,
+                    "held Shift never repeats or emits another dash event after recovery");
                 dashHeld = false;
             }
 
@@ -154,6 +165,7 @@ namespace ProjectU.Editor
             Check(primary.TryAttack(attacks.GetBinding(AttackSlot.PrimaryFire).Origin,
                 attacks.GetAimPoint()), "pending attack accepted before dash");
             int baseline = executed;
+            int eventBaseline = dashExecutions;
             dashPress = dashHeld = otherActions = true;
             yield return null;
             yield return null;
@@ -162,6 +174,10 @@ namespace ProjectU.Editor
             Check(motor.VerticalSpeed <= 0f && stamina.Current == 75f && executed == baseline,
                 "dash wins over simultaneous jump, fire, grenade, reload and repeated Shift");
             while (motor.IsDashing) yield return null;
+            Animator animator = input.GetComponentInChildren<Animator>();
+            Check(animator.GetCurrentAnimatorStateInfo(1).IsName("Upper Body.Rifle Aim"),
+                "dash event transitions the upper-body animation to rifle aim");
+            float aimTime = animator.GetCurrentAnimatorStateInfo(1).normalizedTime;
             Vector3 recoveryStart = input.transform.position;
             movement = Vector2.right;
             float recoveryStarted = Time.time;
@@ -170,6 +186,9 @@ namespace ProjectU.Editor
                 Vector3.Distance(recoveryStart, input.transform.position) > 1f &&
                 executed == baseline && stamina.Current == 75f && !animationController.IsReloading,
                 "post-delay permits WASD only and rejects spam without spending stamina");
+            Check(dashExecutions == eventBaseline + 1 &&
+                animator.GetCurrentAnimatorStateInfo(1).normalizedTime > aimTime,
+                "rejected dash presses emit no event and rifle aim continues without restarting");
             otherActions = false;
             movement = Vector2.zero;
             dashHeld = false;
@@ -188,13 +207,15 @@ namespace ProjectU.Editor
             stamina.TryConsume(stamina.Current - 10f);
             float wait = stamina.RecoveryDelayRemaining;
             Vector3 insufficientStart = input.transform.position;
+            eventBaseline = dashExecutions;
             dashPress = true;
             yield return null;
             Vector3 insufficientDisplacement = input.transform.position - insufficientStart;
             insufficientDisplacement.y = 0f;
             Check(!motor.IsDashing && stamina.Current == 10f &&
                 insufficientDisplacement.magnitude < 0.02f &&
-                stamina.RecoveryDelayRemaining <= wait, "insufficient stamina rejects dash without displacement");
+                stamina.RecoveryDelayRemaining <= wait && dashExecutions == eventBaseline,
+                "insufficient stamina rejects dash without displacement or event");
 
             // CharacterController must stop at walls, even when duration is shorter than one frame.
             ResetPosition();
@@ -226,6 +247,9 @@ namespace ProjectU.Editor
             Vector3 pausePosition = input.transform.position;
             float remaining = GetField<float>(motor, "dashRemaining");
             Time.timeScale = 0f;
+            eventBaseline = dashExecutions;
+            Check(!motor.TryDash(Vector3.forward) && dashExecutions == eventBaseline,
+                "paused dash request emits no event");
             for (int i = 0; i < 4; i++) yield return null;
             Check(input.transform.position == pausePosition && GetField<float>(motor, "dashRemaining") == remaining &&
                 !motor.CanPerformActions, "pause freezes dash position and duration");
@@ -239,12 +263,46 @@ namespace ProjectU.Editor
                 "pause freezes post-delay");
             Time.timeScale = 1f;
             while (!motor.CanPerformActions) yield return null;
+
+            // An inactive visual component must unsubscribe, then synchronize on re-enable.
+            animationController.enabled = false;
+            animator.Play("Upper Body.Reloading", 1, 0f);
+            animator.Update(0f);
+            stamina.Recover(100f);
+            dashPress = true;
+            yield return null;
+            Check(animator.GetCurrentAnimatorStateInfo(1).IsName("Upper Body.Reloading"),
+                "disabled animation controller does not receive dash events");
+            animationController.enabled = true;
+            yield return new WaitForSeconds(0.08f);
+            Check(animator.GetCurrentAnimatorStateInfo(1).IsName("Upper Body.Rifle Aim"),
+                "reenabled animation controller synchronizes an ongoing dash");
+            while (!motor.CanPerformActions) yield return null;
+
+            // The event may arrive before Animation.Update re-enables a paused Animator.
+            reloadPress = true;
+            yield return null;
+            yield return null;
+            Check(animationController.IsReloading, "reload begins before paused dash-event probe");
+            Time.timeScale = 0f;
+            for (int i = 0; i < 3; i++) yield return null;
+            stamina.Recover(100f);
+            dashPress = true;
+            Time.timeScale = 1f;
+            yield return new WaitForSeconds(0.08f);
+            Check(!animationController.IsReloading && animator.enabled &&
+                animator.GetCurrentAnimatorStateInfo(1).IsName("Upper Body.Rifle Aim"),
+                "dash event on the resume frame cancels reload and restores rifle aim");
+            while (!motor.CanPerformActions) yield return null;
             stamina.Recover(100f);
             dashPress = true;
             yield return null;
             motor.enabled = false;
             Check(!motor.IsDashing && !motor.IsDashPostDelay && motor.CanPerformActions,
                 "disabling motor clears dash and action lock");
+            eventBaseline = dashExecutions;
+            Check(!motor.TryDash(Vector3.forward) && dashExecutions == eventBaseline,
+                "disabled motor rejects dash without an event");
             Time.captureDeltaTime = 0f;
         }
 

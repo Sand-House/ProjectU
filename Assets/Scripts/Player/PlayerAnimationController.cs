@@ -24,7 +24,6 @@ namespace ProjectU
         private PlayerAttackController launcher;
         private float reloadRemaining;
         private bool animatorPaused;
-        private bool dashActionsBlocked;
 
         public bool IsReloading => reloadRemaining > 0f;
 
@@ -48,6 +47,13 @@ namespace ProjectU
         {
             if (launcher != null)
                 launcher.AttackExecuted += OnAttackExecuted;
+            if (motor != null)
+            {
+                motor.OnDashExecuted += OnDashExecuted;
+                // Catch up if this visual component was disabled when the dash began.
+                if (!motor.CanPerformActions)
+                    OnDashExecuted();
+            }
         }
 
         private void Update()
@@ -74,19 +80,8 @@ namespace ProjectU
             animator.SetFloat(MoveZ, localVelocity.z / speed, movementDampTime, Time.deltaTime);
             animator.SetBool(Grounded, motor.IsGrounded);
             animator.SetFloat(VerticalSpeed, motor.VerticalSpeed);
-            if (!motor.CanPerformActions)
-            {
-                reloadRemaining = 0f;
-                animator.ResetTrigger(Fire);
-                animator.ResetTrigger(Reload);
-                if (!dashActionsBlocked)
-                    animator.CrossFadeInFixedTime(RifleAim, 0.05f, 1);
-                dashActionsBlocked = true;
-                return;
-            }
-            dashActionsBlocked = false;
             reloadRemaining = Mathf.Max(0f, reloadRemaining - Time.deltaTime);
-            if (input.Reload.Pressed && !IsReloading &&
+            if (motor.CanPerformActions && input.Reload.Pressed && !IsReloading &&
                 !input.PrimaryFire.Pressed && !input.PrimaryFire.Held &&
                 !input.SecondaryFire.Pressed && !input.SecondaryFire.Held)
             {
@@ -104,12 +99,21 @@ namespace ProjectU
             animator.SetTrigger(Fire);
         }
 
+        private void OnDashExecuted()
+        {
+            reloadRemaining = 0f;
+            animator.ResetTrigger(Fire);
+            animator.ResetTrigger(Reload);
+            animator.CrossFadeInFixedTime(RifleAim, 0.05f, 1);
+        }
+
         private void OnDisable()
         {
             if (launcher != null)
                 launcher.AttackExecuted -= OnAttackExecuted;
+            if (motor != null)
+                motor.OnDashExecuted -= OnDashExecuted;
             reloadRemaining = 0f;
-            dashActionsBlocked = false;
             if (animatorPaused && animator != null)
             {
                 animator.enabled = true;
