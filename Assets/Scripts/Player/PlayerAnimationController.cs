@@ -12,6 +12,7 @@ namespace ProjectU
         private static readonly int VerticalSpeed = Animator.StringToHash("VerticalSpeed");
         private static readonly int Fire = Animator.StringToHash("Fire");
         private static readonly int Reload = Animator.StringToHash("Reload");
+        private static readonly int RifleAim = Animator.StringToHash("Upper Body.Rifle Aim");
 
         [SerializeField] private Animator animator;
         [SerializeField, Min(0f)] private float movementDampTime = 0.08f;
@@ -23,6 +24,7 @@ namespace ProjectU
         private PlayerAttackController launcher;
         private float reloadRemaining;
         private bool animatorPaused;
+        private bool dashActionsBlocked;
 
         public bool IsReloading => reloadRemaining > 0f;
 
@@ -72,6 +74,17 @@ namespace ProjectU
             animator.SetFloat(MoveZ, localVelocity.z / speed, movementDampTime, Time.deltaTime);
             animator.SetBool(Grounded, motor.IsGrounded);
             animator.SetFloat(VerticalSpeed, motor.VerticalSpeed);
+            if (!motor.CanPerformActions)
+            {
+                reloadRemaining = 0f;
+                animator.ResetTrigger(Fire);
+                animator.ResetTrigger(Reload);
+                if (!dashActionsBlocked)
+                    animator.CrossFadeInFixedTime(RifleAim, 0.05f, 1);
+                dashActionsBlocked = true;
+                return;
+            }
+            dashActionsBlocked = false;
             reloadRemaining = Mathf.Max(0f, reloadRemaining - Time.deltaTime);
             if (input.Reload.Pressed && !IsReloading &&
                 !input.PrimaryFire.Pressed && !input.PrimaryFire.Held &&
@@ -96,6 +109,7 @@ namespace ProjectU
             if (launcher != null)
                 launcher.AttackExecuted -= OnAttackExecuted;
             reloadRemaining = 0f;
+            dashActionsBlocked = false;
             if (animatorPaused && animator != null)
             {
                 animator.enabled = true;

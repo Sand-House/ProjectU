@@ -66,6 +66,12 @@ namespace ProjectU.Editor
                 stamina = input.GetComponent<PlayerStamina>();
                 stat = input.GetComponent<PlayerStat>();
                 motor = input.GetComponent<PlayerMotor>();
+                // Isolate resource timing from the full dash/post-delay validation.
+                var motorSettings = new SerializedObject(motor);
+                motorSettings.FindProperty("dashDistance").floatValue = 0.1f;
+                motorSettings.FindProperty("dashDuration").floatValue = 0.01f;
+                motorSettings.FindProperty("dashPostDelay").floatValue = 0f;
+                motorSettings.ApplyModifiedPropertiesWithoutUndo();
                 Check(stamina != null && stat != null && stamina.enabled, "Saved scene resource components.");
                 foreach (Transform item in UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsSortMode.None))
                     Check(GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(item.gameObject) == 0, "Missing script: " + item.name);
@@ -188,7 +194,9 @@ namespace ProjectU.Editor
                     Check(stamina.Current == 75f, "Press consumes once; holding does not repeat.");
                     if (frames == 3)
                     {
-                        Check(Vector3.Distance(initialPosition, input.transform.position) < 0.01f, "Shift adds no dash displacement.");
+                        Vector3 displacement = input.transform.position - initialPosition;
+                        displacement.y = 0f;
+                        Check(Mathf.Abs(displacement.magnitude - 0.1f) < 0.02f, "Shift also requests the configured dash displacement.");
                         phase = 2;
                         phaseTime = Time.time;
                     }
@@ -246,7 +254,7 @@ namespace ProjectU.Editor
                     stat.MoveSpeed = 3f;
                     Check(motor.MoveSpeed == 3f, "Motor uses PlayerStat.MoveSpeed.");
                     Check(notifications >= 4, "Resource changes emit notifications.");
-                    Debug.Log("PLAYER STAMINA VALIDATION PASSED: six stats, scene references, both Shift bindings, press/hold, insufficient/invalid consumption, recovery delay/reset/rate/clamp, pause/resume, max changes, Inspector starting amount, events, movement-speed source, no dash displacement.");
+                    Debug.Log("PLAYER STAMINA VALIDATION PASSED: six stats, scene references, both Shift bindings, press/hold, insufficient/invalid consumption, recovery delay/reset/rate/clamp, pause/resume, max changes, Inspector starting amount, events, movement-speed source, configured dash displacement.");
                     finished = true;
                     PlayerStaminaValidation.Finish(0);
                 }

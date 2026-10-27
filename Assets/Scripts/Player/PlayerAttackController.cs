@@ -14,6 +14,7 @@ namespace ProjectU
         private float aimDistance = 100f;
         private PlayerInputReader input;
         private PlayerStat stat;
+        private PlayerMotor motor;
         private readonly RaycastHit[] aimHits = new RaycastHit[32];
         private readonly Dictionary<Attack, Action> executionHandlers = new Dictionary<Attack, Action>();
 
@@ -31,6 +32,7 @@ namespace ProjectU
         {
             input = GetComponent<PlayerInputReader>();
             stat = GetComponent<PlayerStat>();
+            motor = GetComponent<PlayerMotor>();
         }
 
         private void OnEnable()
@@ -72,6 +74,12 @@ namespace ProjectU
 
         private void LateUpdate()
         {
+            if (motor != null && !motor.CanPerformActions)
+            {
+                foreach (PlayerAttackBinding binding in attackBindings)
+                    if (binding.Attack != null) binding.Attack.CancelAttack();
+                return;
+            }
             if (Time.deltaTime <= 0f) return;
             Vector3 point = GetAimPoint();
             foreach (PlayerAttackBinding binding in attackBindings)
