@@ -14,6 +14,7 @@ namespace ProjectU
         private static readonly int Reload = Animator.StringToHash("Reload");
         private static readonly int Skill1 = Animator.StringToHash("Skill1");
         private static readonly int TossGrenade = Animator.StringToHash("Toss Grenade");
+        private static readonly int RifleAim = Animator.StringToHash("Upper Body.Rifle Aim");
 
         [SerializeField] private Animator animator;
         [SerializeField, Min(0f)] private float movementDampTime = 0.08f;
@@ -51,6 +52,13 @@ namespace ProjectU
         {
             if (launcher != null)
                 launcher.AttackExecuted += OnAttackExecuted;
+            if (motor != null)
+            {
+                motor.OnDashExecuted += OnDashExecuted;
+                // Catch up if this visual component was disabled when the dash began.
+                if (!motor.CanPerformActions)
+                    OnDashExecuted();
+            }
         }
 
         private void Update()
@@ -78,7 +86,7 @@ namespace ProjectU
             animator.SetBool(Grounded, motor.IsGrounded);
             animator.SetFloat(VerticalSpeed, motor.VerticalSpeed);
             reloadRemaining = Mathf.Max(0f, reloadRemaining - Time.deltaTime);
-            if (input.Reload.Pressed && !IsReloading &&
+            if (motor.CanPerformActions && input.Reload.Pressed && !IsReloading &&
                 !input.PrimaryFire.Pressed && !input.PrimaryFire.Held &&
                 !input.SecondaryFire.Pressed && !input.SecondaryFire.Held)
             {
@@ -106,10 +114,21 @@ namespace ProjectU
             animator.SetTrigger(Fire);
         }
 
+        private void OnDashExecuted()
+        {
+            reloadRemaining = 0f;
+            animator.ResetTrigger(Fire);
+            animator.ResetTrigger(Reload);
+            animator.ResetTrigger(Skill1);
+            animator.CrossFadeInFixedTime(RifleAim, 0.05f, 1);
+        }
+
         private void OnDisable()
         {
             if (launcher != null)
                 launcher.AttackExecuted -= OnAttackExecuted;
+            if (motor != null)
+                motor.OnDashExecuted -= OnDashExecuted;
             reloadRemaining = 0f;
             if (animatorPaused && animator != null)
             {

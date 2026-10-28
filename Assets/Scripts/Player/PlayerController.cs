@@ -11,7 +11,7 @@ namespace ProjectU
         [SerializeField] private bool logInput = true;
         [SerializeField, Min(0.1f), Tooltip("Seconds between held-input logs for each action.")]
         private float heldLogInterval = 0.5f;
-        [SerializeField, Min(0f), Tooltip("Stamina consumed per Dash press. Dash movement is not implemented yet.")]
+        [SerializeField, Min(0f), Tooltip("Stamina consumed per successful dash. Zero allows a free dash.")]
         private float dashStaminaCost = 25f;
 
         private PlayerInputReader input;
@@ -36,14 +36,19 @@ namespace ProjectU
             Quaternion heading = Quaternion.Euler(0f, playerCamera.Yaw, 0f);
             Vector3 moveDirection = heading * new Vector3(input.Move.x, 0f, input.Move.y);
             motor.SetMoveCommand(moveDirection, playerCamera.Yaw);
-            if (input.Jump.Pressed)
+            // A dash wins over other actions pressed on the same frame.
+            if (input.Dash.Pressed && motor.CanDash &&
+                (dashStaminaCost == 0f || stamina.TryConsume(dashStaminaCost)))
+            {
+                Vector3 dashDirection = moveDirection.sqrMagnitude > 0.0001f ? moveDirection : heading * Vector3.forward;
+                motor.TryDash(dashDirection);
+                if (logInput)
+                    Debug.Log($"[Player Dash] Started; stamina {stamina.Current}/{stamina.Max}", this);
+            }
+            if (input.Jump.Pressed && motor.CanPerformActions)
                 motor.RequestJump();
 
-            // Resource-only preview: no dash movement, invincibility or cooldown.
-            if (input.Dash.Pressed && Time.deltaTime > 0f && stamina.TryConsume(dashStaminaCost) && logInput)
-                Debug.Log($"[Player Stamina] Consumed {dashStaminaCost}: {stamina.Current}/{stamina.Max}", this);
-
-            if (!logInput)
+            if (!logInput || !motor.CanPerformActions)
                 return;
 
             Handle(input.Jump, "Jump (Space)", 0);

@@ -1848,6 +1848,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerMotor
   jumpHeight: 1.5
   gravity: 25
+  dashDistance: 5
+  dashDuration: 0.2
+  dashPostDelay: 0.3
 --- !u!114 &1295477693
 MonoBehaviour:
   m_ObjectHideFlags: 0
