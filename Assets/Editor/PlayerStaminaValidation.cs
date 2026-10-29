@@ -68,7 +68,7 @@ namespace ProjectU.Editor
                 motor = input.GetComponent<PlayerMotor>();
                 // Isolate resource timing from the full dash/post-delay validation.
                 var motorSettings = new SerializedObject(motor);
-                motorSettings.FindProperty("dashDistance").floatValue = 0.1f;
+                stat.DashDistance = 0.1f;
                 motorSettings.FindProperty("dashDuration").floatValue = 0.01f;
                 motorSettings.FindProperty("dashPostDelay").floatValue = 0f;
                 motorSettings.ApplyModifiedPropertiesWithoutUndo();
@@ -255,7 +255,7 @@ namespace ProjectU.Editor
                     stat.MoveSpeed = 3f;
                     Check(motor.MoveSpeed == 3f, "Motor uses PlayerStat.MoveSpeed.");
                     Check(notifications >= 4, "Resource changes emit notifications.");
-                    Debug.Log("PLAYER STAMINA VALIDATION PASSED: six stats, scene references, both Shift bindings, press/hold, insufficient/invalid consumption, recovery delay/reset/rate/clamp, pause/resume, max changes, Inspector starting amount, events, movement-speed source, configured dash displacement.");
+            Debug.Log("PLAYER STAMINA VALIDATION PASSED: stats, scene references, both Shift bindings, press/hold, insufficient/invalid consumption, recovery delay/reset/rate/clamp, pause/resume, max changes, Inspector starting amount, events, movement-speed source, configured dash displacement.");
                     finished = true;
                     PlayerStaminaValidation.Finish(0);
                 }

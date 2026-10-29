@@ -1848,7 +1848,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerMotor
   jumpHeight: 1.5
   gravity: 25
-  dashDistance: 5
   dashDuration: 0.2
   dashPostDelay: 0.3
 --- !u!114 &1295477693
@@ -2036,7 +2035,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerAnimationController
   animator: {fileID: 220890195}
   movementDampTime: 0.08
-  reloadPreviewDuration: 3.3
 --- !u!114 &1295477702
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2055,6 +2053,9 @@ MonoBehaviour:
   attackSpeed: 1
   moveSpeed: 6
   maxMagazine: 30
+  reloadDuration: 3.3
+  reloadSpeedMultiplier: 1
+  dashDistance: 5
 --- !u!114 &1295477703
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -170,14 +170,18 @@ namespace ProjectU.Editor
 
             pressMask = 8;
             yield return new WaitForSeconds(0.08f);
-            Check(animationController.IsReloading, "visual reload can start");
+            Check(animationController.IsReloading, "partial magazine reload can start");
+            pressMask = 2;
+            yield return new WaitForSeconds(0.1f);
+            Check(secondaryShots == 0 && animationController.IsReloading, "secondary is blocked during reload");
+            launcher.CancelReload();
             pressMask = 2;
             yield return new WaitForSeconds(0.2f + 4f / bulletData.ProjectilePrefab.Speed);
             Check(primaryShots == 1 && secondaryShots == 1 && grenades == 0 && weaponShots == 2,
                 "right click launches only secondary bullet and gun animation event");
             Check(enemy.Mortal.HP == 120 && friendly.Mortal.HP == 200,
                 "secondary applies exactly 50 damage and passes friendly");
-            Check(!animationController.IsReloading, "secondary interrupts visual reload");
+            Check(!animationController.IsReloading, "secondary works after reload cancellation");
             Check(!secondaryAttack.LastProjectile.IsActive, "secondary bullet returns after enemy impact");
             Check(Vector3.Distance(secondaryAttack.LastAttackPosition, muzzle) < 0.001f,
                 "secondary receives actual muzzle position from launcher");
@@ -241,15 +245,21 @@ namespace ProjectU.Editor
             Check(animationController.IsReloading, "reload starts before held-only fire");
             // No Pressed snapshot: each weapon must continue from Held alone.
             heldMask = 3;
+            int reloadPrimary = primaryShots;
+            int reloadSecondary = secondaryShots;
+            yield return new WaitForSeconds(0.15f);
+            Check(primaryShots == reloadPrimary && secondaryShots == reloadSecondary && launcher.IsReloading,
+                "held fire cannot interrupt reload or execute either weapon");
+            launcher.CancelReload();
             yield return new WaitForSeconds(0.65f);
             Check(primaryTimes.Count >= 3 && secondaryTimes.Count >= 2,
                 "held-only primary and secondary both repeat without new presses");
-            Check(!animationController.IsReloading, "held fire interrupts visual reload");
+            Check(!animationController.IsReloading, "both weapons fire after reload cancellation");
             Check(RespectsTiming(primaryTimes, timedPrimary) && RespectsTiming(secondaryTimes, timedSecondary),
                 "held shots respect windup recovery and cooldown");
             pressMask = 8;
             yield return new WaitForSeconds(0.08f);
-            Check(!animationController.IsReloading, "held fire takes priority over reload input");
+            Check(!animationController.IsReloading, "active secondary fire prevents manual reload");
 
             Time.timeScale = 0f;
             int pausedPrimary = primaryShots;
@@ -284,7 +294,7 @@ namespace ProjectU.Editor
                 "dead player cannot execute pressed or held attacks");
             heldMask = 0;
 
-            // A second actor has no Soldier visual, animation, motor, stamina or stat component.
+            // A second actor only requires the shared PlayerStat, with no Soldier visuals or motor.
             var actor = new GameObject("Alternative Character");
             actor.SetActive(false);
             actor.transform.SetParent(root.transform);
@@ -324,7 +334,7 @@ namespace ProjectU.Editor
             Combatant rangedTarget = Target("Alternative Ranged Target", actor.transform.position + new Vector3(0f, 0.8f, 8f), Faction.Enemy);
             rangedTarget.Mortal.IsInvincible = true;
             Physics.SyncTransforms();
-            Check(alternativeLauncher.enabled && actor.GetComponent<Animator>() == null && actor.GetComponent<PlayerStat>() == null,
+            Check(alternativeLauncher.enabled && actor.GetComponent<Animator>() == null && actor.GetComponent<PlayerStat>() != null,
                 "same launcher works without Soldier components or mandatory attack slots");
 
             alternativePressMask = alternativeHeldMask = 1;
@@ -341,7 +351,7 @@ namespace ProjectU.Editor
             Check(executedSlots.Count >= 3 && executedSlots.FindAll(slot => slot == AttackSlot.Skill2).Count >= 2,
                 "Skill2 reads F and can repeat from Held alone");
             Check(Vector3.Distance(ranged.LastAttackPosition, handOrigin.position) < 0.001f && ranged.DamageMultiplier == 1f,
-                "Skill2 uses its hand origin and default multiplier without PlayerStat");
+                "Skill2 uses its hand origin and default PlayerStat multiplier");
 
             // Only the runtime data copy changes; bindings and saved assets stay untouched.
             SetRepeat(rangedData, false);

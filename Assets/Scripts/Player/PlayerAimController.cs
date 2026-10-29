@@ -4,7 +4,7 @@ namespace ProjectU
 {
     // Runs after camera and Animator, before Launcher requests attacks and Attack executes.
     [DefaultExecutionOrder(75)]
-    [RequireComponent(typeof(PlayerAnimationController), typeof(PlayerAttackController), typeof(PlayerInputReader))]
+    [RequireComponent(typeof(PlayerAnimationController), typeof(PlayerAttackController))]
     public sealed class PlayerAimController : MonoBehaviour
     {
         [SerializeField] private Animator animator;
@@ -18,7 +18,6 @@ namespace ProjectU
 
         private PlayerAnimationController animationController;
         private PlayerAttackController launcher;
-        private PlayerInputReader input;
         private Transform spine;
         private Transform chest;
         private Transform rightHand;
@@ -35,7 +34,6 @@ namespace ProjectU
         {
             animationController = GetComponent<PlayerAnimationController>();
             launcher = GetComponent<PlayerAttackController>();
-            input = GetComponent<PlayerInputReader>();
             if (animator == null || !animator.isHuman || weapon == null || leftGrip == null || muzzle == null)
             {
                 FailConfiguration();
@@ -65,9 +63,7 @@ namespace ProjectU
             if (Time.deltaTime <= 0f)
                 return;
             AimPoint = launcher.GetAimPoint();
-            bool aim = !animationController.IsThrowingGrenade && (!animationController.IsReloading ||
-                input.PrimaryFire.Pressed || input.PrimaryFire.Held ||
-                input.SecondaryFire.Pressed || input.SecondaryFire.Held);
+            bool aim = !animationController.IsThrowingGrenade && !animationController.IsReloading;
             if (aim)
             {
                 Vector3 bodyDirection = AimPoint - chest.position;

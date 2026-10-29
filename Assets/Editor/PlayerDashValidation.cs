@@ -101,7 +101,7 @@ namespace ProjectU.Editor
             attacks = input.GetComponent<PlayerAttackController>();
             cameraController = UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>();
             var settings = new SerializedObject(motor);
-            Check(settings.FindProperty("dashDistance").floatValue == 5f &&
+            Check(input.GetComponent<PlayerStat>().DashDistance == 5f &&
                 settings.FindProperty("dashDuration").floatValue == 0.2f &&
                 settings.FindProperty("dashPostDelay").floatValue == 0.3f, "saved Inspector dash settings");
             SetField(input.GetComponent<PlayerController>(), "logInput", false);
@@ -160,6 +160,7 @@ namespace ProjectU.Editor
             // Same-frame priority, pending attack/reload cancellation, spam and recovery movement.
             ResetPosition();
             stamina.Recover(100f);
+            SetField(attacks, "currentAmmo", attacks.MaxAmmo - 1);
             reloadPress = true;
             yield return null;
             yield return null;
@@ -169,14 +170,15 @@ namespace ProjectU.Editor
             SetField(windupData, "windupTime", 0.1f);
             SetField(primary, "data", windupData);
             Check(primary.TryAttack(attacks.GetBinding(AttackSlot.PrimaryFire).Origin,
-                attacks.GetAimPoint()), "pending attack accepted before dash");
+                attacks.GetAimPoint()) && primary.Phase != AttackPhase.Windup,
+                "reload immediately cancels a direct primary request");
             int baseline = executed;
             int eventBaseline = dashExecutions;
             dashPress = dashHeld = otherActions = true;
             yield return null;
             yield return null;
             Check(!animationController.IsReloading && primary.Phase != AttackPhase.Windup && cancelled == 1,
-                "dash cancels existing reload and pending windup");
+                "dash cancels reload after its primary guard rejected pending fire");
             Check(motor.VerticalSpeed <= 0f && stamina.Current == 75f && executed == baseline,
                 "dash wins over simultaneous jump, fire, grenade, reload and repeated Shift");
             while (motor.IsDashing) yield return null;
@@ -204,9 +206,16 @@ namespace ProjectU.Editor
             fireHeld = false;
             while (!motor.CanPerformActions) yield return null;
             stamina.Recover(100f);
+            while (!primary.CanAttack) yield return null;
+            Check(primary.TryAttack(attacks.GetBinding(AttackSlot.PrimaryFire).Origin, attacks.GetAimPoint()) &&
+                primary.Phase == AttackPhase.Windup, "primary windup is accepted after reload cancellation");
+            int cancellationsBeforeDash = cancelled;
             dashPress = true;
             yield return null;
             Check(motor.IsDashing && stamina.Current == 75f, "new press works after post-delay without extra cooldown");
+            yield return null;
+            Check(primary.Phase != AttackPhase.Windup && cancelled == cancellationsBeforeDash + 1,
+                "dash cancels a primary windup that was accepted outside reload");
             while (!motor.CanPerformActions) yield return null;
 
             ResetPosition();
@@ -277,7 +286,7 @@ namespace ProjectU.Editor
             // Capture distance/time settings at start, and freeze both phases when paused.
             ResetPosition();
             stamina.Recover(100f);
-            SetField(motor, "dashDistance", 3f);
+            input.GetComponent<PlayerStat>().DashDistance = 3f;
             SetField(motor, "dashDuration", 0.4f);
             SetField(motor, "dashPostDelay", 0.25f);
             dashPress = true;

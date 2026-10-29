@@ -16,6 +16,12 @@ namespace ProjectU
         [SerializeField, Min(0f), Tooltip("Horizontal movement speed in meters per second.")]
         private float moveSpeed = 6f;
         [SerializeField, Min(1)] private int maxMagazine = 30;
+        [SerializeField, Min(0.01f), Tooltip("Character's base reload duration in game seconds.")]
+        private float reloadDuration = 3.3f;
+        [SerializeField, Min(0.01f), Tooltip("Reload speed multiplier. Reload time is duration divided by this value.")]
+        private float reloadSpeedMultiplier = 1f;
+        [SerializeField, Min(0.01f), Tooltip("Dash distance in meters, before collision limits.")]
+        private float dashDistance = 5f;
 
         public float AttackMultiplier
         {
@@ -53,6 +59,20 @@ namespace ProjectU
             set => maxMagazine = Mathf.Max(1, value);
         }
 
+        public float ReloadDuration => reloadDuration;
+
+        public float ReloadSpeedMultiplier
+        {
+            get => reloadSpeedMultiplier;
+            set => reloadSpeedMultiplier = ClampFinite(value, 0.01f);
+        }
+
+        public float DashDistance
+        {
+            get => dashDistance;
+            set => dashDistance = ClampFinite(value, 0.01f);
+        }
+
         private void OnValidate()
         {
             AttackMultiplier = attackMultiplier;
@@ -61,6 +81,9 @@ namespace ProjectU
             AttackSpeed = attackSpeed;
             MoveSpeed = moveSpeed;
             MaxMagazine = maxMagazine;
+            reloadDuration = ClampFinite(reloadDuration, 0.01f);
+            ReloadSpeedMultiplier = reloadSpeedMultiplier;
+            DashDistance = dashDistance;
         }
 
         private static float ClampFinite(float value, float minimum)

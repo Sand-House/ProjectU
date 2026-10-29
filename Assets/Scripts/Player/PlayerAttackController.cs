@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace ProjectU
 {
-    [RequireComponent(typeof(PlayerInputReader))]
+    [RequireComponent(typeof(PlayerInputReader), typeof(PlayerStat))]
     [DefaultExecutionOrder(100)]
     public sealed class PlayerAttackController : MonoBehaviour
     {
@@ -15,11 +15,23 @@ namespace ProjectU
         private PlayerInputReader input;
         private PlayerStat stat;
         private PlayerMotor motor;
+        private int currentAmmo;
+        private float reloadWorkRemaining;
+        private int reloadBlockedFrame = -1;
         private readonly RaycastHit[] aimHits = new RaycastHit[32];
         private readonly Dictionary<Attack, Action> executionHandlers = new Dictionary<Attack, Action>();
+        private readonly Dictionary<Attack, Action> startHandlers = new Dictionary<Attack, Action>();
 
         public event Action<AttackSlot> AttackExecuted;
+        public event Action OnReloadStarted;
+        public event Action OnReloadCompleted;
         public IReadOnlyList<PlayerAttackBinding> AttackBindings => attackBindings;
+        public int CurrentAmmo => Mathf.Min(currentAmmo, MaxAmmo);
+        public int MaxAmmo => stat.MaxMagazine;
+        public bool IsReloading { get; private set; }
+        public float ReloadRemaining => IsReloading ? reloadWorkRemaining / stat.ReloadSpeedMultiplier : 0f;
+        public bool CanReload => isActiveAndEnabled && Time.timeScale > 0f && Time.deltaTime > 0f &&
+            !IsReloading && CurrentAmmo < MaxAmmo && CanUseWeapon() && !IsReloadBlocked();
 
         public PlayerAttackBinding GetBinding(AttackSlot slot)
         {
@@ -33,6 +45,7 @@ namespace ProjectU
             input = GetComponent<PlayerInputReader>();
             stat = GetComponent<PlayerStat>();
             motor = GetComponent<PlayerMotor>();
+            currentAmmo = MaxAmmo;
         }
 
         private void OnEnable()
@@ -44,10 +57,14 @@ namespace ProjectU
             }
             foreach (PlayerAttackBinding binding in attackBindings)
             {
-                Action handler = () => AttackExecuted?.Invoke(binding.Slot);
+                Action handler = () => OnAttackExecuted(binding.Slot);
                 executionHandlers.Add(binding.Attack, handler);
                 binding.Attack.OnExecuted += handler;
+                Action started = () => OnAttackStarted(binding);
+                startHandlers.Add(binding.Attack, started);
+                binding.Attack.OnStarted += started;
             }
+            if (motor != null) motor.OnDashExecuted += OnDashExecuted;
         }
 
         private bool ValidateBindings()
@@ -74,24 +91,122 @@ namespace ProjectU
 
         private void LateUpdate()
         {
-            if (motor != null && !motor.CanPerformActions)
+            currentAmmo = CurrentAmmo;
+            if (!CanUseWeapon())
             {
+                CancelReload();
                 foreach (PlayerAttackBinding binding in attackBindings)
                     if (binding.Attack != null) binding.Attack.CancelAttack();
                 return;
             }
-            if (Time.deltaTime <= 0f) return;
+            if (Time.timeScale <= 0f || Time.deltaTime <= 0f) return;
+            bool wasReloading = IsReloading;
             Vector3 point = GetAimPoint();
             foreach (PlayerAttackBinding binding in attackBindings)
             {
                 Attack attack = binding.Attack;
                 if (attack == null || attack.Data == null) continue;
                 Prepare(attack, point);
-                ButtonInputState state = ReadInput(binding.Slot);
-                if (state.Pressed || (attack.Data.RepeatWhileHeld && state.Held))
+                // Secondary fire and skills get to reserve their action before reload is checked.
+                if (binding.Slot == AttackSlot.PrimaryFire ||
+                    (IsReloading && binding.Slot == AttackSlot.SecondaryFire)) continue;
+                if (WantsAttack(binding))
                     attack.TryAttack(binding.Origin, point);
             }
+
+            if (IsReloading)
+            {
+                if (IsReloadBlocked()) CancelReload();
+                else
+                {
+                    // Measure work at base speed so live upgrades also match the animation speed.
+                    reloadWorkRemaining = Mathf.Max(0f, reloadWorkRemaining - Time.deltaTime * stat.ReloadSpeedMultiplier);
+                    if (reloadWorkRemaining <= 0f)
+                    {
+                        currentAmmo = MaxAmmo;
+                        IsReloading = false;
+                        OnReloadCompleted?.Invoke();
+                    }
+                }
+            }
+
+            // This is deliberately level-triggered: an empty magazine retries after every interruption.
+            if (input.Reload.Pressed || CurrentAmmo == 0) TryReload();
+            // Let Aim evaluate the restored pose before the first post-reload shot.
+            if (wasReloading || IsReloading || CurrentAmmo == 0) return;
+            PlayerAttackBinding primary = GetBinding(AttackSlot.PrimaryFire);
+            if (primary != null && primary.Attack.Data != null && WantsAttack(primary))
+                primary.Attack.TryAttack(primary.Origin, point);
         }
+
+        public bool TryReload()
+        {
+            if (!CanReload) return false;
+            GetBinding(AttackSlot.PrimaryFire).Attack.CancelAttack();
+            reloadWorkRemaining = stat.ReloadDuration;
+            IsReloading = true;
+            OnReloadStarted?.Invoke();
+            return true;
+        }
+
+        public bool CancelReload()
+        {
+            if (!IsReloading) return false;
+            IsReloading = false;
+            reloadWorkRemaining = 0f;
+            return true;
+        }
+
+        private bool CanUseWeapon()
+        {
+            if (motor != null && !motor.CanPerformActions) return false;
+            Attack primary = GetBinding(AttackSlot.PrimaryFire)?.Attack;
+            // Other attack slots can still be used by a character with no primary binding.
+            if (primary != null) return primary.Owner != null && primary.Owner.IsAlive;
+            Combatant owner = GetComponent<Combatant>();
+            return owner == null || owner.IsAlive;
+        }
+
+        private bool IsReloadBlocked()
+        {
+            if (GetBinding(AttackSlot.PrimaryFire)?.Attack == null || reloadBlockedFrame == Time.frameCount)
+                return true;
+            foreach (PlayerAttackBinding binding in attackBindings)
+                if (binding.Slot != AttackSlot.PrimaryFire && binding.Attack != null &&
+                    binding.Attack.isActiveAndEnabled && binding.Attack.Phase != AttackPhase.Ready)
+                    return true;
+            return false;
+        }
+
+        private bool WantsAttack(PlayerAttackBinding binding)
+        {
+            ButtonInputState state = ReadInput(binding.Slot);
+            return state.Pressed || (binding.Attack.Data.RepeatWhileHeld && state.Held);
+        }
+
+        private void OnAttackStarted(PlayerAttackBinding binding)
+        {
+            if (binding.Slot == AttackSlot.PrimaryFire || binding.Slot == AttackSlot.SecondaryFire)
+            {
+                if (IsReloading || (binding.Slot == AttackSlot.PrimaryFire && CurrentAmmo == 0))
+                {
+                    binding.Attack.CancelAttack();
+                    return;
+                }
+            }
+            if (binding.Slot == AttackSlot.PrimaryFire) return;
+            reloadBlockedFrame = Time.frameCount;
+            if (binding.Slot != AttackSlot.SecondaryFire) CancelReload();
+        }
+
+        private void OnAttackExecuted(AttackSlot slot)
+        {
+            if (slot == AttackSlot.PrimaryFire) currentAmmo = Mathf.Max(0, CurrentAmmo - 1);
+            else reloadBlockedFrame = Time.frameCount;
+            AttackExecuted?.Invoke(slot);
+        }
+
+        private void OnDashExecuted() => CancelReload();
 
         private ButtonInputState ReadInput(AttackSlot slot)
         {
@@ -144,6 +259,11 @@ namespace ProjectU
 
         private void OnDisable()
         {
+            CancelReload();
+            if (motor != null) motor.OnDashExecuted -= OnDashExecuted;
+            foreach (KeyValuePair<Attack, Action> subscription in startHandlers)
+                if (subscription.Key != null) subscription.Key.OnStarted -= subscription.Value;
+            startHandlers.Clear();
             foreach (KeyValuePair<Attack, Action> subscription in executionHandlers)
             {
                 if (subscription.Key == null) continue;

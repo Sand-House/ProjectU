@@ -15,8 +15,6 @@ namespace ProjectU
         private float gravity = 25f;
 
         [Header("Dash")]
-        [SerializeField, Min(0.01f), Tooltip("Dash distance in meters, before collision limits.")]
-        private float dashDistance = 5f;
         [SerializeField, Min(0.01f), Tooltip("Game seconds used to travel the dash distance.")]
         private float dashDuration = 0.2f;
         [SerializeField, Min(0f), Tooltip("Game seconds after the dash during which only movement is allowed.")]
@@ -44,8 +42,8 @@ namespace ProjectU
         // Keep every consumer blocked on the last frame containing dash/recovery time.
         public bool CanPerformActions => !IsDashing && !IsDashPostDelay && dashBlockedFrame != Time.frameCount;
         public bool CanDash => isActiveAndEnabled && controller != null && controller.enabled &&
-            Time.deltaTime > 0f && CanPerformActions && IsPositiveFinite(dashDistance) &&
-            IsPositiveFinite(dashDuration) && IsPositiveFinite(dashDistance / dashDuration);
+            Time.deltaTime > 0f && CanPerformActions && IsPositiveFinite(playerStat.DashDistance) &&
+            IsPositiveFinite(dashDuration) && IsPositiveFinite(playerStat.DashDistance / dashDuration);
 
         // Raised once after a dash has successfully entered its movement/action-lock state.
         public event Action OnDashExecuted;
@@ -82,7 +80,7 @@ namespace ProjectU
                 return false;
 
             dashDirection = worldDirection.normalized;
-            dashSpeed = dashDistance / dashDuration;
+            dashSpeed = playerStat.DashDistance / dashDuration;
             dashRemaining = dashDuration;
             dashPostDelayRemaining = NonNegativeFinite(dashPostDelay);
             dashBlockedFrame = Time.frameCount;
@@ -151,7 +149,6 @@ namespace ProjectU
         {
             jumpHeight = Mathf.Max(0f, jumpHeight);
             gravity = Mathf.Max(0.1f, gravity);
-            dashDistance = Mathf.Max(0.01f, NonNegativeFinite(dashDistance));
             dashDuration = Mathf.Max(0.01f, NonNegativeFinite(dashDuration));
             dashPostDelay = NonNegativeFinite(dashPostDelay);
         }

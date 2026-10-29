@@ -134,6 +134,7 @@ namespace ProjectU.Editor
         private bool finished;
         private bool positionedNearWall;
         private float pausedReloadTime;
+        private bool postReloadShotRequested;
         private int grenadeRequestFrame;
         private float pausedGrenadeTime;
 
@@ -252,9 +253,20 @@ namespace ProjectU.Editor
                     }
                     if (elapsed > 0.40f && !shotRequested)
                     {
-                        Check(animationController.IsReloading, "Reload visual is active before interrupting.");
+                        Check(animationController.IsReloading, "Reload is active before testing blocked fire.");
                         SetInput("PrimaryFire", Pressed());
                         shotRequested = true;
+                    }
+                    if (elapsed > 0.55f && !report.reloadInterrupted)
+                    {
+                        Check(animationController.IsReloading, "Primary input cannot interrupt reload.");
+                        launcher.CancelReload();
+                        report.reloadInterrupted = true;
+                    }
+                    if (elapsed > 0.65f && !postReloadShotRequested)
+                    {
+                        SetInput("PrimaryFire", Pressed());
+                        postReloadShotRequested = true;
                     }
                 }
                 if (phase == 21 && pauseFrames == 0)
@@ -432,8 +444,8 @@ namespace ProjectU.Editor
                     "Reload resumes from the saved time instead of restarting.");
                 report.reloadPauseResumed = true;
             }
-            if (phase == 20 && elapsed > 0.46f && elapsed < 0.60f)
-                Check(upperState == "Firing Rifle", "Actual fire animation interrupts the reload state.");
+            if (phase == 20 && elapsed > 0.46f && elapsed < 0.54f)
+                Check(upperState == "Reloading", "Blocked fire preserves the reload animation.");
             // A late E success clears reload after Aim already used that frame's reload pose.
             if (phase >= 7 && !animationController.IsReloading && !animationController.IsThrowingGrenade && phase != 21 &&
                 !(phase == 27 && Time.frameCount == grenadeRequestFrame))
@@ -539,8 +551,7 @@ namespace ProjectU.Editor
                 report.shots++;
                 if (phase == 20)
                 {
-                    Check(!animationController.IsReloading, "Shot interrupts visual reload.");
-                    report.reloadInterrupted = true;
+                    Check(!animationController.IsReloading, "Shot works after explicit reload cancellation.");
                 }
                 if (phase == 22)
                 {
