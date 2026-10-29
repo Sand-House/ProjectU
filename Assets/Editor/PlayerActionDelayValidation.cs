@@ -1,0 +1,297 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Reflection;
+using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+
+namespace ProjectU.Editor
+{
+    [InitializeOnLoad]
+    public static class PlayerActionDelayValidation
+    {
+        private const string Running = "ProjectU.PlayerActionDelayValidation";
+
+        static PlayerActionDelayValidation()
+        {
+            EditorApplication.playModeStateChanged += state =>
+            {
+                if (state == PlayModeStateChange.EnteredPlayMode && SessionState.GetBool(Running, false))
+                    new GameObject("Player Action Delay Validation Driver").AddComponent<PlayerActionDelayValidationDriver>();
+            };
+        }
+
+        [MenuItem("ProjectU/Validation/Validate Player Action Delay")]
+        public static void Run()
+        {
+            EditorSceneManager.OpenScene("Assets/Scenes/SampleScene.unity");
+            SessionState.SetBool(Running, true);
+            EditorApplication.EnterPlaymode();
+        }
+
+        internal static void Finish(int code)
+        {
+            SessionState.SetBool(Running, false);
+            Time.timeScale = 1f;
+            Time.captureDeltaTime = 0f;
+            if (Application.isBatchMode) EditorApplication.Exit(code);
+            else EditorApplication.ExitPlaymode();
+        }
+    }
+
+    [DefaultExecutionOrder(-150)]
+    public sealed class PlayerActionDelayValidationDriver : MonoBehaviour
+    {
+        private PlayerInputReader input;
+        private PlayerAttackController attacks;
+        private PlayerMotor motor;
+        private PlayerStamina stamina;
+        private Combatant owner;
+        private int pressMask;
+        private int heldMask;
+        private bool otherActions;
+        private Vector2 movement;
+        private int executions;
+        private double started;
+        private readonly List<string> checks = new List<string>();
+
+        private IEnumerator Start()
+        {
+            IEnumerator validation = Validate();
+            while (true)
+            {
+                bool more;
+                object current = null;
+                try
+                {
+                    more = validation.MoveNext();
+                    if (more) current = validation.Current;
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                    PlayerActionDelayValidation.Finish(1);
+                    yield break;
+                }
+                if (!more) break;
+                yield return current;
+            }
+            Debug.Log("PLAYER ACTION DELAY VALIDATION PASSED: " + checks.Count + " checks; " + string.Join(", ", checks));
+            PlayerActionDelayValidation.Finish(0);
+        }
+
+        private IEnumerator Validate()
+        {
+            started = EditorApplication.timeSinceStartup;
+            Time.captureDeltaTime = 1f / 60f;
+            input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();
+            attacks = input.GetComponent<PlayerAttackController>();
+            motor = input.GetComponent<PlayerMotor>();
+            stamina = input.GetComponent<PlayerStamina>();
+            owner = input.GetComponent<Combatant>();
+            SetField(input.GetComponent<PlayerController>(), "logInput", false);
+            stamina.RecoveryRate = 0f;
+            attacks.enabled = false;
+            var bindings = new List<PlayerAttackBinding>(attacks.AttackBindings);
+            foreach (AttackSlot slot in new[] { AttackSlot.Skill2, AttackSlot.Ultimate })
+            {
+                var extra = input.gameObject.AddComponent<HitscanAttack>();
+                SetField(extra, "data", Instantiate((HitscanAttackData)bindings[0].Attack.Data));
+                var binding = new PlayerAttackBinding();
+                SetField(binding, "slot", slot);
+                SetField(binding, "attack", extra);
+                SetField(binding, "origin", bindings[0].Origin);
+                bindings.Add(binding);
+            }
+            foreach (PlayerAttackBinding binding in bindings)
+            {
+                AttackData data = Instantiate(binding.Attack.Data);
+                SetField(data, "windupTime", 0.18f);
+                SetField(data, "recoveryTime", 0.24f);
+                SetField(data, "cooldown", 0.9f);
+                SetField(binding.Attack, "data", data);
+            }
+            SetField(attacks, "attackBindings", bindings.ToArray());
+            attacks.enabled = true;
+            attacks.AttackExecuted += slot => executions++;
+            yield return new WaitForSeconds(0.2f);
+
+            foreach (PlayerAttackBinding binding in bindings)
+            {
+                ResetPosition();
+                while (!motor.IsGrounded) yield return null;
+                stamina.Recover(100f);
+                int baseline = executions;
+                Attack attack = binding.Attack;
+                Check(attack.TryAttack(binding.Origin, attacks.GetAimPoint()) && owner.IsPerformingAttack &&
+                    !motor.CanPerformActions && !motor.CanDash, binding.Slot + " immediately locks actions at windup start");
+                Check(!attacks.TryReload() && !motor.TryDash(Vector3.forward), binding.Slot + " blocks reload and direct dash APIs");
+                foreach (PlayerAttackBinding rival in bindings)
+                    if (rival != binding)
+                        Check(!rival.Attack.TryAttack(rival.Origin, attacks.GetAimPoint()), binding.Slot + " blocks direct " + rival.Slot);
+                movement = Vector2.right;
+                Vector3 before = input.transform.position;
+                otherActions = true;
+                pressMask = 31;
+                yield return new WaitForSeconds(0.08f);
+                Check(attack.Phase == AttackPhase.Windup && executions == baseline && !attacks.IsReloading &&
+                    !motor.IsDashing && stamina.Current == 100f && motor.VerticalSpeed > 0f && motor.CanJump,
+                    binding.Slot + " windup permits jump and rejects attack dash reload without cancelling or consuming stamina");
+                Check(Vector3.ProjectOnPlane(input.transform.position - before, Vector3.up).magnitude > 0.2f,
+                    binding.Slot + " windup permits horizontal movement during jump");
+                yield return new WaitForSeconds(0.15f);
+                Check(attack.Phase == AttackPhase.Recovery && executions == baseline + 1 && !motor.CanPerformActions,
+                    binding.Slot + " executes once and keeps the shared lock during recovery");
+                // Land independently so a second jump proves recovery permits new input too.
+                otherActions = false;
+                ResetPosition();
+                while (!motor.IsGrounded) yield return null;
+                Check(attack.Phase == AttackPhase.Recovery && !motor.CanPerformActions && motor.CanJump,
+                    binding.Slot + " recovery permits a new jump request while the action lock remains");
+                before = input.transform.position;
+                otherActions = true;
+                pressMask = 31;
+                foreach (PlayerAttackBinding rival in bindings)
+                    if (rival != binding)
+                        Check(!rival.Attack.CanAttack, binding.Slot + " recovery blocks " + rival.Slot);
+                Check(!attacks.TryReload() && !motor.TryDash(Vector3.forward), binding.Slot + " recovery blocks direct actions");
+                yield return new WaitForSeconds(0.08f);
+                Check(executions == baseline + 1 && !motor.IsDashing && stamina.Current == 100f &&
+                    motor.VerticalSpeed > 0f && Vector3.ProjectOnPlane(input.transform.position - before, Vector3.up).magnitude > 0.2f,
+                    binding.Slot + " recovery permits movement and jump while rejecting attack dash reload input");
+                float ascendingSpeed = motor.VerticalSpeed;
+                motor.RequestJump();
+                yield return null;
+                Check(motor.VerticalSpeed < ascendingSpeed, binding.Slot + " airborne jump requests cannot cause a second jump");
+                otherActions = false;
+                movement = Vector2.zero;
+                while (owner.IsPerformingAttack) yield return null;
+                Check(motor.CanPerformActions && motor.CanDash && attack.CooldownRemaining > 0f && !attack.CanAttack && attacks.CanReload,
+                    binding.Slot + " cooldown alone permits other actions and reload");
+                yield return new WaitForSeconds(0.06f);
+                Check(executions == baseline + 1 && !attacks.IsReloading, binding.Slot + " rejected taps are not buffered");
+            }
+
+            // All five buttons on an idle frame reserve only one attack, even with zero delays.
+            foreach (PlayerAttackBinding binding in bindings)
+            {
+                SetField(binding.Attack.Data, "windupTime", 0f);
+                SetField(binding.Attack.Data, "recoveryTime", 0f);
+                SetField(binding.Attack.Data, "cooldown", 0f);
+            }
+            yield return new WaitForSeconds(1f);
+            bool reentrantBlocked = true;
+            foreach (PlayerAttackBinding binding in bindings)
+                binding.Attack.OnExecuted += () =>
+                {
+                    reentrantBlocked &= owner.IsPerformingAttack && !motor.CanDash && !attacks.TryReload();
+                    foreach (PlayerAttackBinding rival in bindings)
+                        reentrantBlocked &= !rival.Attack.TryAttack(rival.Origin, attacks.GetAimPoint());
+                };
+            int simultaneous = executions;
+            pressMask = 31;
+            yield return new WaitForSeconds(0.06f);
+            Check(executions == simultaneous + 1 && reentrantBlocked, "zero-delay simultaneous and reentrant requests execute only one attack");
+            heldMask = 3;
+            yield return new WaitForSeconds(0.15f);
+            heldMask = 0;
+            Check(executions > simultaneous + 2 && reentrantBlocked, "held input retries after the shared lock ends");
+            yield return new WaitForSeconds(0.06f);
+
+            Attack primary = bindings[0].Attack;
+            Attack rivalAttack = bindings[1].Attack;
+            SetField(primary.Data, "windupTime", 0.2f);
+            SetField(primary.Data, "recoveryTime", 0.3f);
+            input.GetComponent<PlayerStat>().AttackSpeed = 2f;
+            primary.SpeedMultiplier = 2f;
+            Check(primary.TryAttack(bindings[0].Origin, attacks.GetAimPoint()), "speed-scaled windup accepts request");
+            int pauseBaseline = executions;
+            Time.timeScale = 0f;
+            for (int i = 0; i < 5; i++) yield return null;
+            Check(primary.Phase == AttackPhase.Windup && owner.IsPerformingAttack && executions == pauseBaseline,
+                "pause freezes windup and preserves action lock");
+            Check(!motor.CanJump, "paused windup rejects jump requests");
+            Time.timeScale = 1f;
+            yield return new WaitForSeconds(0.12f);
+            Check(primary.Phase == AttackPhase.Recovery && executions == pauseBaseline + 1, "attack speed scales windup and execution");
+            float remaining = primary.RecoveryRemaining;
+            Time.timeScale = 0f;
+            for (int i = 0; i < 5; i++) yield return null;
+            Check(Mathf.Abs(primary.RecoveryRemaining - remaining) < 0.0001f && !motor.CanDash && !motor.CanJump,
+                "pause freezes recovery and preserves action lock");
+            Time.timeScale = 1f;
+            yield return new WaitForSeconds(0.17f);
+            Check(!owner.IsPerformingAttack && motor.CanPerformActions, "speed-scaled recovery unlocks without an extra timer");
+
+            Check(primary.TryAttack(bindings[0].Origin, attacks.GetAimPoint()) && primary.CancelAttack() &&
+                !owner.IsPerformingAttack && rivalAttack.CanAttack, "explicit cancellation releases the shared windup lock");
+            var lostOrigin = new GameObject("Lost Action Delay Origin");
+            Check(primary.TryAttack(lostOrigin.transform, attacks.GetAimPoint()), "failure probe accepts temporary origin");
+            int failedBaseline = executions;
+            Destroy(lostOrigin);
+            yield return new WaitForSeconds(0.15f);
+            Check(executions == failedBaseline && !owner.IsPerformingAttack && motor.CanDash,
+                "failed execution releases the shared lock without recovery");
+            Check(primary.TryAttack(bindings[0].Origin, attacks.GetAimPoint()), "disable probe starts windup");
+            primary.enabled = false;
+            Check(!owner.IsPerformingAttack && rivalAttack.CanAttack, "disabled attack cancels windup and cannot leave a stale lock");
+            primary.enabled = true;
+            Check(primary.TryAttack(bindings[0].Origin, attacks.GetAimPoint()), "death probe starts windup");
+            input.GetComponent<Mortal>().Dead();
+            yield return new WaitForSeconds(0.15f);
+            Check(executions == failedBaseline && !owner.IsPerformingAttack && !rivalAttack.CanAttack,
+                "death cancels pending execution and prevents new attacks");
+        }
+
+        private void Update()
+        {
+            if (input == null) return;
+            if (EditorApplication.timeSinceStartup - started > 60d)
+            {
+                Debug.LogError("Action delay validation timed out.");
+                PlayerActionDelayValidation.Finish(1);
+            }
+            SetInput("Move", movement);
+            SetInput("Look", Vector2.zero);
+            SetInput("PrimaryFire", Snapshot((pressMask & 1) != 0, (heldMask & 1) != 0));
+            SetInput("SecondaryFire", Snapshot((pressMask & 2) != 0, (heldMask & 2) != 0));
+            SetInput("Skill1", Snapshot((pressMask & 4) != 0, false));
+            SetInput("Skill2", Snapshot((pressMask & 8) != 0, false));
+            SetInput("Ultimate", Snapshot((pressMask & 16) != 0, false));
+            SetInput("Jump", Snapshot(otherActions, otherActions));
+            SetInput("Dash", Snapshot(otherActions, otherActions));
+            SetInput("Reload", Snapshot(otherActions, false));
+            pressMask = 0;
+        }
+
+        private void Check(bool condition, string message)
+        {
+            if (!condition) throw new InvalidOperationException(message);
+            checks.Add(message);
+        }
+
+        private void ResetPosition()
+        {
+            CharacterController body = input.GetComponent<CharacterController>();
+            body.enabled = false;
+            input.transform.position = new Vector3(0f, 1.05f, 0f);
+            SetField(motor, "verticalSpeed", 0f);
+            body.enabled = true;
+            Physics.SyncTransforms();
+        }
+
+        private void SetInput(string name, object value) => typeof(PlayerInputReader).GetProperty(name).SetValue(input, value);
+        private static ButtonInputState Snapshot(bool pressed, bool held) =>
+            (ButtonInputState)Activator.CreateInstance(typeof(ButtonInputState), BindingFlags.Instance | BindingFlags.NonPublic,
+                null, new object[] { pressed, held, false }, null);
+
+        private static void SetField(object target, string name, object value)
+        {
+            Type type = target.GetType();
+            FieldInfo field;
+            while ((field = type.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)) == null) type = type.BaseType;
+            field.SetValue(target, value);
+        }
+    }
+}

@@ -17,11 +17,12 @@ namespace ProjectU
         [Header("Dash")]
         [SerializeField, Min(0.01f), Tooltip("Game seconds used to travel the dash distance.")]
         private float dashDuration = 0.2f;
-        [SerializeField, Min(0f), Tooltip("Game seconds after the dash during which only movement is allowed.")]
+        [SerializeField, Min(0f), Tooltip("Game seconds after the dash during which only movement and jumping are allowed.")]
         private float dashPostDelay = 0.3f;
 
         private CharacterController controller;
         private PlayerStat playerStat;
+        private Combatant combatant;
         private float verticalSpeed;
         private Vector3 moveDirection;
         private float facingYaw;
@@ -40,7 +41,11 @@ namespace ProjectU
         public bool IsDashing => dashRemaining > 0f;
         public bool IsDashPostDelay => !IsDashing && dashPostDelayRemaining > 0f;
         // Keep every consumer blocked on the last frame containing dash/recovery time.
-        public bool CanPerformActions => !IsDashing && !IsDashPostDelay && dashBlockedFrame != Time.frameCount;
+        public bool IsDashActionLocked => IsDashing || IsDashPostDelay || dashBlockedFrame == Time.frameCount;
+        public bool CanPerformActions => !IsDashActionLocked && (combatant == null || !combatant.IsPerformingAttack);
+        // Jump requests ignore attack/dash recovery locks. Grounding is checked when moving.
+        public bool CanJump => isActiveAndEnabled && controller != null && controller.enabled &&
+            Time.timeScale > 0f && Time.deltaTime > 0f && !IsDashing;
         public bool CanDash => isActiveAndEnabled && controller != null && controller.enabled &&
             Time.deltaTime > 0f && CanPerformActions && IsPositiveFinite(playerStat.DashDistance) &&
             IsPositiveFinite(dashDuration) && IsPositiveFinite(playerStat.DashDistance / dashDuration);
@@ -52,6 +57,7 @@ namespace ProjectU
         {
             controller = GetComponent<CharacterController>();
             playerStat = GetComponent<PlayerStat>();
+            combatant = GetComponent<Combatant>();
         }
 
         // Commands are world-space requests, valid for one Motor update only.
@@ -67,7 +73,7 @@ namespace ProjectU
 
         public void RequestJump()
         {
-            if (isActiveAndEnabled && CanPerformActions)
+            if (CanJump)
                 jumpRequested = true;
         }
 
@@ -92,7 +98,7 @@ namespace ProjectU
         private void Update()
         {
             Vector3 velocity = moveDirection * MoveSpeed;
-            bool shouldJump = jumpRequested && CanPerformActions;
+            bool shouldJump = jumpRequested && CanJump;
             bool shouldRotate = hasMoveCommand;
             ClearCommands();
             if (Time.deltaTime <= 0f)
@@ -104,7 +110,7 @@ namespace ProjectU
             if (shouldRotate)
                 transform.rotation = Quaternion.Euler(0f, facingYaw, 0f);
 
-            if (!CanPerformActions)
+            if (IsDashActionLocked)
                 dashBlockedFrame = Time.frameCount;
             float dashTime = Mathf.Min(dashRemaining, Time.deltaTime);
             Vector3 displacement = dashDirection * (dashSpeed * dashTime) + velocity * (Time.deltaTime - dashTime);

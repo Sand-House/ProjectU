@@ -1,6 +1,8 @@
 # ProjectU 프로젝트 지침
 
-진행 현황 기준: **2026-10-28**. Soldier 기본 애니메이션과 Skill1(E)의 Toss Grenade를 연결했으며 남은 애니메이션은 **Dash·Skill2·Ultimate 3개**다. 이동 임포트·플레이어 forward 기준 상체 보정·양팔 IK를 유지한다. SampleScene의 좌클릭은 TempPrimaryFire 히트스캔 피해 30, 우클릭은 기존 Bullet 피해 50, E는 기존 Grenade 폭발 피해 100이다. 기본 발사에만 30발 탄창과 수동·빈 탄창 자동 재장전을 연결했다. 자동 재장전은 가능한 상태가 될 때까지 매 프레임 재시도한다. 장전 중 기본·보조 발사는 금지하고 대시 성공·스킬 수락 시 탄환 보충 없이 취소한다. PlayerStat의 reloadDuration(3.3초) / reloadSpeedMultiplier(1)로 장전 시간을 계산하며, Animation은 OnReloadStarted 이벤트와 재장전 상태 전용 배속 파라미터를 사용한다. OnReloadCompleted는 탄창을 채운 뒤 한 번 발생한다. dashDistance(5m)는 Motor에서 PlayerStat으로 옮겼으며 시간·후딜·스태미나는 유지했다. 바인딩·공유 AttackData.RepeatWhileHeld·공격 원점 보정과 기존 세 공격·Muzzle 참조를 보존했다. Skill2·궁극기 효과, 손 투척 지점·적 AI·사망 행동과 반복 전투 흐름은 후속 작업이다.
+진행 현황 기준: **2026-10-29**. Soldier 기본 애니메이션과 Skill1(E)의 Toss Grenade를 연결했으며 남은 애니메이션은 **Dash·Skill2·Ultimate 3개**다. 이동 임포트·플레이어 forward 기준 상체 보정·양팔 IK를 유지한다. SampleScene의 좌클릭은 TempPrimaryFire 히트스캔 피해 30, 우클릭은 기존 Bullet 피해 50, E는 기존 Grenade 폭발 피해 100이다. 기본 발사에만 30발 탄창과 수동·빈 탄창 자동 재장전을 연결했다. 자동 재장전은 가능한 상태가 될 때까지 매 프레임 재시도한다. 장전 중 기본·보조 발사는 금지하고 대시 성공·스킬 수락 시 탄환 보충 없이 취소한다. PlayerStat의 reloadDuration(3.3초) / reloadSpeedMultiplier(1)로 장전 시간을 계산하며, Animation은 OnReloadStarted 이벤트와 재장전 상태 전용 배속 파라미터를 사용한다. OnReloadCompleted는 탄창을 채운 뒤 한 번 발생한다. dashDistance(5m)는 Motor에서 PlayerStat으로 옮겼으며 시간·후딜·스태미나는 유지했다. 바인딩·공유 AttackData.RepeatWhileHeld·공격 원점 보정과 기존 세 공격·Muzzle 참조를 보존했다. Skill2·궁극기 효과, 손 투척 지점·적 AI·사망 행동과 반복 전투 흐름은 후속 작업이다.
+
+공격 선딜·후딜의 공통 행동 제한을 2026-10-29 연결했다. 같은 캐릭터의 다른 공격·대시·재장전을 거절하며 이동·점프·시점은 유지한다. 점프는 CanJump로 분리해 공격 선딜·후딜과 대시 후딜에 허용하며 실제 대시 이동 중에는 거절한다. TempGrenade의 선딜 0초·후딜 1초·쿨타임 6초를 유지했다. 이전 날짜 기록의 점프 차단·공격 선딜 취소·수류탄 시간 0 설명은 당시 상태다.
 
 ## 1. 작업할 때의 기준
 
@@ -51,7 +53,7 @@
 - 일반·전투 모드를 나누지 않고 항상 전투에 대응하는 조작 방식을 사용한다.
 - 캐릭터의 수평 방향은 카메라의 조준 방향을 따른다. 카메라 기준으로 전후좌우 이동하고 옆걸음·뒷걸음에서도 조준 방향을 유지한다.
 - 돌격소총의 목표는 **히트스캔 즉시 명중 판정**, 탄창, 재장전, 무제한 예비 탄약이다.
-- 전술 대시는 Shift로 짧은 거리를 빠르게 이동한다. 역동적이고 캐주얼한 플레이를 위해 이동기는 별도 자원인 **스태미나(Stamina)**를 소모하며 **쿨타임 없이** 사용할 수 있게 한다. 스태미나가 충분해야 사용할 수 있으며 최대량·소모량·초당 회복량·회복 지연 시간, 대시 무적 여부는 미정이며 대시와 후딜레이 중에는 이동 외 행동을 금지한다.
+- 전술 대시는 Shift로 짧은 거리를 빠르게 이동한다. 역동적이고 캐주얼한 플레이를 위해 이동기는 별도 자원인 **스태미나(Stamina)**를 소모하며 **쿨타임 없이** 사용할 수 있게 한다. 스태미나가 충분해야 사용할 수 있으며 최대량·소모량·초당 회복량·회복 지연 시간, 대시 무적 여부는 미정이며 대시 이동 중에는 일반 이동·점프를 금지하고 후딜레이에는 이동·점프를 허용한다. 두 구간에서 공격·장전·재대시는 금지한다.
 - 전술 수류탄은 물리 투사체로 날아가 일정 시간 후 폭발해 범위 피해를 준다. 기본 사격과 별도인 **Skill1(E)**로 제공한다.
 - **Skill2(F)**는 두 번째 스킬이며 효과는 아직 정하지 않았다. 대시 입력과 스태미나 자원은 Skill1·Skill2와 구분한다.
 - 궁극기 입력은 Q로 예정되어 있으나 효과와 발동 조건은 아직 정하지 않았다.
@@ -63,8 +65,8 @@
 | 좌클릭 | 기본 사격 | TempPrimaryFire 히트스캔 피해 30, 짧은 누름·홀딩 연사, 성공당 탄창 1발 소모; 시작 30발 |
 | 우클릭 | 정밀 조준 | TempSecondaryFire의 기존 Bullet, 기본 피해 50, 짧은 누름·홀딩 연사에 임시 연결 |
 | R | 재장전 | 탄창이 덜 찼으면 수동 장전, 0발이면 지속 자동 시도; 기본 3.3초 후 가득 채움, 대시·스킬 취소 가능 |
-| Space | 점프 | 지상 점프와 Jump Up/Loop/Down 애니메이션 구현 |
-| 왼쪽·오른쪽 Shift | 스태미나를 소모하는 대시, 쿨타임 없음 | 이동 입력 방향 또는 무입력 시 전방으로 대시, 5m/0.2초·후딜레이 0.3초, 스태미나 25; 대시·후딜 중 이동 외 행동 금지 |
+| Space | 점프 | 지상 점프와 Jump Up/Loop/Down 애니메이션 구현; 공격 선딜·후딜·대시 후딜에도 허용, 대시 이동 중 거절 |
+| 왼쪽·오른쪽 Shift | 스태미나를 소모하는 대시, 쿨타임 없음 | 이동 입력 방향 또는 무입력 시 전방으로 대시, 5m/0.2초·후딜레이 0.3초, 스태미나 25; 대시 이동 중 일반 이동·점프 차단, 후딜 중 이동·점프 허용; 두 구간에서 공격·장전·재대시 금지 |
 | E | Skill1: 수류탄 투척 | TempGrenade의 기존 Grenade, 2.5초 후 기본 폭발 피해 100, 누름당 한 번 |
 | F | Skill2: 효과 미정 | `Skill2` 입력 상태와 로그만 구현 |
 | Q | 궁극기 | `Ultimate` 입력 상태와 로그만 구현 |
@@ -100,11 +102,11 @@
 | TPS 카메라 | 구현 | 어깨 뒤 추적, Yaw·pitch, 수직 각도 제한, SphereCast 장애물 회피 |
 | 발사·조준 | 프로토타입 구현 | 화면 중앙 조준점과 소총 자식 Muzzle을 상체·총구·실제 공격이 공유. 카메라 LateUpdate 이후 상체·총구 정렬 후 발사. 선딜이 끝나는 프레임의 총구 위치를 읽고 캐릭터~총구의 벽 검사·원점 보정·방향 재계산을 실행. 가까운 조준점의 총 후퇴와 수류탄 발사각 보정 유지 |
 | 투사체·풀 | 구현 | 공통 생명주기, Bullet, Grenade, 프리팹별 사전 생성·확장·대여·반환·용량 제한 |
-| 공통 공격 | 구현·플레이어 입력 연결 | 공통 진영·부위·타이밍·피해와 3종 실행을 구현. Player에 히트스캔 1개·투사체 공격 2개와 Temp 에셋을 연결했다. 적 AI·공격 간 행동 제한은 후속 작업 |
-| 수류탄 스킬 | 임시 기능 연결 | E에서 TempGrenade 투척, 기존 물리 튕김·2.5초 지연 폭발·기본 범위 피해 100·연출·풀 반환. AttackExecuted(Skill1) 성공으로 상체 투척 애니메이션 재생. 실제 발사 시점·Origin·오프셋·발사각은 유지. 예제 쿨타임 0이며 최종 밸런스·엄폐물·넉백은 후속 작업 |
+| 공통 공격 | 구현·플레이어 입력 연결 | 공통 진영·부위·타이밍·피해와 3종 실행을 구현. Player에 히트스캔 1개·투사체 공격 2개와 Temp 에셋을 연결했다. 같은 캐릭터의 공격 선딜·후딜 중 다른 공격·대시·장전을 차단하며 이동·지상 점프·시점을 유지한다. 적 AI는 후속 작업 |
+| 수류탄 스킬 | 임시 기능 연결 | E에서 TempGrenade 투척, 기존 물리 튕김·2.5초 지연 폭발·기본 범위 피해 100·연출·풀 반환. AttackExecuted(Skill1) 성공으로 상체 투척 애니메이션 재생. 실제 발사 시점·Origin·오프셋·발사각은 유지. 현재 저장값은 후딜 1초·쿨타임 6초이며 최종 밸런스·엄폐물·넉백은 후속 작업 |
 | 소총·탄약·재장전 | 기본 발사 탄창·실제 장전 구현 | PrimaryFire 성공당 1발 차감, MaxMagazine까지 장전. R 수동·0발 지속 자동 시도, 장전 중 기본·보조 발사 차단, 대시·스킬로 취소. 무제한 예비 탄약이며 HUD는 후속 작업 |
 | 플레이어 능력치 | 구현·일부 연결 | 이동속도·대시 거리→Motor, 최대 스태미나→PlayerStamina, 공격력·공격속도→Attack, 최대 탄창·장전 시간/속도→AttackController를 연결했다. 최대 체력의 Mortal 동기화는 후속 작업 |
-| 대시·스태미나 | 이동·행동 제한·씬 연결 | PlayerStamina의 소모·지연 자동 회복 유지. Shift.Pressed에서 실행 가능한 상태를 확인 후 25 소모, Motor가 입력 방향 또는 전방으로 대시한다. dashDistance/dashDuration/dashPostDelay는 Inspector 설정이며 현재 5m/0.2초/0.3초. 대시·후딜 중 이동 외 행동과 재대시 금지, 대기 공격·재장전 취소. 홀딩 반복·별도 쿨타임·무적·전용 애니메이션 없음 |
+| 대시·스태미나 | 이동·행동 제한·씬 연결 | PlayerStamina의 소모·지연 자동 회복 유지. Shift.Pressed에서 실행 가능한 상태를 확인 후 25 소모, Motor가 입력 방향 또는 전방으로 대시한다. dashDistance/dashDuration/dashPostDelay는 Inspector 설정이며 현재 5m/0.2초/0.3초. 대시·후딜 중 공격·장전·재대시 금지, 후딜 중 이동·점프 허용, 대기 공격·재장전 취소. 홀딩 반복·별도 쿨타임·무적·전용 애니메이션 없음 |
 | 정밀 조준·Skill2·궁극기 | 미구현 | F의 Skill2와 Q의 Ultimate는 입력·로그만 구현; 우클릭 정밀 조준 연결과 스킬 효과 구현 필요 |
 | 체력·피해·사망 | 플레이어·공격 연결 | Player의 Mortal HP 100·Combatant와 실제 공격 피해 전달을 연결했다. 사망 시 Attack 요청·대기 실행 중단. 사망 시 이동 중단·연출·부활과 적 AI·씬 연결은 미구현 |
 | 적 AI·적 공격 | 미구현 | Striker·Gunner의 추적, 거리 유지, 공격 예고, 공격·사망 처리 필요 |
@@ -163,6 +165,7 @@
 | `Assets/Editor/PlayerStaminaValidation.cs` | 씬을 저장하지 않는 능력치·자원 API·Shift 소모·자동 회복·일시정지 검증 |
 | `Assets/Editor/PlayerDashValidation.cs` | 저장된 씬의 방향·거리·시간·벽 충돌·스태미나·후딜 행동 제한·공격/재장전 취소·일시정지 검증 |
 | `Assets/Editor/PlayerReloadValidation.cs` | 탄창·장전 시간/배속·두 발사 차단·대시/세 스킬 취소·빈 탄창 지속 재시도·일시정지·실패 발사·사망 검증 |
+| `Assets/Editor/PlayerActionDelayValidation.cs` | 다섯 공격 슬롯의 선딜·후딜 상호 차단, 이동·지상 점프 허용·공중 재점프 방지·대시/장전 거절·동시 입력·쿨타임·정지·실패/취소 검증 |
 | `Packages/manifest.json`, `ProjectSettings/ProjectVersion.txt` | 패키지·Unity 버전의 기준 |
 
 ### 유지해야 할 현재 구조
@@ -171,10 +174,11 @@
 - 이동은 Motor, 애니메이션은 실제 Motor 상태, Aim은 시각 자세를 담당한다. GetAimPoint를 시각 조준과 공격이 공유한다. AttackExecuted(AttackSlot)은 연결된 Attack의 실제 실행 성공 후 발생한다. Soldier Animation은 PrimaryFire·SecondaryFire 성공으로 사격, Skill1 성공으로 투척 애니메이션을 실행하며, 소총 시각 Muzzle은 Aim에서 관리하고 공격별 Origin은 바인딩에서 관리한다.
 - Reader는 입력 수집, Controller는 행동 명령, Motor는 실제 이동을 담당한다. Motor는 입력과 카메라를 참조하지 않으며 이동·점프 명령은 한 업데이트에 소비한다.
 - Motor.TryDash 성공 시 대시 상태 초기화 후 OnDashExecuted를 한 번 발생시킨다. AttackController는 실제 장전을 취소하고 AnimationController는 상체 트리거를 정리해 Rifle Aim으로 전환한다. 대시·후딜 중 장전 시작은 CanPerformActions로 제한한다. dashDistance는 PlayerStat, dashDuration·dashPostDelay는 Motor에서 설정하며 시작 시 값을 고정한다. 전용 대시 클립은 미구현이다.
-- 탄약·장전의 원본은 PlayerAttackController다. CurrentAmmo·MaxAmmo·IsReloading·ReloadRemaining·CanReload와 TryReload/CancelReload를 제공한다. PrimaryFire의 실행 성공에만 1발 소모하고 장전·0발 상태에서 발사를 차단한다. R은 기본 발사보다 우선하며 대기 선딜을 취소한다. SecondaryFire·Skill1/2·Ultimate는 선딜·후딜과 수락/실행 프레임에 장전 시작을 막으며 쿨타임·비행 중 투사체는 막지 않는다. 기본·보조 발사는 장전을 취소할 수 없고 대시 성공·스킬 수락은 취소한다. 시간 0인 수류탄은 수락/실행 프레임만 막으며 시각 투척 클립은 행동 잠금의 원본으로 사용하지 않는다.
+- 탄약·장전의 원본은 PlayerAttackController다. CurrentAmmo·MaxAmmo·IsReloading·ReloadRemaining·CanReload와 TryReload/CancelReload를 제공한다. PrimaryFire의 실행 성공에만 1발 소모하고 장전·0발 상태에서 발사를 차단한다. R은 아직 수락되지 않은 기본 발사 입력보다 우선한다. 이미 시작한 기본 발사를 포함해 모든 공격의 선딜·후딜 중에는 장전과 대시가 거절되며 공격을 취소하지 않는다. 쿨타임·비행 중 투사체는 다른 행동을 막지 않는다. 기본·보조 발사는 장전을 취소할 수 없고 대시 성공·스킬 수락은 취소한다. 현재 수류탄은 후딜 1초 동안 행동을 막고 쿨타임 6초 중 남은 시간에는 다른 행동을 허용한다. 시각 투척 클립은 행동 잠금의 원본으로 사용하지 않는다.
+- Attack.BlocksActions는 활성 공격의 Windup·Recovery 및 실행 프레임을 나타내며 Combatant.IsPerformingAttack이 같은 오브젝트의 공격 상태를 모은다. Attack.CanAttack은 이를 확인하므로 바인딩 없이 직접 호출하는 공격도 서로 겹치지 않는다. Motor.CanPerformActions는 대시 제한과 공격 제한을 함께 확인하며 Controller가 스태미나를 소모하기 전에 대시를 거절한다. Motor.IsDashActionLocked는 대시만의 제한이며 AttackController의 선딜 취소와 Animation의 대시 시각 복구에는 이 값을 사용해 자기 공격 잠금으로 취소하지 않는다. 공격 딜레이 중 이동·카메라·캐릭터 수평 회전과 기존 중력은 유지한다.
 - OnReloadStarted·OnReloadCompleted는 상태 갱신 후 각각 한 번 발생한다. 취소는 보충·완료 이벤트를 발생시키지 않는다. Animation은 장전 입력이나 독립 타이머 대신 시작 이벤트를 구독하며 ReloadSpeedMultiplier float를 Reloading 상태에만 적용한다. 진행 중 배율 강화는 남은 기본 작업량과 애니메이션에 함께 반영하고 일시정지 시 둘 다 멈춘다. 장전 중에는 사격 홀딩 여부와 관계없이 Aim 보정을 푼다.
 - 입력은 코드에서 만든 액션 맵을 사용한다. 템플릿 `Assets/InputSystem_Actions.inputactions`는 현재 플레이어 조작에 사용하지 않는다.
-- 입력 매핑은 Dash=좌·우 Shift, Skill1=E, Skill2=F다. Dash.Pressed는 PlayerStamina.TryConsume, Skill1.Pressed는 TempGrenade 요청을 실행한다. Skill2는 로그만 출력한다. Dash는 Motor.CanDash 확인·스태미나 소모 성공 후 Motor.TryDash를 요청한다. Motor.CanPerformActions가 false이면 점프·재장전·모든 바인딩 공격·추가 대시를 금지한다.
+- 입력 매핑은 Dash=좌·우 Shift, Skill1=E, Skill2=F다. Dash.Pressed는 PlayerStamina.TryConsume, Skill1.Pressed는 TempGrenade 요청을 실행한다. Skill2는 로그만 출력한다. Dash는 Motor.CanDash 확인·스태미나 소모 성공 후 Motor.TryDash를 요청한다. Motor.CanPerformActions가 false이면 재장전·모든 바인딩 공격·추가 대시를 금지한다. 점프는 별도 CanJump로 판단해 공격 선딜·후딜과 대시 후딜에 허용하고 실제 대시 이동 중에는 거절한다. Controller와 Motor.RequestJump·Update가 같은 조건을 확인하며 접지 중에만 실행하고 공중 입력은 예약하지 않는다.
 - 액션·공개 멤버·로그 상태명은 PascalCase, 비공개 필드·지역 변수는 camelCase를 따른다. Inspector 설정은 `[SerializeField]` 필드로 관리한다.
 - `Mortal.isDead`는 사용자가 요청한 공개 이름을 그대로 유지하는 예외다. `HP`와 `isDead`는 읽기 전용, `IsInvincible`은 읽기·쓰기가 가능하다. `TakeDamage(int damage, GameObject attacker)`는 실제 HP 감소량과 공격자를 `OnDamaged`에 전달하고, 치명 피해에서는 이후 `Dead(attacker)`로 `OnDead`를 한 번 발생시킨다. 파생 클래스는 재정의 시 기본 구현을 호출한다.
 - 투사체 이동은 Rigidbody가 담당한다. `ProjectilePool.Spawn()`이 `Launch()`까지 호출하며 반환은 `Despawn()`을 사용한다. 외부의 직접 비활성화·삭제는 풀의 대여 상태를 어긋나게 할 수 있다.
@@ -207,10 +211,10 @@
 ### 현재 설정과 제약
 
 - 이동 속도 6m/s, 점프 높이 1.5m, Motor 중력 25m/s². 수류탄은 별도로 프로젝트 Physics 중력을 사용한다.
-- 스태미나 소모·부족 시 거절·지연 자동 회복은 구현했다. Shift는 PlayerStat의 거리 5m를 Motor의 0.2초 동안 이동하고 후딜레이 0.3초 동안 이동 외 행동을 차단한다. 대시 방향·속력은 시작 시 고정하며 CharacterController 충돌·중력·공중 사용을 유지한다. 전용 애니메이션과 무적은 추가하지 않았다. 공격력·공격속도 배율은 세 Attack에 연결했으며 최대 체력의 Mortal 동기화는 미구현이다. 최대 탄창은 기본 발사에 연결했다.
+- 스태미나 소모·부족 시 거절·지연 자동 회복은 구현했다. Shift는 PlayerStat의 거리 5m를 Motor의 0.2초 동안 이동하고 후딜레이 0.3초 동안 이동·점프 외 행동을 차단한다. 대시 방향·속력은 시작 시 고정하며 CharacterController 충돌·중력·공중 사용을 유지한다. 전용 애니메이션과 무적은 추가하지 않았다. 공격력·공격속도 배율은 세 Attack에 연결했으며 최대 체력의 Mortal 동기화는 미구현이다. 최대 탄창은 기본 발사에 연결했다.
 - Bullet: 현재 저장된 프리팹은 속력 10m/s, 수명 5초, 중력 없음, 사전 생성 24개, 최대 생성 128개.
 - Grenade: 속력 14m/s, 수명 2.5초, 중력 있음, 폭발 구체 연출 약 0.2초, 연출 반경 설정 4m, 사전 생성 8개, 최대 생성 32개.
-- AttackController는 조준 거리 100m와 PlayerAttackBinding 배열을 사용하고 슬롯별 Attack에 Origin Transform·조준점·입력을 전달한다. 슬롯·공격 컴포넌트·Origin은 프리팹에서 연결하고 홀딩 반복 여부는 해당 AttackData SO에서 설정하며 같은 슬롯·같은 Attack 중복과 누락 참조는 활성화 시 거절한다. 실제 원점은 실행 시 현재 Muzzle.position과 장애물 보정이다. 기존 Prototype Rifle/Muzzle의 로컬 위치 `(0, 0, 0.665)`와 씬 참조를 재사용한다. 현재 임시 수류탄도 같은 총구를 쓰며 손의 별도 투척 지점은 후속 작업이다. 투척 애니메이션만 연결했으며 실제 발사 타이밍·Origin·오프셋·발사각은 유지한다. 좌·우클릭은 Pressed 또는 Held, E는 Pressed를 사용한다. TempGrenade 발사각은 12도이며 선딜·후딜·쿨타임은 0이다. 현재 소총 후딜은 좌클릭 0.25초·우클릭 0.5초이고 좌클릭 탄퍼짐은 3도다. AttackController는 Attack.Data.RepeatWhileHeld가 true이면 Pressed 또는 Held, false이면 Pressed에서 요청한다. 새 데이터 기본값은 false이며 같은 SO를 쓰는 바인딩은 반복 정책을 공유한다. 요청은 해당 Attack의 시간을 지키며 발사 간격의 최종 밸런스는 후속 작업이다.
+- AttackController는 조준 거리 100m와 PlayerAttackBinding 배열을 사용하고 슬롯별 Attack에 Origin Transform·조준점·입력을 전달한다. 슬롯·공격 컴포넌트·Origin은 프리팹에서 연결하고 홀딩 반복 여부는 해당 AttackData SO에서 설정하며 같은 슬롯·같은 Attack 중복과 누락 참조는 활성화 시 거절한다. 실제 원점은 실행 시 현재 Muzzle.position과 장애물 보정이다. 기존 Prototype Rifle/Muzzle의 로컬 위치 `(0, 0, 0.665)`와 씬 참조를 재사용한다. 현재 임시 수류탄도 같은 총구를 쓰며 손의 별도 투척 지점은 후속 작업이다. 투척 애니메이션만 연결했으며 실제 발사 타이밍·Origin·오프셋·발사각은 유지한다. 좌·우클릭은 Pressed 또는 Held, E는 Pressed를 사용한다. TempGrenade 발사각은 12도이며 선딜 0초·후딜 1초·쿨타임 6초다. 현재 소총 후딜은 좌클릭 0.25초·우클릭 0.5초이고 좌클릭 탄퍼짐은 3도다. AttackController는 Attack.Data.RepeatWhileHeld가 true이면 Pressed 또는 Held, false이면 Pressed에서 요청한다. 새 데이터 기본값은 false이며 같은 SO를 쓰는 바인딩은 반복 정책을 공유한다. 요청은 해당 Attack의 시간을 지키며 발사 간격의 최종 밸런스는 후속 작업이다.
 - 좌클릭은 실제 히트스캔이며 우클릭 물리 Bullet은 임시 별도 공격이다. 둘 다 Attack의 시간을 지키며 홀딩 반복 발사한다. 기본 발사에만 탄창을 사용한다. 덜 찬 탄창의 R은 기본 발사 홀딩보다 우선하고 장전 중 두 발사를 막는다. 보조 발사·스킬 사용 중 R은 예약하지 않지만 0발 자동 장전은 매 프레임 계속 시도한다.
 - 수류탄은 E에 연결했다. 우클릭은 임시 Bullet 발사이며 정밀 조준은 후속 작업이다.
 - `IDamageable`은 존재하지 않는다. 새 공격은 Combatant·Hitbox·DamageResolver를 거쳐 Mortal에 피해를 준다. 기존 인자 4개짜리 Pool.Spawn은 피해 정보 없는 발사이고 새 ProjectileLaunchData 전달 경로만 실제 투사체 피해를 실행한다. 프리팹 YAML의 옛 `damage/damageMask` 값은 사용하지 않는다.
@@ -316,5 +320,9 @@
 - 2026-10-27 대시 시각 이벤트 분리에서는 PlayerMotor.TryDash가 상태 초기화 후 성공당 한 번 OnDashExecuted를 발생시키도록 추가했다. PlayerAnimationController는 활성화·비활성화에 맞춰 이벤트를 구독·해제하고 핸들러에서 기존 시각 재장전·사격 트리거 정리와 Rifle Aim 복귀를 처리한다. dashActionsBlocked와 Update의 대시 자세 초기화 블록은 제거했다. R의 CanPerformActions 조건과 실제 이동·스태미나·공격 차단은 유지하며 전용 대시 클립·실제 재장전은 추가하지 않았다. 기존 검증 복사본 Logs/Dash_20261026/Project를 최신 소스로 동기화해 Unity 6000.3.25f1 컴파일과 대시 52개·공격 48개·기존 애니메이션(이동·점프·IK·17발 사격·재장전·벽·일시정지) 검증을 직접 실행했고 모두 종료 코드 0을 확인했다. 성공당 이벤트 한 번·거절 시 미발생·상태 초기화 이후 알림·상체 복귀 후 재시작 방지·구독 해제/재활성 동기화·일시정지 해제 프레임의 대시를 추가 검사했다. 로그는 Logs/DashEvent_20261027/의 PlayerDashValidation.log, PlayerAnimationRegression.log, PlayerAttackRegression.log다. C# 컴파일 경고·오류 없음과 변경 C# 세 파일의 검증 복사본 SHA256 일치 및 git diff --check를 확인했다. 실제 키 입력 수동 플레이·이미지 렌더링·스태미나 및 공통 Attack·투사체·Mortal 독립 검증은 이번에 다시 실행하지 않았다. 남은 애니메이션 4개와 실제 탄약·재장전·스킬 효과 등 기존 미구현 범위는 유지한다.
 
 - 2026-10-28 탄창·장전 작업에서는 PlayerAttackController에 기본 발사 전용 탄창, R 수동 장전·0발 지속 자동 재시도, 두 발사 차단, 대시 성공·스킬 수락 시 보충 없는 취소와 OnReloadStarted/OnReloadCompleted를 구현했다. PlayerStat에 reloadDuration·reloadSpeedMultiplier를 추가하고 dashDistance를 Motor에서 옮겼다. 씬의 30발·3.3초·1배·5m 설정과 기존 공격/원점 참조를 저장했다. Animation은 입력·별도 타이머 대신 시작/완료 이벤트와 실제 장전 상태를 사용하고 Reloading 상태만 배속하며, Aim은 장전 중 사격 홀딩으로 덮어쓰지 않는다. 스킬 사용 구간은 Attack 선딜·후딜과 수락/실행 프레임이며 시각 클립·쿨타임·투사체 수명은 제외한다. 이번에 원본 프로젝트에서 Unity 6000.3.25f1로 새 PlayerReloadValidation 39개, PlayerAttackValidation 50개, PlayerDashValidation 60개, PlayerStaminaValidation과 PlayerAnimationValidation(17발·이동·점프·IK·장전·정지)을 직접 실행해 모두 종료 코드 0을 확인했다. 로그는 Logs/AmmoReload_20261028/의 PlayerReloadValidation.Final.log, PlayerDashValidation.Final2.log와 나머지 검증별 log다. 최초 장전 검사에서 확인한 일시정지 전환 프레임의 타이머 차감은 timeScale 검사로 수정했다. 대시 추가 검사에서 연사 후 기존 공격 후딜을 기다리지 않은 검증 준비 오류는 검사에서 보완했으며 초기 실패 로그를 보존했다. 최종 .NET 런타임·에디터 빌드는 경고 0·오류 0(DotnetBuild.Final.log)이었고 git diff --check를 확인했다. 이전 날짜의 검증은 과거 기록이다. 실제 키 입력 수동 플레이·이미지 렌더링·공통 Attack/투사체/Mortal 독립 검증은 이번에 수행하지 않았다. 탄약 HUD·Skill2/궁극기 효과·전용 대시 클립·적 AI·사망 이동 중단·반복 전투 흐름은 남아 있다.
+
+- 2026-10-29 공격 행동 제한에서는 Attack.BlocksActions와 Combatant.IsPerformingAttack을 연결해 같은 캐릭터의 공격 선딜·후딜 중 다른 공격·점프·대시·재장전을 거절한다. Motor.CanPerformActions는 공격 제한을 함께 확인하고 IsDashActionLocked는 대시 전용 취소·시각 복구에 사용한다. 대시·R은 이미 시작한 선딜을 취소하지 못하며 거절된 대시는 스태미나를 소모하지 않는다. 이동·시점·중력, 기존 배속·일시정지·피해·탄약·Muzzle 참조를 유지하고 쿨타임만 남으면 다른 행동을 허용한다. 실행 프레임도 예약해 시간 0 공격의 동시 입력과 실행 이벤트 재진입을 차단한다. 별도 복사본 `Logs/AttackActionLock_20261029/Project`에서 Unity 6000.3.25f1로 새 PlayerActionDelayValidation 99개, AttackValidation 68개, PlayerAttackValidation 50개, PlayerDashValidation 61개, PlayerReloadValidation 40개와 스태미나·애니메이션(17발·이동·점프·IK·장전·투척·정지) 검증을 이번에 직접 실행해 통과했다. 원본 Assets 189개와 복사본의 SHA256 일치, 최종 C# 런타임·에디터 빌드 경고 0·오류 0과 git diff --check를 확인했다. 실제 저장값인 수류탄 후딜 1초·쿨타임 6초와 소총 탄퍼짐 3도를 0으로 가정하던 기존 검증, 공격 겹침·선딜 취소를 전제로 하던 검사 준비를 보완했다. 대시 시각 중단 검사는 런타임 복사본에서만 수류탄 시간을 0으로 설정한다. 중간 실패·최종 통과 로그는 `Logs/AttackActionLock_20261029/`에 있다. Unity Search의 기존 시작 시 인덱스 예외는 기능 검증과 구분한다. 실제 키 입력 수동 플레이·이미지 렌더링·투사체/Mortal 독립 검증은 이번에 수행하지 않았다. 미구현 스킬 효과·추가 애니메이션·적 AI·사망 행동·반복 전투 흐름은 남아 있다.
+
+- 2026-10-29 후속 점프 예외에서는 Motor.CanJump를 추가해 공격 Windup·Recovery와 dashPostDelay 중 지상 점프를 허용했다. 실제 IsDashing, 시간 정지, 비활성 Motor·CharacterController에서는 요청을 거절하며 접지 여부는 Motor.Update에서 검사한다. Controller 입력과 Motor.RequestJump·실제 실행이 같은 조건을 확인하고 공중 입력은 한 업데이트에 소비해 재점프·착지 후 예약 점프를 만들지 않는다. CanPerformActions·IsDashActionLocked는 공격·장전·추가 대시 제한으로 유지하며 점프가 공격·대시 타이머·스태미나를 바꾸지 않는다. 점프 로그도 CanJump 조건으로 분리했다. 검증 복사본 `Logs/AttackActionLock_20261029/Project`에서 Unity 6000.3.25f1로 PlayerActionDelayValidation 110개, PlayerDashValidation 63개, PlayerAnimationValidation(17발·이동·점프·IK·장전·투척·정지)을 이번에 직접 실행해 모두 종료 코드 0을 확인했다. 다섯 슬롯의 선딜·후딜 각각 실제 점프, 공중 재점프 방지, 대시 중 점프 거절·후딜 중 점프와 다른 행동 차단 유지를 검사했다. 로그·종료 코드는 `Logs/JumpDuringDelay_20261029/`의 각 Initial.log·Results.Initial.json이며 DotnetBuild.log는 경고 0·오류 0이다. 원본 Assets 189개와 복사본 SHA256 일치, 씬·공격 데이터·프리팹 변경 없음과 git diff --check를 확인했다. 이전 99개 행동 제한 검증의 점프 차단은 후속 요청 전 기록이다. 이번에는 수동 키 입력·이미지 렌더링·공통 Attack/플레이어 공격/장전/스태미나/투사체/Mortal 독립 검증을 재실행하지 않았다. 남은 스킬 효과·추가 애니메이션·적 AI·사망 행동·반복 전투 흐름은 유지한다.
 
 후속 작업에서는 기준 날짜와 함께 구현한 기능, 남은 제약, 실제 수행한 검증을 갱신해 이 문서의 진행 상태를 최신으로 유지한다.

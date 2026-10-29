@@ -35,8 +35,11 @@ namespace ProjectU
             Time.timeAsDouble < recoveryEndsAt ? AttackPhase.Recovery : AttackPhase.Ready;
         public float CooldownRemaining => (float)Math.Max(0d, cooldownEndsAt - Time.timeAsDouble);
         public float RecoveryRemaining => (float)Math.Max(0d, recoveryEndsAt - Time.timeAsDouble);
+        // Reserve the execution frame too, including attacks whose two delays are zero.
+        public bool BlocksActions => isActiveAndEnabled &&
+            (Phase != AttackPhase.Ready || lastExecutionFrame == Time.frameCount);
         public bool CanAttack => isActiveAndEnabled && Time.timeScale > 0f && Owner != null && Owner.IsAlive && Data != null &&
-            IsConfigured && Phase == AttackPhase.Ready && CooldownRemaining <= 0f && lastExecutionFrame != Time.frameCount;
+            IsConfigured && !Owner.IsPerformingAttack && CooldownRemaining <= 0f;
         protected virtual bool IsConfigured => true;
 
         public event Action OnStarted;

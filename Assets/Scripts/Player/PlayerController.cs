@@ -45,13 +45,14 @@ namespace ProjectU
                 if (logInput)
                     Debug.Log($"[Player Dash] Started; stamina {stamina.Current}/{stamina.Max}", this);
             }
-            if (input.Jump.Pressed && motor.CanPerformActions)
+            if (input.Jump.Pressed && motor.CanJump)
                 motor.RequestJump();
 
+            if (logInput && motor.CanJump)
+                Handle(input.Jump, "Jump (Space)", 0);
             if (!logInput || !motor.CanPerformActions)
                 return;
 
-            Handle(input.Jump, "Jump (Space)", 0);
             Handle(input.Ultimate, "Ultimate (Q)", 1);
             Handle(input.Reload, "Reload (R)", 2);
             Handle(input.Dash, "Dash (Shift)", 3);

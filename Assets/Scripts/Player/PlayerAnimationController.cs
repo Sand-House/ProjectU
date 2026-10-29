@@ -59,7 +59,7 @@ namespace ProjectU
             {
                 motor.OnDashExecuted += OnDashExecuted;
                 // Catch up if this visual component was disabled when the dash began.
-                if (!motor.CanPerformActions)
+                if (motor.IsDashActionLocked)
                     OnDashExecuted();
             }
         }

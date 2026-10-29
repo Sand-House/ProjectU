@@ -240,6 +240,7 @@ namespace ProjectU.Editor
             Action recordSecondary = () => secondaryTimes.Add(Time.timeAsDouble);
             primaryAttack.OnExecuted += recordPrimary;
             secondaryAttack.OnExecuted += recordSecondary;
+            while (primaryAttack.Owner.IsPerformingAttack) yield return null;
             pressMask = 8;
             yield return new WaitForSeconds(0.08f);
             Check(animationController.IsReloading, "reload starts before held-only fire");
@@ -257,8 +258,10 @@ namespace ProjectU.Editor
             Check(!animationController.IsReloading, "both weapons fire after reload cancellation");
             Check(RespectsTiming(primaryTimes, timedPrimary) && RespectsTiming(secondaryTimes, timedSecondary),
                 "held shots respect windup recovery and cooldown");
+            // A cooldown-only gap now correctly permits reload; probe actual secondary recovery.
+            while (secondaryAttack.Phase != AttackPhase.Recovery) yield return null;
             pressMask = 8;
-            yield return new WaitForSeconds(0.08f);
+            yield return new WaitForSeconds(0.02f);
             Check(!animationController.IsReloading, "active secondary fire prevents manual reload");
 
             Time.timeScale = 0f;
@@ -377,6 +380,7 @@ namespace ProjectU.Editor
             alternativeHeldMask = 0;
 
             // Re-enabling must replace subscriptions, not accumulate execution notifications.
+            while (projectile.Owner.IsPerformingAttack) yield return null;
             alternativeLauncher.enabled = false;
             alternativeLauncher.enabled = true;
             meleeTarget.gameObject.SetActive(true);

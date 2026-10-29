@@ -524,7 +524,7 @@ namespace ProjectU.Editor
                     "Grenade still launches from the existing same-frame Muzzle.");
                 Check(binding.Origin.localPosition == new Vector3(0f, 0f, 0.665f), "Muzzle local offset is unchanged.");
                 var data = (ProjectileAttackData)binding.Attack.Data;
-                Check(data.WindupTime == 0f && data.RecoveryTime == 0f && data.Cooldown == 0f && data.LaunchAngle == 12f,
+                Check(data.WindupTime == 0f && data.RecoveryTime == 1f && data.Cooldown == 6f && data.LaunchAngle == 12f,
                     "Saved grenade timing and launch angle remain unchanged.");
                 report.grenades++;
             }

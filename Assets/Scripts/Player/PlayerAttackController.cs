@@ -17,7 +17,6 @@ namespace ProjectU
         private PlayerMotor motor;
         private int currentAmmo;
         private float reloadWorkRemaining;
-        private int reloadBlockedFrame = -1;
         private readonly RaycastHit[] aimHits = new RaycastHit[32];
         private readonly Dictionary<Attack, Action> executionHandlers = new Dictionary<Attack, Action>();
         private readonly Dictionary<Attack, Action> startHandlers = new Dictionary<Attack, Action>();
@@ -142,7 +141,6 @@ namespace ProjectU
         public bool TryReload()
         {
             if (!CanReload) return false;
-            GetBinding(AttackSlot.PrimaryFire).Attack.CancelAttack();
             reloadWorkRemaining = stat.ReloadDuration;
             IsReloading = true;
             OnReloadStarted?.Invoke();
@@ -159,7 +157,8 @@ namespace ProjectU
 
         private bool CanUseWeapon()
         {
-            if (motor != null && !motor.CanPerformActions) return false;
+            // An attack's own lock must not cancel its pending execution.
+            if (motor != null && motor.IsDashActionLocked) return false;
             Attack primary = GetBinding(AttackSlot.PrimaryFire)?.Attack;
             // Other attack slots can still be used by a character with no primary binding.
             if (primary != null) return primary.Owner != null && primary.Owner.IsAlive;
@@ -169,13 +168,8 @@ namespace ProjectU
 
         private bool IsReloadBlocked()
         {
-            if (GetBinding(AttackSlot.PrimaryFire)?.Attack == null || reloadBlockedFrame == Time.frameCount)
-                return true;
-            foreach (PlayerAttackBinding binding in attackBindings)
-                if (binding.Slot != AttackSlot.PrimaryFire && binding.Attack != null &&
-                    binding.Attack.isActiveAndEnabled && binding.Attack.Phase != AttackPhase.Ready)
-                    return true;
-            return false;
+            Attack primary = GetBinding(AttackSlot.PrimaryFire)?.Attack;
+            return primary == null || primary.Owner.IsPerformingAttack;
         }
 
         private bool WantsAttack(PlayerAttackBinding binding)
@@ -195,14 +189,12 @@ namespace ProjectU
                 }
             }
             if (binding.Slot == AttackSlot.PrimaryFire) return;
-            reloadBlockedFrame = Time.frameCount;
             if (binding.Slot != AttackSlot.SecondaryFire) CancelReload();
         }
 
         private void OnAttackExecuted(AttackSlot slot)
         {
             if (slot == AttackSlot.PrimaryFire) currentAmmo = Mathf.Max(0, CurrentAmmo - 1);
-            else reloadBlockedFrame = Time.frameCount;
             AttackExecuted?.Invoke(slot);
         }
 

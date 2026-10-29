@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace ProjectU
@@ -11,6 +12,7 @@ namespace ProjectU
     {
         [SerializeField] private Faction faction = Faction.Enemy;
         private Mortal mortal;
+        private readonly List<Attack> attacks = new List<Attack>();
 
         public Faction Faction { get => faction; set => faction = value; }
         public Mortal Mortal
@@ -22,6 +24,17 @@ namespace ProjectU
             }
         }
         public bool IsAlive => isActiveAndEnabled && Mortal != null && !Mortal.isDead;
+        public bool IsPerformingAttack
+        {
+            get
+            {
+                // Reuse the list and include attacks added at runtime, even without player bindings.
+                GetComponents(attacks);
+                foreach (Attack attack in attacks)
+                    if (attack.BlocksActions) return true;
+                return false;
+            }
+        }
 
         public bool CanTarget(Combatant target, AttackTargetRule rule = AttackTargetRule.Hostile)
         {

@@ -137,7 +137,7 @@ namespace ProjectU.Editor
                 int dashBaseline = dashExecutions;
                 dashPress = dashHeld = true;
                 yield return null;
-                Check(motor.IsDashing && !motor.CanPerformActions && stamina.Current == 75f,
+                Check(motor.IsDashing && !motor.CanPerformActions && !motor.CanJump && stamina.Current == 75f,
                     "press starts one dash and consumes 25: " + direction);
                 Check(dashExecutions == dashBaseline + 1 && dashEventStateValid,
                     "OnDashExecuted fires once after dash state is initialized: " + direction);
@@ -149,7 +149,8 @@ namespace ProjectU.Editor
                 displacement.y = 0f;
                 Check(Vector3.Distance(displacement, expected * 5f) < 0.03f,
                     "five-meter fixed direction: " + direction + " actual=" + displacement);
-                Check(motor.IsDashPostDelay && !motor.CanPerformActions, "post-delay blocks actions");
+                Check(motor.IsDashPostDelay && !motor.CanPerformActions && motor.CanJump,
+                    "post-delay permits jump while blocking other actions");
                 while (!motor.CanPerformActions) yield return null;
                 yield return new WaitForSeconds(0.1f);
                 Check(stamina.Current == 75f && dashExecutions == dashBaseline + 1,
@@ -189,11 +190,17 @@ namespace ProjectU.Editor
             Vector3 recoveryStart = input.transform.position;
             movement = Vector2.right;
             float recoveryStarted = Time.time;
+            Check(motor.CanJump, "dash post-delay accepts jump requests");
+            motor.RequestJump();
+            yield return null;
+            Check(motor.IsDashPostDelay && motor.VerticalSpeed > 0f && executed == baseline &&
+                stamina.Current == 75f && !animationController.IsReloading,
+                "jump executes during dash post-delay without unlocking attacks reload or another dash");
             while (!motor.CanPerformActions) yield return null;
             Check(Time.time - recoveryStarted >= 0.28f &&
-                Vector3.Distance(recoveryStart, input.transform.position) > 1f &&
+                Vector3.ProjectOnPlane(input.transform.position - recoveryStart, Vector3.up).magnitude > 1f &&
                 executed == baseline && stamina.Current == 75f && !animationController.IsReloading,
-                "post-delay permits WASD only and rejects spam without spending stamina");
+                "post-delay permits WASD and jump while rejecting other actions without spending stamina");
             Check(dashExecutions == eventBaseline + 1 &&
                 animator.GetCurrentAnimatorStateInfo(1).normalizedTime > aimTime,
                 "rejected dash presses emit no event and rifle aim continues without restarting");
@@ -212,10 +219,14 @@ namespace ProjectU.Editor
             int cancellationsBeforeDash = cancelled;
             dashPress = true;
             yield return null;
-            Check(motor.IsDashing && stamina.Current == 75f, "new press works after post-delay without extra cooldown");
+            Check(!motor.IsDashing && stamina.Current == 100f, "attack windup rejects a dash without spending stamina");
             yield return null;
-            Check(primary.Phase != AttackPhase.Windup && cancelled == cancellationsBeforeDash + 1,
-                "dash cancels a primary windup that was accepted outside reload");
+            Check(primary.Phase == AttackPhase.Windup && cancelled == cancellationsBeforeDash,
+                "rejected dash preserves the accepted primary windup");
+            while (!motor.CanPerformActions) yield return null;
+            dashPress = true;
+            yield return null;
+            Check(motor.IsDashing && stamina.Current == 75f, "fresh dash press succeeds after attack recovery");
             while (!motor.CanPerformActions) yield return null;
 
             ResetPosition();
@@ -232,7 +243,13 @@ namespace ProjectU.Editor
                 stamina.RecoveryDelayRemaining <= wait && dashExecutions == eventBaseline,
                 "insufficient stamina rejects dash without displacement or event");
 
-            // A dash cancels grenade visuals while preserving the launch and later skill use.
+            // Isolate visual interruption from the saved grenade's recovery/cooldown.
+            Attack grenade = attacks.GetBinding(AttackSlot.Skill1).Attack;
+            var visualGrenadeData = Instantiate((ProjectileAttackData)grenade.Data);
+            SetField(visualGrenadeData, "recoveryTime", 0f);
+            SetField(visualGrenadeData, "cooldown", 0f);
+            SetField(grenade, "data", visualGrenadeData);
+            // A dash cancels grenade visuals once the gameplay action lock has ended.
             ResetPosition();
             typeof(PlayerCameraController).GetProperty("Yaw").SetValue(cameraController, 0f);
             stamina.Recover(100f);
@@ -306,7 +323,7 @@ namespace ProjectU.Editor
             remaining = GetField<float>(motor, "dashPostDelayRemaining");
             Time.timeScale = 0f;
             for (int i = 0; i < 4; i++) yield return null;
-            Check(GetField<float>(motor, "dashPostDelayRemaining") == remaining && !motor.CanPerformActions,
+            Check(GetField<float>(motor, "dashPostDelayRemaining") == remaining && !motor.CanPerformActions && !motor.CanJump,
                 "pause freezes post-delay");
             Time.timeScale = 1f;
             while (!motor.CanPerformActions) yield return null;
@@ -345,7 +362,7 @@ namespace ProjectU.Editor
             dashPress = true;
             yield return null;
             motor.enabled = false;
-            Check(!motor.IsDashing && !motor.IsDashPostDelay && motor.CanPerformActions,
+            Check(!motor.IsDashing && !motor.IsDashPostDelay && motor.CanPerformActions && !motor.CanJump,
                 "disabling motor clears dash and action lock");
             eventBaseline = dashExecutions;
             Check(!motor.TryDash(Vector3.forward) && dashExecutions == eventBaseline,

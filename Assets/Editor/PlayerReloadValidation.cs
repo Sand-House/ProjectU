@@ -162,17 +162,20 @@ namespace ProjectU.Editor
             Check(!attacks.IsReloading && attacks.CurrentAmmo == 30 && completions == 1 &&
                 Mathf.Abs((float)reloadElapsed - 3.3f / 2f) < 0.04f, "duration divided by multiplier refills once");
 
-            // Drain the real magazine without injecting an empty transition.
+            // The final primary recovery blocks secondary fire and the empty-magazine reload.
+            SetField(primaryData, "recoveryTime", 0.25f);
             heldMask = 1;
             while (attacks.CurrentAmmo > 1) yield return null;
+            while (attacks.CurrentAmmo > 0) yield return null;
+            heldMask = 0;
             pressMask = 3;
             yield return new WaitForSeconds(0.1f);
-            heldMask = 0;
-            Check(attacks.CurrentAmmo == 0 && !attacks.IsReloading && secondary.Phase == AttackPhase.Recovery && starts == 1,
-                "last primary round during secondary recovery defers automatic reload");
+            Check(attacks.CurrentAmmo == 0 && !attacks.IsReloading && primary.Phase == AttackPhase.Recovery && starts == 1,
+                "last primary recovery blocks secondary fire and defers automatic reload");
             while (starts < 2) yield return null;
             Check(primaryShots == previousPrimary + 30 && attacks.CurrentAmmo == 0 && attacks.IsReloading,
-                "empty primary cannot overfire and retries after secondary recovery without R");
+                "empty primary cannot overfire and retries after primary recovery without R");
+            SetField(primaryData, "recoveryTime", 0f);
             int completedBeforeCancel = completions;
             pressMask = 16;
             yield return new WaitForSeconds(0.1f);
@@ -270,16 +273,17 @@ namespace ProjectU.Editor
             Check(attacks.CurrentAmmo == 5 && !attacks.IsReloading, "capacity decrease clamps ammo without refilling");
             stat.MaxMagazine = 6;
 
-            // A cancelled windup and an origin lost during windup must not spend ammo.
+            // Reload cannot interrupt primary windup; explicit cancellation must not spend ammo.
             SetField(primaryData, "windupTime", 0.2f);
             pressMask = 1;
             yield return new WaitForSeconds(0.05f);
             Check(primary.Phase == AttackPhase.Windup && attacks.CurrentAmmo == 5, "primary reserves no ammo before execution");
             pressMask = 8;
             yield return new WaitForSeconds(0.1f);
-            Check(primary.Phase != AttackPhase.Windup && attacks.IsReloading && attacks.CurrentAmmo == 5,
-                "manual reload cancels pending primary without consuming ammo");
-            attacks.CancelReload();
+            Check(primary.Phase == AttackPhase.Windup && !attacks.IsReloading && attacks.CurrentAmmo == 5,
+                "manual reload is rejected during primary windup without cancelling it");
+            Check(primary.CancelAttack() && attacks.CurrentAmmo == 5,
+                "explicit primary cancellation does not consume ammo");
             attacks.enabled = false;
             attacks.enabled = true;
             var lostOrigin = new GameObject("Temporary Reload Test Origin");

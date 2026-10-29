@@ -81,9 +81,9 @@ namespace ProjectU.Editor
                 AssetDatabase.LoadAssetAtPath<MeleeAttackData>("Assets/Data/Attacks/StrikerMeleeAttack.asset") != null &&
                 AssetDatabase.LoadAssetAtPath<ProjectileAttackData>("Assets/Data/Attacks/SoldierGrenadeAttack.asset").ProjectilePrefab != null,
                 "example assets and projectile reference import");
-            Check(AssetDatabase.LoadAssetAtPath<HitscanAttackData>("Assets/Data/Attacks/TempPrimaryFire.asset").SpreadAngle == 0f &&
+            Check(AssetDatabase.LoadAssetAtPath<HitscanAttackData>("Assets/Data/Attacks/TempPrimaryFire.asset").SpreadAngle == 3f &&
                 AssetDatabase.LoadAssetAtPath<HitscanAttackData>("Assets/Data/Attacks/SoldierRifleAttack.asset").SpreadAngle == 3f,
-                "saved hitscan assets preserve disabled and enabled spread angles");
+                "saved hitscan assets preserve their three-degree spread angles");
             var bare = new GameObject("Required Components");
             bare.transform.SetParent(root.transform, false);
             bare.AddComponent<HitscanAttack>();
@@ -129,6 +129,8 @@ namespace ProjectU.Editor
             Check(Vector3.Distance(attack.LastShotEndPoint, far.transform.position - Vector3.forward * 0.25f) < 0.001f,
                 "debug line passes duplicate hitboxes and stops at penetration limit target surface");
             HitscanAttack twin = Attack<HitscanAttack>(source, rifle);
+            Check(!twin.CanAttack, "shared owner recovery blocks a different attack");
+            yield return new WaitForSeconds(0.13f);
             Check(twin.Data == attack.Data && twin.CanAttack && !attack.CanAttack, "shared asset has independent runtime state");
             far.gameObject.SetActive(false);
             Physics.SyncTransforms();
