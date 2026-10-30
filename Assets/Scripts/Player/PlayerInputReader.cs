@@ -22,6 +22,8 @@ namespace ProjectU
         private InputAction captureCursor;
         private bool skipLook;
 
+        public bool IsGameplayInputEnabled { get; private set; }
+
         public Vector2 Move { get; private set; }
         public Vector2 Look { get; private set; }
         public ButtonInputState Jump { get; private set; }
@@ -80,6 +82,7 @@ namespace ProjectU
             if (Cursor.lockState != CursorLockMode.Locked)
                 return;
 
+            IsGameplayInputEnabled = true;
             Move = Vector2.ClampMagnitude(move.ReadValue<Vector2>(), 1f);
             Look = skipLook ? Vector2.zero : look.ReadValue<Vector2>();
             skipLook = false;
@@ -102,6 +105,7 @@ namespace ProjectU
 
         private void SetCursorCaptured(bool captured)
         {
+            if (!captured) ClearInput();
             Cursor.lockState = captured ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !captured;
             skipLook = true;
@@ -109,6 +113,7 @@ namespace ProjectU
 
         private void ClearInput()
         {
+            IsGameplayInputEnabled = false;
             Move = Look = Vector2.zero;
             Jump = Ultimate = Reload = Dash = Skill1 = Skill2 = PrimaryFire = SecondaryFire = default;
         }

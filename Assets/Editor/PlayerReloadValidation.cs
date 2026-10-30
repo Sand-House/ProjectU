@@ -96,6 +96,8 @@ namespace ProjectU.Editor
             motor = input.GetComponent<PlayerMotor>();
             animator = input.GetComponentInChildren<Animator>();
             SetField(input.GetComponent<PlayerController>(), "logInput", false);
+            // Isolate reload mechanics from deferred input; the buffer suite tests delayed R.
+            SetField(input.GetComponent<PlayerController>(), "maxInputBufferTime", 0f);
             Check(attacks.CurrentAmmo == 30 && attacks.MaxAmmo == stat.MaxMagazine && !attacks.IsReloading,
                 "saved player starts with a full primary magazine");
             Check(stat.ReloadDuration == 3.3f && stat.ReloadSpeedMultiplier == 1f && stat.DashDistance == 5f,
@@ -317,6 +319,7 @@ namespace ProjectU.Editor
                 Debug.LogError("Reload validation timed out.");
                 PlayerReloadValidation.Finish(1);
             }
+            SetInput("IsGameplayInputEnabled", input.isActiveAndEnabled && Time.timeScale > 0f);
             SetInput("Move", Vector2.zero);
             SetInput("Look", Vector2.zero);
             SetInput("Jump", default(ButtonInputState));

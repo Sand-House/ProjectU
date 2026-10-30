@@ -105,6 +105,8 @@ namespace ProjectU.Editor
                 settings.FindProperty("dashDuration").floatValue == 0.2f &&
                 settings.FindProperty("dashPostDelay").floatValue == 0.3f, "saved Inspector dash settings");
             SetField(input.GetComponent<PlayerController>(), "logInput", false);
+            // Retain the immediate-lock probes; buffered follow-ups have their own suite.
+            SetField(input.GetComponent<PlayerController>(), "maxInputBufferTime", 0f);
             stamina.RecoveryRate = 0f;
             motor.OnDashExecuted += () =>
             {
@@ -374,6 +376,7 @@ namespace ProjectU.Editor
         {
             if (input == null) return;
             bool actionPress = otherActions && (!motor.CanPerformActions || dashPress);
+            SetInput("IsGameplayInputEnabled", input.isActiveAndEnabled && Time.timeScale > 0f);
             SetInput("Move", movement);
             SetInput("Dash", Snapshot(dashPress || actionPress, dashHeld || actionPress));
             SetInput("Jump", Snapshot(actionPress, actionPress));

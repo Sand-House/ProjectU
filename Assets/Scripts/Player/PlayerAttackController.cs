@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace ProjectU
 {
-    [RequireComponent(typeof(PlayerInputReader), typeof(PlayerStat))]
+    [RequireComponent(typeof(PlayerStat))]
     [DefaultExecutionOrder(100)]
     public sealed class PlayerAttackController : MonoBehaviour
     {
@@ -12,11 +12,13 @@ namespace ProjectU
         [SerializeField] private Camera aimCamera;
         [SerializeField, Min(1f), Tooltip("Maximum camera-center aim-point search distance. Does not limit attack range.")]
         private float aimDistance = 100f;
-        private PlayerInputReader input;
         private PlayerStat stat;
         private PlayerMotor motor;
         private int currentAmmo;
         private float reloadWorkRemaining;
+        private AttackSlot? requestedAttack;
+        private bool reloadRequested;
+        private int requestFrame = -1;
         private readonly RaycastHit[] aimHits = new RaycastHit[32];
         private readonly Dictionary<Attack, Action> executionHandlers = new Dictionary<Attack, Action>();
         private readonly Dictionary<Attack, Action> startHandlers = new Dictionary<Attack, Action>();
@@ -41,7 +43,6 @@ namespace ProjectU
 
         private void Awake()
         {
-            input = GetComponent<PlayerInputReader>();
             stat = GetComponent<PlayerStat>();
             motor = GetComponent<PlayerMotor>();
             currentAmmo = MaxAmmo;
@@ -90,6 +91,9 @@ namespace ProjectU
 
         private void LateUpdate()
         {
+            AttackSlot? attackCommand = requestFrame == Time.frameCount ? requestedAttack : null;
+            bool reloadCommand = requestFrame == Time.frameCount && reloadRequested;
+            ClearRequests();
             currentAmmo = CurrentAmmo;
             if (!CanUseWeapon())
             {
@@ -106,12 +110,10 @@ namespace ProjectU
                 Attack attack = binding.Attack;
                 if (attack == null || attack.Data == null) continue;
                 Prepare(attack, point);
-                // Secondary fire and skills get to reserve their action before reload is checked.
-                if (binding.Slot == AttackSlot.PrimaryFire ||
-                    (IsReloading && binding.Slot == AttackSlot.SecondaryFire)) continue;
-                if (WantsAttack(binding))
-                    attack.TryAttack(binding.Origin, point);
             }
+            // Skills can cancel reload before this frame's reload work or completion event.
+            if (attackCommand.HasValue && attackCommand.Value != AttackSlot.PrimaryFire)
+                TryStartAttack(attackCommand.Value, point);
 
             if (IsReloading)
             {
@@ -129,13 +131,48 @@ namespace ProjectU
                 }
             }
 
-            // This is deliberately level-triggered: an empty magazine retries after every interruption.
-            if (input.Reload.Pressed || CurrentAmmo == 0) TryReload();
+            if (reloadCommand) TryReload();
             // Let Aim evaluate the restored pose before the first post-reload shot.
             if (wasReloading || IsReloading || CurrentAmmo == 0) return;
-            PlayerAttackBinding primary = GetBinding(AttackSlot.PrimaryFire);
-            if (primary != null && primary.Attack.Data != null && WantsAttack(primary))
-                primary.Attack.TryAttack(primary.Origin, point);
+            if (attackCommand == AttackSlot.PrimaryFire) TryStartAttack(AttackSlot.PrimaryFire, point);
+        }
+
+        // Commands last for one LateUpdate and carry no input history or priority policy.
+        public void RequestAttack(AttackSlot slot)
+        {
+            requestedAttack = slot;
+            reloadRequested = false;
+            requestFrame = Time.frameCount;
+        }
+
+        public void RequestReload()
+        {
+            requestedAttack = null;
+            reloadRequested = true;
+            requestFrame = Time.frameCount;
+        }
+
+        public void ClearRequests()
+        {
+            requestedAttack = null;
+            reloadRequested = false;
+            requestFrame = -1;
+        }
+
+        private bool TryStartAttack(AttackSlot slot, Vector3 point)
+        {
+            if (!CanAttack(slot)) return false;
+            PlayerAttackBinding binding = GetBinding(slot);
+            return binding.Attack.TryAttack(binding.Origin, point);
+        }
+
+        public bool CanAttack(AttackSlot slot)
+        {
+            if (!isActiveAndEnabled || Time.deltaTime <= 0f || !CanUseWeapon()) return false;
+            if ((slot == AttackSlot.PrimaryFire || slot == AttackSlot.SecondaryFire) && IsReloading) return false;
+            if (slot == AttackSlot.PrimaryFire && CurrentAmmo == 0) return false;
+            PlayerAttackBinding binding = GetBinding(slot);
+            return binding != null && binding.Attack != null && binding.Origin != null && binding.Attack.CanAttack;
         }
 
         public bool TryReload()
@@ -172,12 +209,6 @@ namespace ProjectU
             return primary == null || primary.Owner.IsPerformingAttack;
         }
 
-        private bool WantsAttack(PlayerAttackBinding binding)
-        {
-            ButtonInputState state = ReadInput(binding.Slot);
-            return state.Pressed || (binding.Attack.Data.RepeatWhileHeld && state.Held);
-        }
-
         private void OnAttackStarted(PlayerAttackBinding binding)
         {
             if (binding.Slot == AttackSlot.PrimaryFire || binding.Slot == AttackSlot.SecondaryFire)
@@ -199,19 +230,6 @@ namespace ProjectU
         }
 
         private void OnDashExecuted() => CancelReload();
-
-        private ButtonInputState ReadInput(AttackSlot slot)
-        {
-            switch (slot)
-            {
-                case AttackSlot.PrimaryFire: return input.PrimaryFire;
-                case AttackSlot.SecondaryFire: return input.SecondaryFire;
-                case AttackSlot.Skill1: return input.Skill1;
-                case AttackSlot.Skill2: return input.Skill2;
-                case AttackSlot.Ultimate: return input.Ultimate;
-                default: return default;
-            }
-        }
 
         private void Prepare(Attack attack, Vector3 point)
         {
@@ -251,6 +269,7 @@ namespace ProjectU
 
         private void OnDisable()
         {
+            ClearRequests();
             CancelReload();
             if (motor != null) motor.OnDashExecuted -= OnDashExecuted;
             foreach (KeyValuePair<Attack, Action> subscription in startHandlers)

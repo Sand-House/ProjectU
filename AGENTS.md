@@ -1,6 +1,8 @@
 # ProjectU 프로젝트 지침
 
-진행 현황 기준: **2026-10-29**. Soldier 기본 애니메이션과 Skill1(E)의 Toss Grenade를 연결했으며 남은 애니메이션은 **Dash·Skill2·Ultimate 3개**다. 이동 임포트·플레이어 forward 기준 상체 보정·양팔 IK를 유지한다. SampleScene의 좌클릭은 TempPrimaryFire 히트스캔 피해 30, 우클릭은 기존 Bullet 피해 50, E는 기존 Grenade 폭발 피해 100이다. 기본 발사에만 30발 탄창과 수동·빈 탄창 자동 재장전을 연결했다. 자동 재장전은 가능한 상태가 될 때까지 매 프레임 재시도한다. 장전 중 기본·보조 발사는 금지하고 대시 성공·스킬 수락 시 탄환 보충 없이 취소한다. PlayerStat의 reloadDuration(3.3초) / reloadSpeedMultiplier(1)로 장전 시간을 계산하며, Animation은 OnReloadStarted 이벤트와 재장전 상태 전용 배속 파라미터를 사용한다. OnReloadCompleted는 탄창을 채운 뒤 한 번 발생한다. dashDistance(5m)는 Motor에서 PlayerStat으로 옮겼으며 시간·후딜·스태미나는 유지했다. 바인딩·공유 AttackData.RepeatWhileHeld·공격 원점 보정과 기존 세 공격·Muzzle 참조를 보존했다. Skill2·궁극기 효과, 손 투척 지점·적 AI·사망 행동과 반복 전투 흐름은 후속 작업이다.
+최신 입력 변경 기준: **2026-10-30**. PlayerController 한 곳에서 이동·점프와 전투 행동 선택을 처리한다. 공격·대시 딜레이 중 다음 행동 한 개를 예약하며 maxInputBufferTime(코드·SampleScene 기본 1초)이 지나면 버린다. 일반 예약은 새 일반 누름으로 교체하고 대시는 모든 예약보다 우선하며 다른 입력으로 교체·유효 시간 연장되지 않는다. 실행 시점에 스태미나·쿨타임 등 조건을 다시 검사하고 한 번 시도한 예약은 성공·실패와 관계없이 소비한다. 정지·커서 해제·포커스 상실·Reader/Controller 비활성화·사망은 예약을 지운다. 이동·점프는 예약하지 않으며 홀딩 반복·빈 탄창 자동 장전은 예약 다음에 재시도한다. 별도 PlayerActionController나 클래스명 변경은 없다. 최신 상세 책임·규칙은 [EnhancedInput.md](EnhancedInput.md)를 기준으로 한다. 아래 2026-10-29 이전 기록의 ‘단발 입력 예약 없음’은 당시 상태다.
+
+진행 현황 기준: **2026-10-30**. Soldier 기본 애니메이션과 Skill1(E)의 Toss Grenade를 연결했으며 남은 애니메이션은 **Dash·Skill2·Ultimate 3개**다. 이동 임포트·플레이어 forward 기준 상체 보정·양팔 IK를 유지한다. SampleScene의 좌클릭은 TempPrimaryFire 히트스캔 피해 30, 우클릭은 기존 Bullet 피해 50, E는 기존 Grenade 폭발 피해 100이다. 기본 발사에만 30발 탄창과 수동·빈 탄창 자동 재장전을 연결했다. 자동 재장전은 가능한 상태가 될 때까지 매 프레임 재시도한다. 장전 중 기본·보조 발사는 금지하고 대시 성공·스킬 수락 시 탄환 보충 없이 취소한다. PlayerStat의 reloadDuration(3.3초) / reloadSpeedMultiplier(1)로 장전 시간을 계산하며, Animation은 OnReloadStarted 이벤트와 재장전 상태 전용 배속 파라미터를 사용한다. OnReloadCompleted는 탄창을 채운 뒤 한 번 발생한다. dashDistance(5m)는 Motor에서 PlayerStat으로 옮겼으며 시간·후딜·스태미나는 유지했다. 바인딩·공유 AttackData.RepeatWhileHeld·공격 원점 보정과 기존 세 공격·Muzzle 참조를 보존했다. Skill2·궁극기 효과, 손 투척 지점·적 AI·사망 행동과 반복 전투 흐름은 후속 작업이다.
 
 공격 선딜·후딜의 공통 행동 제한을 2026-10-29 연결했다. 같은 캐릭터의 다른 공격·대시·재장전을 거절하며 이동·점프·시점은 유지한다. 점프는 CanJump로 분리해 공격 선딜·후딜과 대시 후딜에 허용하며 실제 대시 이동 중에는 거절한다. TempGrenade의 선딜 0초·후딜 1초·쿨타임 6초를 유지했다. 이전 날짜 기록의 점프 차단·공격 선딜 취소·수류탄 시간 0 설명은 당시 상태다.
 
@@ -17,6 +19,7 @@
 
 - [플레이어 조작 가이드](플레이어%20조작%20가이드.md): 입력, 이동, 카메라, 클래스별 책임과 메서드.
 - [공격 구현 가이드](공격%20구현%20가이드.md): 공격 데이터·입력·실행·진영·피해와 투사체 생명주기·풀·프리팹·검증을 합친 통합 문서.
+- [EnhancedInput.md](EnhancedInput.md): 클래스별 입력·실행 책임, 한 개 선입력·최대 유지 시간·대시 우선순위·실행 실패와 조작 중단 규칙.
 
 ## 2. 프로젝트 설명
 
@@ -97,7 +100,7 @@
 |---|---|---|
 | 테스트 아레나 | 프로토타입 구현 | `SampleScene`에 40×40m 바닥, 경계 벽, X Bot 플레이어와 임시 소총; 기존 캡슐 렌더러·전방 표시는 숨기고 CharacterController는 유지 |
 | Soldier 메시·애니메이션 | 기본 애니메이션 적용 완료 | Humanoid 클립 11개를 2D 이동 Blend Tree·점프 3상태·상체 소총·투척 레이어에 연결. 대기·전후좌우 이동·점프·사격·재장전과 이동 문제 해결을 2026-10-15 사용자 확인으로 완료 처리. 루트·반복 보정과 Rotation Offset 0, 플레이어 forward 기준 상체 보정·총구 조준·양팔 IK 사용. 남은 애니메이션은 Dash·Skill2·Ultimate; 최종 무기 모델·손가락 정렬은 별도 시각 완성도 작업 |
-| 입력 | 구현 | WASD·마우스, Dash를 포함한 8개 게임플레이 버튼의 `Pressed/Held/Released`, 커서·포커스·일시정지 처리 |
+| 입력 | 선입력·행동 선택 구현 | WASD·마우스와 8개 버튼 스냅샷 유지. Controller가 최대 1초의 다음 행동 한 개·대시 최우선·최신 일반 입력 교체·실패/중단 폐기와 반복 요청을 담당. 이동·점프는 비예약 |
 | 이동·점프 | 구현 | `CharacterController` 이동, 스트레이프, 카메라 Yaw 방향 회전, 중력·지상 점프·충돌; 실제 수평 속도와 접지·수직 속도로 애니메이션 구동 |
 | TPS 카메라 | 구현 | 어깨 뒤 추적, Yaw·pitch, 수직 각도 제한, SphereCast 장애물 회피 |
 | 발사·조준 | 프로토타입 구현 | 화면 중앙 조준점과 소총 자식 Muzzle을 상체·총구·실제 공격이 공유. 카메라 LateUpdate 이후 상체·총구 정렬 후 발사. 선딜이 끝나는 프레임의 총구 위치를 읽고 캐릭터~총구의 벽 검사·원점 보정·방향 재계산을 실행. 가까운 조준점의 총 후퇴와 수류탄 발사각 보정 유지 |
@@ -142,13 +145,13 @@
 | `Assets/Scripts/Player/PlayerInputReader.cs` | 독립 `PlayerControls` InputActionMap 생성, 상태 수집, 커서 관리 |
 | `Assets/Scripts/Player/PlayerStat.cs` | 9개 능력치의 Inspector 설정; 이동속도·대시 거리·탄창·장전 시간/속도·최대 스태미나 원본. ReloadDuration은 외부 읽기 전용 |
 | `Assets/Scripts/Player/PlayerStamina.cs` | 현재 스태미나, 소모 검증·차감·회복, 지연 자동 회복과 값 변경 이벤트 |
-| `Assets/Scripts/Player/PlayerController.cs` | 카메라 Yaw로 입력을 월드 이동 명령으로 변환, 점프 요청, 대시 가능 상태 확인·스태미나 소모·대시 요청, 버튼 로그 |
+| `Assets/Scripts/Player/PlayerController.cs` | 이동·점프 명령, 선입력 한 개·만료·교체·대시 우선순위, 스태미나 확인·대시 요청, 공격/장전 한 프레임 명령과 홀딩/빈 탄창 재시도·로그 |
 | `Assets/Scripts/Player/PlayerMotor.cs` | 한 프레임 명령을 소비해 이동·회전·중력·점프·충돌, 대시 이동·후딜·행동 가능 상태 처리 |
 | `Assets/Scripts/Player/PlayerAnimationController.cs` | Motor로 이동·점프 갱신, 공격·대시·장전 이벤트로 상체 동작 실행, 장전 상태 전용 배속·일시정지 처리 |
 | `Assets/Scripts/Player/PlayerAimController.cs` | 카메라 갱신 후 척추·가슴 회전, 소총·총구 조준, 양팔 IK·가까운 조준점에서 소총 후퇴 |
 | `Assets/Scripts/Player/PlayerCameraController.cs` | 시점 회전, 플레이어 추적, 카메라 장애물 검사 |
 | `Assets/Scripts/Player/PlayerAttackBinding.cs` | AttackSlot·공통 Attack·Origin Transform의 직렬화 클래스; 반복 여부는 연결된 Attack.Data에서 조회 |
-| `Assets/Scripts/Player/PlayerAttackController.cs` | 바인딩별 조준·능력치·입력·실행 이벤트, 기본 발사 탄창·수동/자동 장전·취소·장전 이벤트 |
+| `Assets/Scripts/Player/PlayerAttackController.cs` | Controller의 한 프레임 명령 소비·최종 검사, 바인딩별 최신 조준·능력치·공격 요청·실행 이벤트, 기본 발사 탄창·장전·취소·시작/완료 이벤트. 버튼·선입력 직접 관리 없음 |
 | `Assets/Scripts/Projectiles/Projectile.cs` | 추상 기반 클래스; Rigidbody 초기화, 수명, 충돌 전달, 발사자 충돌 제외·복구, 반환 |
 | `Assets/Scripts/Projectiles/ProjectileBullet.cs` | 중력 없는 직선 물리 총알; 충돌 시 반환 |
 | `Assets/Scripts/Projectiles/ProjectileGrenade.cs` | 중력·튕김, 수명 만료 시 물리 정지·폭발 연출·반환 |
@@ -166,6 +169,7 @@
 | `Assets/Editor/PlayerDashValidation.cs` | 저장된 씬의 방향·거리·시간·벽 충돌·스태미나·후딜 행동 제한·공격/재장전 취소·일시정지 검증 |
 | `Assets/Editor/PlayerReloadValidation.cs` | 탄창·장전 시간/배속·두 발사 차단·대시/세 스킬 취소·빈 탄창 지속 재시도·일시정지·실패 발사·사망 검증 |
 | `Assets/Editor/PlayerActionDelayValidation.cs` | 다섯 공격 슬롯의 선딜·후딜 상호 차단, 이동·지상 점프 허용·공중 재점프 방지·대시/장전 거절·동시 입력·쿨타임·정지·실패/취소 검증 |
+| `Assets/Editor/EnhancedInputValidation.cs` | 실제 Controller·씬 실행기의 한 개 예약·대시 우선·다섯 슬롯·교체·R·만료/0초·자원/쿨타임 실패·중단 폐기 검증 |
 | `Packages/manifest.json`, `ProjectSettings/ProjectVersion.txt` | 패키지·Unity 버전의 기준 |
 
 ### 유지해야 할 현재 구조
@@ -205,7 +209,7 @@
 - 최대 스태미나는 PlayerStat, 소모량은 Controller, 현재량·회복 대기·초당 회복량은 PlayerStamina의 Inspector에서 조절한다. 시험 기본값은 최대·시작 100, 1회 소모 25, 회복 대기 1초, 초당 20이다. Controller 소모량 0은 자원 차감 없이 대시하며 PlayerStamina.TryConsume 자체는 양수만 받는다. 최종 밸런스는 미정이다.
 - 성공한 소모마다 회복 대기를 다시 시작하고, 부족하거나 유효하지 않은 요청은 잔량·대기를 바꾸지 않는다. `Time.deltaTime`으로 대기를 줄이고 대기를 초과한 프레임 시간에만 자동 회복한다. 일시정지 중 대기·자동 회복은 함께 멈춘다. 비활성화·재활성화는 잔량·대기를 초기화하지 않으며 비활성 중 자동 회복하지 않는다. 회복 지연 시간은 사용 쿨타임이 아니다.
 - `Recover`는 실제 회복량을 반환하고 최대량을 넘지 않는다. 명시적 회복은 대기를 무시하되 타이머를 바꾸지 않는다. 최대량 증가 시 잔량을 유지하고 감소 시 잔량을 제한한다. 런타임 최대량·Inspector 현재량 변경은 다음 Stamina.Update에서 동기화하고 `OnChanged(current, max)`를 알린다. HUD는 이벤트를 구독하고 초기값은 직접 읽으며 자원을 직접 변경하지 않는다.
-- 대시 실행 흐름은 **입력 → 대시 가능한 상태 확인 → 스태미나 소모 성공 → Motor에 이동 요청**이다. 행동 제한으로 실행할 수 없는 대시에 자원만 소모하지 않도록 상태를 먼저 확인한다. 대시와 dashPostDelay가 끝나면 자원이 충분할 때 새 누름으로 다시 사용할 수 있다. 별도 쿨타임이나 입력 예약은 없다. 대시 중 이동 방향은 고정하고 후딜 중 WASD 이동은 허용한다.
+- 대시 실행 흐름은 **입력 → 대시 가능한 상태 확인 → 스태미나 소모 성공 → Motor에 이동 요청**이다. 행동 제한으로 실행할 수 없는 대시에 자원만 소모하지 않도록 상태를 먼저 확인한다. 대시와 dashPostDelay가 끝나면 자원이 충분할 때 새 누름 또는 유효한 대시 선입력으로 다시 사용할 수 있다. 별도 쿨타임은 없으며 선입력은 PlayerController의 한 개 예약·최대 시간·실행 시점 조건 검사를 따른다. 대시 중 이동 방향은 고정하고 후딜 중 WASD 이동은 허용한다.
 - `PlayerMortal`은 플레이어 고유의 피해 판정이나 사망 처리가 필요할 때 도입한다. 스태미나 추가를 위해 만들지는 않는다. 사망 시 입력 중단 같은 반응은 우선 `Mortal.OnDead`를 구독하는 컴포넌트로 연결할 수 있다.
 
 ### 현재 설정과 제약
@@ -326,3 +330,9 @@
 - 2026-10-29 후속 점프 예외에서는 Motor.CanJump를 추가해 공격 Windup·Recovery와 dashPostDelay 중 지상 점프를 허용했다. 실제 IsDashing, 시간 정지, 비활성 Motor·CharacterController에서는 요청을 거절하며 접지 여부는 Motor.Update에서 검사한다. Controller 입력과 Motor.RequestJump·실제 실행이 같은 조건을 확인하고 공중 입력은 한 업데이트에 소비해 재점프·착지 후 예약 점프를 만들지 않는다. CanPerformActions·IsDashActionLocked는 공격·장전·추가 대시 제한으로 유지하며 점프가 공격·대시 타이머·스태미나를 바꾸지 않는다. 점프 로그도 CanJump 조건으로 분리했다. 검증 복사본 `Logs/AttackActionLock_20261029/Project`에서 Unity 6000.3.25f1로 PlayerActionDelayValidation 110개, PlayerDashValidation 63개, PlayerAnimationValidation(17발·이동·점프·IK·장전·투척·정지)을 이번에 직접 실행해 모두 종료 코드 0을 확인했다. 다섯 슬롯의 선딜·후딜 각각 실제 점프, 공중 재점프 방지, 대시 중 점프 거절·후딜 중 점프와 다른 행동 차단 유지를 검사했다. 로그·종료 코드는 `Logs/JumpDuringDelay_20261029/`의 각 Initial.log·Results.Initial.json이며 DotnetBuild.log는 경고 0·오류 0이다. 원본 Assets 189개와 복사본 SHA256 일치, 씬·공격 데이터·프리팹 변경 없음과 git diff --check를 확인했다. 이전 99개 행동 제한 검증의 점프 차단은 후속 요청 전 기록이다. 이번에는 수동 키 입력·이미지 렌더링·공통 Attack/플레이어 공격/장전/스태미나/투사체/Mortal 독립 검증을 재실행하지 않았다. 남은 스킬 효과·추가 애니메이션·적 AI·사망 행동·반복 전투 흐름은 유지한다.
 
 후속 작업에서는 기준 날짜와 함께 구현한 기능, 남은 제약, 실제 수행한 검증을 갱신해 이 문서의 진행 상태를 최신으로 유지한다.
+
+### 2026-10-30 한 개 선입력·대시 우선순위
+
+PlayerController에 입력 선택을 모으고 PlayerAttackController는 RequestAttack(slot)·RequestReload의 한 프레임 명령을 기존 LateUpdate 100에서 소비하도록 변경했다. 공격·대시 잠금 중 다음 행동 한 개를 최대 maxInputBufferTime(코드·SampleScene 1초)까지 유지한다. 일반 예약은 최신 누름으로 교체하고 대시는 다른 입력으로 교체·유효 시간 연장되지 않는다. 첫 행동 기회에 실행 조건을 재검사하고 실패하면 버린다. 이동·점프는 비예약이며 홀딩 반복은 CanAttack(slot)으로 실행 가능한 후보를 선택하고, 0발 자동 장전은 가능한 상태가 될 때까지 다시 요청한다. InputReader의 IsGameplayInputEnabled 스냅샷과 포커스·비활성 처리로 조작 중단 시 예약·명령을 지운다. 클래스명·기존 공격/대시 시간·자원·피해·바인딩·총구·프리팹·GUID는 유지했고 씬에는 maxInputBufferTime: 1만 추가했다.
+
+이번에 Unity 6000.3.25f1 복사본에서 EnhancedInputValidation 51개·PlayerActionDelayValidation 110개·PlayerDashValidation 63개·PlayerReloadValidation 40개·PlayerAttackValidation 50개와 애니메이션(17발·이동·점프·IK·장전·투척·정지)·스태미나 검증을 직접 실행해 모두 종료 코드 0을 확인했다. 최종 런타임·에디터 C# 빌드 경고 0·오류 0, 원본/검증 복사본 Assets 191개 SHA256 일치와 git diff --check를 확인했다. 로그·종료 코드·해시는 `Logs/EnhancedInput_20261030/`에 있다. 기존 검증은 선입력 시간을 0으로 두고 즉시 차단·실행 기능을 분리 검사하며 새 51개가 예약·만료·중단 폐기를 검증한다. 실제 키·마우스 수동 플레이·이미지 렌더링·공통 Attack/투사체/Mortal 독립 검증은 이번에 실행하지 않았다. 배치 입력 활성 스냅샷·중복 OnDisable·홀딩 쿨타임 후보 선택의 중간 실패와 Unity Search 시작 예외·라이선스 메시지는 최종 검증과 구분한다. 상세 클래스 책임·설정·남은 작업은 [EnhancedInput.md](EnhancedInput.md)를 참고한다.

@@ -77,6 +77,7 @@ namespace ProjectU.Editor
                     Check(GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(item.gameObject) == 0, "Missing script: " + item.name);
                 var controller = new SerializedObject(input.GetComponent<PlayerController>());
                 controller.FindProperty("logInput").boolValue = false;
+                controller.FindProperty("maxInputBufferTime").floatValue = 0f;
                 controller.ApplyModifiedPropertiesWithoutUndo();
                 var actions = (UnityEngine.InputSystem.InputActionMap)typeof(PlayerInputReader)
                     .GetField("actions", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(input);
@@ -149,6 +150,7 @@ namespace ProjectU.Editor
             try
             {
                 Check(EditorApplication.timeSinceStartup - wallStarted < 60, "Validation timed out.");
+                SetInput("IsGameplayInputEnabled", input.isActiveAndEnabled && Time.timeScale > 0f);
                 SetInput("Move", Vector2.zero);
                 SetInput("Jump", default(ButtonInputState));
                 SetInput("Dash", default(ButtonInputState));

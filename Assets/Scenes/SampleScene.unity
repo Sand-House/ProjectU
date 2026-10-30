@@ -1977,6 +1977,7 @@ MonoBehaviour:
   logInput: 1
   heldLogInterval: 0.5
   dashStaminaCost: 25
+  maxInputBufferTime: 1
 --- !u!114 &1295477699
 MonoBehaviour:
   m_ObjectHideFlags: 0

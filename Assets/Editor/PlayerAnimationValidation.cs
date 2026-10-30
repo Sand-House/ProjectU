@@ -175,6 +175,7 @@ namespace ProjectU.Editor
                 primaryComponent.ApplyModifiedPropertiesWithoutUndo();
                 var controller = new SerializedObject(input.GetComponent<PlayerController>());
                 controller.FindProperty("logInput").boolValue = false;
+                controller.FindProperty("maxInputBufferTime").floatValue = 0f;
                 controller.ApplyModifiedPropertiesWithoutUndo();
                 launcher.AttackExecuted += slot => { if (slot == AttackSlot.PrimaryFire) ValidateShot(); };
                 launcher.AttackExecuted += slot => { if (slot == AttackSlot.Skill1) ValidateGrenade(); };
@@ -200,6 +201,7 @@ namespace ProjectU.Editor
             try
             {
                 Check(EditorApplication.timeSinceStartup - wallStarted < 60d, "Validation timeout.");
+                SetInput("IsGameplayInputEnabled", input.isActiveAndEnabled && Time.timeScale > 0f);
                 SetInput("Move", Vector2.zero);
                 SetInput("Look", Vector2.zero);
                 SetInput("Jump", default(ButtonInputState));

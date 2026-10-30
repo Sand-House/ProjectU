@@ -91,6 +91,8 @@ namespace ProjectU.Editor
             stamina = input.GetComponent<PlayerStamina>();
             owner = input.GetComponent<Combatant>();
             SetField(input.GetComponent<PlayerController>(), "logInput", false);
+            // This suite isolates immediate action locks. EnhancedInputValidation covers buffering.
+            SetField(input.GetComponent<PlayerController>(), "maxInputBufferTime", 0f);
             stamina.RecoveryRate = 0f;
             attacks.enabled = false;
             var bindings = new List<PlayerAttackBinding>(attacks.AttackBindings);
@@ -252,6 +254,7 @@ namespace ProjectU.Editor
                 Debug.LogError("Action delay validation timed out.");
                 PlayerActionDelayValidation.Finish(1);
             }
+            SetInput("IsGameplayInputEnabled", input.isActiveAndEnabled && Time.timeScale > 0f);
             SetInput("Move", movement);
             SetInput("Look", Vector2.zero);
             SetInput("PrimaryFire", Snapshot((pressMask & 1) != 0, (heldMask & 1) != 0));

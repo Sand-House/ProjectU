@@ -128,7 +128,10 @@ namespace ProjectU.Editor
                 actions.FindAction("SecondaryFire").bindings[0].path == "<Mouse>/rightButton" &&
                 actions.FindAction("Skill1").bindings[0].path == "<Keyboard>/e", "physical button bindings");
 
-            input.GetComponent<PlayerController>().enabled = false;
+            // Input arbitration now belongs to PlayerController; keep it active for this probe.
+            var playerCommands = new SerializedObject(input.GetComponent<PlayerController>());
+            playerCommands.FindProperty("maxInputBufferTime").floatValue = 0f;
+            playerCommands.ApplyModifiedPropertiesWithoutUndo();
             input.GetComponent<PlayerMotor>().enabled = false;
             // Keep this input/damage probe still; animated muzzle tracking is validated separately.
             input.GetComponent<PlayerAimController>().enabled = false;
@@ -308,6 +311,13 @@ namespace ProjectU.Editor
             var ranged = actor.AddComponent<HitscanAttack>();
             var projectile = actor.AddComponent<ProjectileAttack>();
             var alternativeLauncher = actor.AddComponent<PlayerAttackController>();
+            var alternativeController = actor.AddComponent<PlayerController>();
+            var alternativeCommands = new SerializedObject(alternativeController);
+            alternativeCommands.FindProperty("playerCamera").objectReferenceValue = camera.GetComponent<PlayerCameraController>();
+            alternativeCommands.FindProperty("logInput").boolValue = false;
+            alternativeCommands.FindProperty("maxInputBufferTime").floatValue = 0f;
+            alternativeCommands.ApplyModifiedPropertiesWithoutUndo();
+            actor.GetComponent<PlayerMotor>().enabled = false;
             var meleeData = ScriptableObject.CreateInstance<MeleeAttackData>();
             SetData(melee, meleeData);
             var rangedData = (HitscanAttackData)TimedData(primaryData, 0.1f);
@@ -408,6 +418,7 @@ namespace ProjectU.Editor
         private void Update()
         {
             if (input == null) return;
+            SetInput("IsGameplayInputEnabled", input.isActiveAndEnabled && Time.timeScale > 0f);
             SetInput("Move", Vector2.zero);
             SetInput("Look", Vector2.zero);
             SetInput("Jump", default(ButtonInputState));
@@ -418,6 +429,8 @@ namespace ProjectU.Editor
             pressMask = 0;
             if (alternativeInput != null)
             {
+                typeof(PlayerInputReader).GetProperty("IsGameplayInputEnabled").SetValue(alternativeInput,
+                    alternativeInput.isActiveAndEnabled && Time.timeScale > 0f);
                 SetAlternativeInput("PrimaryFire", 1);
                 SetAlternativeInput("SecondaryFire", 2);
                 SetAlternativeInput("Skill1", 4);
