@@ -12,7 +12,7 @@
 | PlayerAction / PlayerAttackAction | 공통 타이밍·단계·검증·취소 / 공격 실행 어댑터 | 액션별 선딜·유지·후딜·쿨타임·반복 |
 | Soilder…Action | 기본·보조 발사·스킬·궁극기·대시·장전 구현 | 개별 조건·자원·효과와 장전 작업량 |
 | PlayerActionBinding | PlayerActionSlot과 PlayerAction 연결 | 씬/프리팹 참조 |
-| Attack / Combatant | 동기 공격 효과 / 같은 소유자의 액션 제한 집계·진영·생존 | 공격 결과·공통 제한 조회 |
+| Attack / Combatant | 기본 Origin 보관·동기 공격 효과 / 같은 소유자의 액션 제한 집계·진영·생존 | 기본 Origin·공격 결과·공통 제한 조회 |
 | PlayerMotor | 실제 이동·점프·중력·충돌·대시 이동 | 접지·속도·대시 이동 상태 |
 | PlayerStamina / PlayerStat | 스태미나·능력치 | 자원·강화 원본 |
 | PlayerAim / PlayerCamera / PlayerAnimation | 시각 조준·시점·이벤트 기반 애니메이션 | 시각 자세·시점 |
@@ -150,3 +150,9 @@ Controller.CanAcceptAction이 입력 수신 시 자격을 검사한다. Motor·P
 초기 선입력 실행의 옛 Attack 쿨타임 필드 접근은 검증기를 새 액션 필드로 변경해 해결했다. 최초 회귀에서 발견한 Motor 비활성화 후 대시 후딜 잠금 잔류는 의존 기능 종료 시 액션 잠금을 정리하도록 수정했고, 대시·장전·선입력·새 액션을 다시 확인했다. 기존 직접 Attack 요청을 액션 요청으로 옮기면서 장전 중 발사는 수락 전 거절하도록 기대값을 맞췄다. Initial·Regression의 중간 실패와 최종 통과를 구분한다.
 
 실제 키·마우스 수동 플레이·이미지 렌더링·공통 Mortal/Projectile 독립 검증은 이번에 실행하지 않았다. Skill2·Ultimate 효과, 실제 줌·버프·추가 애니메이션·적 AI·사망 행동·반복 전투 흐름은 후속 작업이다.
+
+## 2026-10-30: 기본 Origin의 Attack 이관
+
+기본 origin 직렬화 필드를 PlayerAttackAction에서 Attack으로 옮겼습니다. Inspector에서는 액션에 Attack을, Attack 컴포넌트에 Origin을 연결합니다. PlayerAttackAction.Origin과 PlayerActionBinding.Origin은 Attack.Origin을 조회하며, SampleScene의 세 공격은 기존 Muzzle을 그대로 사용합니다. 요청별 Transform·고정 좌표 API, 선딜 후 최신 위치 조회·삭제 시 실패·벽 보정을 유지합니다. 입력 선택·선입력·탄약·장전·공격 시간의 책임은 유지합니다.
+
+이번 원본 Unity 6000.3.25f1에서 공통 공격 75개·플레이어 공격 50개·장전 40개·선입력 85개, 총 250개와 애니메이션(17발·이동·점프·IK·장전·투척·벽·정지)을 직접 실행해 통과했습니다. .NET 런타임·에디터 빌드는 경고 0·오류 0이며 씬 변경 범위·meta 보존과 git diff --check도 확인했습니다. 이번 결과는 앞선 PlayerAction 리팩토링 검증과 별도이며 로그는 Logs/AttackOrigin_20261030/, 상세 결과·실행 제약은 [PlayerAction 설계](PlayerAction%20설계.md) 10절에 있습니다. 실제 키·마우스 수동 플레이·이미지 렌더링은 이번에 수행하지 않았습니다. Skill2·Ultimate 효과, 손 투척 지점·추가 애니메이션·적 AI·사망 행동·반복 전투 흐름은 후속 작업입니다.

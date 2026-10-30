@@ -6,8 +6,10 @@ namespace ProjectU
     [RequireComponent(typeof(Combatant))]
     public abstract class Attack : MonoBehaviour
     {
+        [SerializeField] private Transform origin;
         private Combatant owner;
         public abstract AttackData Data { get; }
+        public Transform Origin => origin;
         public Combatant Owner => owner != null ? owner : (owner = GetComponent<Combatant>());
         public Vector3 WorldAttackPosition { get; private set; }
         public Vector3 LastAttackPosition { get; private set; }

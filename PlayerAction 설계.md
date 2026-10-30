@@ -2,6 +2,8 @@
 
 기준 날짜: **2026-10-30**. 사용자 지정 공통 부모는 `PlayerAction`, 캐릭터별 클래스 접두사는 **Soilder**다. 런타임·씬·데이터 이관을 구현했으며 이번 실행 검증의 최종 결과는 문서 끝과 `Logs/PlayerAction_20261030/`에 기록한다.
 
+같은 날 후속 변경으로 기본 Origin의 저장 위치를 Attack으로 옮겼다. 현재 구조는 아래 본문에 반영했으며, 이번 Origin 이관의 직접 검증은 10절과 `Logs/AttackOrigin_20261030/`에 기록한다. 9절의 466개 검사는 앞선 PlayerAction 리팩토링 당시의 결과다.
+
 ## 1. 책임과 실제 파일
 
 | 구성 | 책임 |
@@ -10,9 +12,9 @@
 | PlayerController | 이동·점프 명령, 전투 입력 선택·우선순위·한 개 예약·만료·반복·빈 탄창 자동 장전 요청 |
 | PlayerCombat | 슬롯/액션 바인딩, 명령 전달·배율/조준 준비, 슬롯별 실행 가능 조회·탄창·외부 이벤트 |
 | PlayerAction | 행동 하나의 공통 설정과 생명주기. 자격·선딜·실행·유지·후딜·쿨타임·해제·취소 |
-| PlayerAttackAction | Attack을 사용하는 액션의 공통 어댑터. Attack/Origin 연결과 최신 공격 정보 전달 |
+| PlayerAttackAction | Attack을 사용하는 액션의 공통 어댑터. Attack 연결·기본 Origin 조회와 요청별 최신 공격 정보 전달 |
 | Soilder…Action | 행동별 슬롯·조건·자원·효과 실행과 유지 갱신 |
-| Attack 계열 | 호출받은 시점의 원점 보정·판정·피해·투사체 생성·결과 반환 |
+| Attack 계열 | 기본 Origin Transform 보관과 호출받은 시점의 원점 보정·판정·피해·투사체 생성·결과 반환 |
 | AttackData 계열 | 피해·치명타·대상 규칙·마스크·탄퍼짐·사거리·투사체·근접 범위 |
 | PlayerMotor | 이동·회전·중력·접지·충돌과 실제 대시 이동 |
 | PlayerStamina / PlayerStat | 자원·능력치 원본 |
@@ -34,7 +36,7 @@ PlayerAction
 
 현재 세 공격의 중복 연결·실행 코드를 PlayerAttackAction에 모았다. 이후 공격 없는 스킬·줌은 PlayerAction을 직접 상속하거나 해당 슬롯의 액션 구현을 교체할 수 있다.
 
-SampleScene은 일곱 액션을 연결한다. Skill2·Ultimate는 Attack/Origin이 없어서 자격 검사가 false이며 입력·로그만 유지한다. 이 두 클래스가 존재하는 것과 실제 효과가 구현된 것은 구분한다.
+SampleScene은 일곱 액션을 연결한다. Skill2·Ultimate는 Attack이 연결되지 않아 자격 검사가 false이며 입력·로그만 유지한다. 이 두 클래스가 존재하는 것과 실제 효과가 구현된 것은 구분한다.
 
 ## 2. 설정과 상태의 단일 원본
 
@@ -51,6 +53,7 @@ SampleScene은 일곱 액션을 연결한다. Skill2·Ultimate는 Attack/Origin�
 | 대시 후딜 | SoilderDashAction의 상속 recoveryTime |
 | 장전 시간·배속 / 남은 기본 작업량 | PlayerStat / SoilderReloadAction |
 | 탄창 현재량 | PlayerCombat |
+| 기본 origin Transform | Attack의 직렬화 필드. 액션·바인딩의 Origin은 이 참조를 조회 |
 
 같은 AttackData를 사용해도 액션별 시간·반복 설정과 쿨타임 상태는 독립적이다. 별도 PlayerActionData SO는 추가하지 않았다. `spreadResetDelay`는 탄퍼짐 초기화 규칙이며, 수류탄의 비행·폭발 대기·연출은 투사체 생명주기로 유지한다.
 
@@ -66,7 +69,7 @@ public enum PlayerActionSlot
 }
 ```
 
-PlayerActionBinding의 저장 필드는 `slot + action`이다. Attack/Origin 프로퍼티는 공격 액션의 참조를 조회하는 편의 API이며 바인딩에 중복 저장하지 않는다. 같은 슬롯·같은 액션 인스턴스·다른 액션의 동일 Attack 실행기 공유는 바인딩 검증에서 거절한다. 같은 AttackData 공유는 허용한다.
+PlayerActionBinding의 저장 필드는 `slot + action`이다. Attack 프로퍼티는 공격 액션의 참조를, Origin 프로퍼티는 연결된 Attack.Origin을 조회하는 편의 API이며 바인딩에 중복 저장하지 않는다. PlayerAttackAction.Origin도 Attack.Origin을 조회한다. Inspector에서는 액션에 Attack을, Attack 컴포넌트에 Origin을 연결한다. 같은 슬롯·같은 액션 인스턴스·다른 액션의 동일 Attack 실행기 공유는 바인딩 검증에서 거절한다. 같은 AttackData 공유는 허용한다.
 
 슬롯의 정수 값으로 우선순위를 판단하지 않는다. 동일 프레임 선택은 기존 **Dash → 비기본 공격의 바인딩 순서 → Reload → PrimaryFire**를 유지한다.
 
@@ -125,7 +128,7 @@ RepeatWhileHeld는 새로운 실행을 반복 요청하는 설정이다. 줌처�
 
 ## 6. 공격·대시·장전 흐름
 
-공격은 Controller 선택 → PlayerCombat 준비 → PlayerAction 선딜 → 최신 Origin/조준점 확인 → Attack 즉시 실행 → 성공 상태·자원·이벤트 확정 순서다. PlayerAttackAction이 Origin Transform을 선딜 동안 보관하므로 실제 실행 프레임의 위치를 읽고, 삭제됐으면 실패한다.
+공격은 Controller 선택 → PlayerCombat 준비 → PlayerAction 선딜 → 최신 Origin/조준점 확인 → Attack 즉시 실행 → 성공 상태·자원·이벤트 확정 순서다. 기본 Origin의 저장 원본은 Attack이다. PlayerAttackAction은 수락 시 Attack.Origin 또는 요청별 Origin Transform을 선딜 동안 보관하므로 실제 실행 프레임의 위치를 읽고, 삭제됐으면 실패한다. Transform·고정 월드 좌표를 넘기는 TryStart 오버로드는 기본 Origin을 덮어쓰지 않고 해당 요청에만 적용한다.
 
 Attack의 public TryAttack·선딜·후딜·쿨타임·독립 LateUpdate는 제거했다. 내부 TryExecute는 현재 실행 중인 같은 소유자의 PlayerAction만 호출할 수 있다. 외부 진입점은 PlayerCombat.TryStartAction 또는 PlayerAction.TryStart다. 빗나간 히트스캔은 성공한 한 발이며 풀 대여 실패는 실행 실패다. 원점 장애물 보정·치명타·진영·관통·탄퍼짐·투사체의 발사 시점 피해 복사는 기존 Attack/피해/투사체 계층이 처리한다.
 
@@ -175,7 +178,7 @@ GetAimPoint는 공격을 사용하는 액션들의 HitMask 합집합을 사용�
 
 AttackData 여섯 에셋의 네 필드는 제거했고, 연결 없는 예제의 옛 타이밍은 이 표와 `Logs/PlayerAction_20261030/TimingMigration.json`에 보존했다. 기존 세 Attack·Data·Origin/Muzzle·GUID와 공격 속성은 보존하고 씬에 액션 일곱 개를 추가했다. PlayerAttackBinding의 meta GUID는 PlayerActionBinding으로 이어받았다.
 
-## 9. 이번 검증과 남은 작업
+## 9. 앞선 PlayerAction 리팩토링 검증과 남은 작업
 
 새 검증 진입점은 `ProjectU.Editor.PlayerActionValidation.Run`, 메뉴는 **ProjectU → Validation → Validate Player Actions**다. 기존 전투 검증은 액션 요청과 공격 효과 검증으로 연결했다. PlayerActionValidationUtility의 타이밍 프리셋은 검증용 액션 구성에만 사용하며 AttackData나 런타임에 타이밍을 되살리지 않는다.
 
@@ -202,3 +205,23 @@ AttackData 여섯 에셋의 네 필드는 제거했고, 연결 없는 예제의 
 실제 키·마우스 수동 플레이·이미지 렌더링·공통 Mortal/Projectile 독립 검증은 이번에 실행하지 않았다. Skill2·Ultimate 효과, 실제 줌·버프·추가 애니메이션·적 AI·사망 행동·반복 전투 흐름은 후속 작업이다.
 
 Skill2·Ultimate 효과와 발동 조건, 실제 줌·버프, 손 투척 지점·Dash/Skill2/Ultimate 애니메이션, 적 AI·사망 행동·반복 전투 흐름은 후속 작업이다.
+
+## 10. 기본 Origin의 Attack 이관 — 2026-10-30
+
+`[SerializeField] Transform origin`과 읽기 전용 Origin 프로퍼티의 원본을 Attack으로 옮겼다. PlayerAttackAction에는 Attack 참조와 요청별 위치 상태를 유지하며, Origin 프로퍼티는 Attack.Origin을 조회한다. PlayerActionBinding도 같은 Attack.Origin을 조회한다. SampleScene의 히트스캔·Bullet·Grenade 세 Attack에 기존 Muzzle(fileID 962656585)을 옮겼고, 액션의 이전 origin 저장값 다섯 개를 제거했다. 피해·시간·배율·GUID·투사체·조준 및 애니메이션 연결은 보존했다.
+
+기본 요청은 수락 시 Attack.Origin을 사용한다. Transform을 명시한 요청과 고정 월드 좌표 요청은 해당 요청에만 적용되며 기본 Origin을 변경하지 않는다. 선딜 중 Transform 이동 추적과 삭제 시 실패, 원점 벽 보정은 유지한다. 검증 구성 도구도 Origin을 Attack에 설정하도록 변경했다.
+
+이번 원본 프로젝트의 Unity **6000.3.25f1**에서 다음 검증을 직접 실행했다.
+
+| 검증 | 결과 | 로그 |
+|---|---|---|
+| AttackValidation | 75개 통과. 기본 Origin의 인자 없는 실행·선딜 중 이동·삭제·누락 시 시작/예약 거절·고정 좌표 실행 검사 7개 추가 | AttackValidation.log |
+| PlayerAttackValidation | 50개 통과. 저장된 세 공격·피해·이벤트·배율·별도 캐릭터의 개별 Origin | PlayerAttackValidation.log |
+| PlayerReloadValidation | 40개 통과. 탄약·장전·총구 삭제 시 실패 발사·취소 | PlayerReloadValidation.log |
+| EnhancedInputValidation | 85개 통과. Origin 누락을 포함한 예약 수신/실행 자격 | EnhancedInputValidation.log |
+| PlayerAnimationValidation | 17발·이동·점프·장전·수류탄·양팔 IK·벽 보정·정지 통과. 비차단 총구~실제 원점 최대 거리 0m | PlayerAnimationValidation.log |
+
+수치형 검사는 총 **250개**이며 네 회귀 검증은 모두 종료 코드 0이다. 공통 공격은 통과 로그를 확인했다. 런타임·에디터 .NET 빌드는 `DotnetBuild.Final.log`에서 경고 0·오류 0이다. 첫 빌드의 SDK 접근 제한과 누락된 로컬 빌드 자산은 권한 적용·복원 후 해결했다. `Integrity.json`은 씬 변경이 세 Origin 참조 이동과 미사용 필드 제거에 한정되고 meta 변경이 없음을 확인한다. `git diff --check`도 통과했다. 로그와 `Results.json`·`RegressionResults.json`은 `Logs/AttackOrigin_20261030/`에 있다.
+
+실제 키·마우스 수동 플레이·이미지 렌더링과 대시·새 액션·행동 제한·스태미나·Mortal·Projectile의 독립 검증은 이번에 다시 수행하지 않았다. Skill2·Ultimate 효과, 손 투척 지점·남은 애니메이션·적 AI·사망 행동·반복 전투 흐름은 후속 작업이다.

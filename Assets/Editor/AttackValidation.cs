@@ -413,6 +413,28 @@ namespace ProjectU.Editor
             Check(missingFailures == 1 && missingExecutions == 0 && PlayerActionValidationUtility.For(missingAttack).CooldownRemaining == 0f,
                 "lost muzzle during windup fails without firing from a fallback position");
 
+            Transform defaultMuzzle = Origin(missingSource, Vector3.up);
+            Set(missingAttack, "origin", defaultMuzzle);
+            PlayerAttackAction defaultAction = PlayerActionValidationUtility.For(missingAttack);
+            Check(defaultAction.TryStart(), "parameterless action uses the Attack's configured default origin");
+            defaultMuzzle.localPosition += Vector3.right * 0.3f;
+            yield return new WaitForSeconds(0.08f);
+            Check(missingExecutions == 1 && Vector3.Distance(missingAttack.LastAttackPosition, defaultMuzzle.position) < 0.001f,
+                "Attack default origin follows transform movement during windup");
+            Check(defaultAction.TryStart(), "configured default origin accepts another request");
+            Destroy(defaultMuzzle.gameObject);
+            yield return new WaitForSeconds(0.08f);
+            Check(missingFailures == 2 && missingExecutions == 1 && defaultAction.CooldownRemaining == 0f,
+                "lost Attack default origin fails without execution or cooldown");
+            Check(!defaultAction.CanStart && !defaultAction.CanBuffer,
+                "missing Attack default origin rejects both direct and buffered requests");
+            Vector3 fixedOrigin = missingSource.transform.position + Vector3.up;
+            Check(defaultAction.TryStart(fixedOrigin, fixedOrigin + Vector3.forward * 10f),
+                "explicit world position is valid without an Attack default origin");
+            yield return new WaitForSeconds(0.08f);
+            Check(missingExecutions == 2 && Vector3.Distance(missingAttack.LastAttackPosition, fixedOrigin) < 0.001f,
+                "explicit world position still executes after losing the default origin");
+
             Combatant blockedSource = Unit("Blocked Runtime Muzzle", Vector3.right * 180f, Faction.Player);
             Transform blockedMuzzle = Origin(blockedSource, Vector3.forward * 0.3f);
             GameObject muzzleWall = Box("Muzzle Wall", new Vector3(180f, 0f, 1f), new Vector3(2f, 2f, 0.2f));

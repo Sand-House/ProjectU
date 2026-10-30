@@ -2121,6 +2121,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0fe0ec2ecb734995b5e51e33570b5a5a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.HitscanAttack
+  origin: {fileID: 962656585}
   data: {fileID: 11400000, guid: 6cd9c50030ee431cac78446ab8376756, type: 2}
   drawDebugLine: 1
   debugLineColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
@@ -2137,6 +2138,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb133c2c3d164cb098ba3c0cb9b6ea56, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.ProjectileAttack
+  origin: {fileID: 962656585}
   data: {fileID: 11400000, guid: 443eb90971e3477b933a3d16f7a251f5, type: 2}
   pool: {fileID: 264866010}
 --- !u!114 &1295477708
@@ -2151,6 +2153,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb133c2c3d164cb098ba3c0cb9b6ea56, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.ProjectileAttack
+  origin: {fileID: 962656585}
   data: {fileID: 11400000, guid: e768ae5af7e34a80b474c523d188b45a, type: 2}
   pool: {fileID: 264866010}
 --- !u!1 &1296484256
@@ -2720,7 +2723,6 @@ MonoBehaviour:
   cooldown: 0
   repeatWhileHeld: 1
   attack: {fileID: 1295477706}
-  origin: {fileID: 962656585}
 --- !u!114 &1295477711
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2738,7 +2740,6 @@ MonoBehaviour:
   cooldown: 0
   repeatWhileHeld: 1
   attack: {fileID: 1295477707}
-  origin: {fileID: 962656585}
 --- !u!114 &1295477712
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2756,7 +2757,6 @@ MonoBehaviour:
   cooldown: 6
   repeatWhileHeld: 0
   attack: {fileID: 1295477708}
-  origin: {fileID: 962656585}
 --- !u!114 &1295477713
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2774,7 +2774,6 @@ MonoBehaviour:
   cooldown: 0
   repeatWhileHeld: 0
   attack: {fileID: 0}
-  origin: {fileID: 0}
 --- !u!114 &1295477714
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2792,7 +2791,6 @@ MonoBehaviour:
   cooldown: 0
   repeatWhileHeld: 0
   attack: {fileID: 0}
-  origin: {fileID: 0}
 --- !u!114 &1295477715
 MonoBehaviour:
   m_ObjectHideFlags: 0

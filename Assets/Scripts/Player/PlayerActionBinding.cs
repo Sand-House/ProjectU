@@ -11,6 +11,6 @@ namespace ProjectU
         public PlayerActionSlot Slot => slot;
         public PlayerAction Action => action;
         public Attack Attack => (action as PlayerAttackAction)?.Attack;
-        public Transform Origin => (action as PlayerAttackAction)?.Origin;
+        public Transform Origin => Attack != null ? Attack.Origin : null;
     }
 }

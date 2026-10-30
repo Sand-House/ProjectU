@@ -21,7 +21,8 @@ namespace ProjectU.Editor
         {
             if (attack == null) throw new ArgumentNullException(nameof(attack));
             PlayerAttackAction action = attack.GetComponents<PlayerAttackAction>().FirstOrDefault(item => item.Attack == attack);
-            return action != null ? action : Attach(attack, PlayerActionSlot.PrimaryFire, attack.transform);
+            return action != null ? action : Attach(attack, PlayerActionSlot.PrimaryFire,
+                attack.Origin != null ? attack.Origin : attack.transform);
         }
 
         public static PlayerAttackAction Attach(Attack attack, PlayerActionSlot slot, Transform origin)
@@ -42,7 +43,7 @@ namespace ProjectU.Editor
                 action = (PlayerAttackAction)attack.gameObject.AddComponent(type);
             }
             SetDirect(action, "attack", attack);
-            SetDirect(action, "origin", origin);
+            SetDirect(attack, "origin", origin);
             ApplyPreset(action, attack.Data);
             return action;
         }
@@ -86,7 +87,7 @@ namespace ProjectU.Editor
             }
             if (target is PlayerActionBinding originBinding && name == "origin")
             {
-                SetDirect(originBinding.Action, "origin", value);
+                SetDirect(originBinding.Attack, "origin", value);
                 return;
             }
             if (target is PlayerCombat combat && name == "actionBindings")

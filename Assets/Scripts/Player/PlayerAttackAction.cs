@@ -6,7 +6,6 @@ namespace ProjectU
     public abstract class PlayerAttackAction : PlayerAction
     {
         [SerializeField] private Attack attack;
-        [SerializeField] private Transform origin;
         private Transform pendingOrigin;
         private bool fixedPosition;
         private Vector3 pendingPosition;
@@ -15,9 +14,9 @@ namespace ProjectU
         private float damageMultiplier = 1f;
 
         public Attack Attack => attack;
-        public Transform Origin => origin;
+        public Transform Origin => attack != null ? attack.Origin : null;
         public Vector3 WorldAttackPosition => fixedPosition ? pendingPosition :
-            pendingOrigin != null ? pendingOrigin.position : origin != null ? origin.position : transform.position;
+            pendingOrigin != null ? pendingOrigin.position : Origin != null ? Origin.position : transform.position;
         public override bool IsAttackAction => true;
         public float DamageMultiplier
         {
@@ -39,7 +38,7 @@ namespace ProjectU
             }
             else
             {
-                Transform anchor = request.HasOrigin ? request.Origin : origin;
+                Transform anchor = request.HasOrigin ? request.Origin : Origin;
                 if (anchor == null || !AttackData.IsFinite(anchor.position)) return false;
             }
             if (Combat == null) return true;
@@ -50,7 +49,7 @@ namespace ProjectU
 
         protected override void OnAccepted(in PlayerActionContext request)
         {
-            pendingOrigin = request.HasOrigin ? request.Origin : origin;
+            pendingOrigin = request.HasOrigin ? request.Origin : Origin;
             fixedPosition = request.HasPosition;
             pendingPosition = request.Position;
             hasRequestedAim = request.HasAimPoint;
