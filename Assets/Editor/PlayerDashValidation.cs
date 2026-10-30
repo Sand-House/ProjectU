@@ -123,6 +123,38 @@ namespace ProjectU.Editor
             gameObject.AddComponent<PlayerDashValidationObserver>().Driver = this;
             yield return new WaitForSeconds(0.2f);
 
+            // Reject both input and direct requests throughout a jump without deferring to landing.
+            stamina.Recover(100f);
+            int airborneDashBaseline = dashExecutions;
+            motor.RequestJump();
+            yield return null;
+            Check(!motor.IsGrounded && motor.VerticalSpeed > 0f, "airborne dash probe starts with an actual jump");
+            Check(!motor.TryDash(Vector3.forward) && dashExecutions == airborneDashBaseline,
+                "direct dash is rejected while rising without an event");
+            float airborneRecoveryDelay = stamina.RecoveryDelayRemaining;
+            dashPress = dashHeld = true;
+            yield return null;
+            Check(!motor.IsDashing && stamina.Current == 100f &&
+                stamina.RecoveryDelayRemaining <= airborneRecoveryDelay &&
+                input.GetComponent<PlayerController>().BufferedAction == PlayerAction.None,
+                "rising dash input spends no stamina and leaves no reservation");
+            while (motor.VerticalSpeed > 0f) yield return null;
+            Check(!motor.IsGrounded && !motor.TryDash(Vector3.forward), "direct dash is rejected while falling");
+            dashPress = true;
+            yield return null;
+            Check(!motor.IsDashing && stamina.Current == 100f && dashExecutions == airborneDashBaseline,
+                "falling dash input spends no stamina and emits no event");
+            while (!motor.IsGrounded) yield return null;
+            yield return null;
+            Check(motor.CanDash && !motor.IsDashing && stamina.Current == 100f &&
+                dashExecutions == airborneDashBaseline, "holding rejected airborne input never dashes on landing");
+            dashPress = true;
+            yield return null;
+            Check(motor.IsDashing && stamina.Current == 75f && dashExecutions == airborneDashBaseline + 1,
+                "a fresh grounded press starts exactly one dash after landing");
+            dashHeld = false;
+            while (!motor.CanPerformActions) yield return null;
+
             // Verify idle/forward/left/back/right/diagonal with rotated camera headings.
             Vector2[] directions = { Vector2.zero, Vector2.up, Vector2.left, Vector2.down, Vector2.right,
                 new Vector2(-1f, -1f).normalized };
@@ -406,6 +438,8 @@ namespace ProjectU.Editor
             input.transform.position = new Vector3(0f, 1.05f, 0f);
             body.enabled = true;
             Physics.SyncTransforms();
+            SetField(motor, "verticalSpeed", 0f);
+            body.Move(Vector3.down * 0.1f);
         }
 
         private void Check(bool condition, string message)

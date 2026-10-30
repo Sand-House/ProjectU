@@ -91,7 +91,7 @@ namespace ProjectU
                 bufferExpiresAt = Time.timeAsDouble + maxInputBufferTime;
             }
 
-            // Only attack/dash delays defer a request. Resource and cooldown failures never do.
+            // Only an otherwise eligible action may wait for an attack/dash delay.
             if (!motor.CanPerformActions)
             {
                 if (maxInputBufferTime <= 0f) ClearBuffer();
@@ -136,16 +136,27 @@ namespace ProjectU
 
         private PlayerAction ReadPressedAction()
         {
-            if (input.Dash.Pressed) return PlayerAction.Dash;
+            if (input.Dash.Pressed && CanAcceptAction(PlayerAction.Dash)) return PlayerAction.Dash;
             // Preserve the existing non-primary binding order for same-frame ties.
             if (attacks != null && attacks.isActiveAndEnabled)
                 foreach (PlayerAttackBinding binding in attacks.AttackBindings)
-                    if (binding.Slot != AttackSlot.PrimaryFire && binding.Attack != null &&
-                        binding.Attack.Data != null && ReadInput(binding.Slot).Pressed)
+                    if (binding != null && binding.Slot != AttackSlot.PrimaryFire &&
+                        ReadInput(binding.Slot).Pressed && CanAcceptAction(FromSlot(binding.Slot)))
                         return FromSlot(binding.Slot);
-            if (input.Reload.Pressed) return PlayerAction.Reload;
-            if (input.PrimaryFire.Pressed) return PlayerAction.PrimaryFire;
+            if (input.Reload.Pressed && CanAcceptAction(PlayerAction.Reload)) return PlayerAction.Reload;
+            if (input.PrimaryFire.Pressed && CanAcceptAction(PlayerAction.PrimaryFire)) return PlayerAction.PrimaryFire;
             return PlayerAction.None;
+        }
+
+        private bool CanAcceptAction(PlayerAction action)
+        {
+            // Do not reserve resources or skip grounding, cooldown, ammo or configuration checks.
+            if (action == PlayerAction.Dash)
+                return motor.CanDashIgnoringActionLock && (dashStaminaCost == 0f ||
+                    (stamina.isActiveAndEnabled && stamina.CanConsume(dashStaminaCost)));
+            if (attacks == null) return false;
+            return action == PlayerAction.Reload ? attacks.CanReloadIgnoringActionLock :
+                attacks.CanAttackIgnoringActionLock(ToSlot(action));
         }
 
         private bool WantsRepeat(PlayerAttackBinding binding) => binding != null && binding.Attack != null &&

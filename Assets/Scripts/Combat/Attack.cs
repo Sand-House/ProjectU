@@ -38,8 +38,10 @@ namespace ProjectU
         // Reserve the execution frame too, including attacks whose two delays are zero.
         public bool BlocksActions => isActiveAndEnabled &&
             (Phase != AttackPhase.Ready || lastExecutionFrame == Time.frameCount);
-        public bool CanAttack => isActiveAndEnabled && Time.timeScale > 0f && Owner != null && Owner.IsAlive && Data != null &&
-            IsConfigured && !Owner.IsPerformingAttack && CooldownRemaining <= 0f;
+        public bool CanAttack => CanAttackIgnoringActionLock && !Owner.IsPerformingAttack;
+        // Eligibility checks may ignore only the shared delay; execution always uses CanAttack.
+        internal bool CanAttackIgnoringActionLock => isActiveAndEnabled && Time.timeScale > 0f &&
+            Owner != null && Owner.IsAlive && Data != null && IsConfigured && CooldownRemaining <= 0f;
         protected virtual bool IsConfigured => true;
 
         public event Action OnStarted;

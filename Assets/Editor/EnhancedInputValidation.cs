@@ -121,6 +121,65 @@ namespace ProjectU.Editor
             motor.OnDashExecuted += () => dashCount++;
             yield return new WaitForSeconds(0.2f);
 
+            // Land before the attack unlocks: an airborne press must never become a reservation.
+            SetField(bindings[0].Attack.Data, "recoveryTime", 1f);
+            int airborneDashBefore = dashCount;
+            pressed = Primary | Jump;
+            yield return new WaitForSeconds(0.08f);
+            Check(!motor.IsGrounded && !motor.CanPerformActions, "airborne buffer probe has an active attack delay");
+            pressed = Dash;
+            yield return new WaitForSeconds(0.05f);
+            Check(controller.BufferedAction == PlayerAction.None && stamina.Current == stamina.Max,
+                "airborne dash is rejected when pressed during an attack delay");
+            yield return new WaitForSeconds(0.85f);
+            Check(motor.IsGrounded && !motor.CanPerformActions,
+                "airborne buffer probe lands before the attack recovery finishes");
+            yield return new WaitForSeconds(0.3f);
+            Check(dashCount == airborneDashBefore && controller.BufferedAction == PlayerAction.None &&
+                stamina.Current == stamina.Max, "airborne press never dashes after landing and attack recovery");
+            SetField(bindings[0].Attack.Data, "recoveryTime", 0.18f);
+            yield return ResetCase();
+
+            // Invalid new presses must neither replace nor extend an eligible reservation.
+            ProjectileAttack secondaryAttack = (ProjectileAttack)bindings[1].Attack;
+            ProjectilePool secondaryPool = secondaryAttack.Pool;
+            Transform secondaryOrigin = bindings[1].Origin;
+            var invalidInputs = new (int Mask, Action Invalidate, Action Restore, string Label)[]
+            {
+                (Dash, () => stamina.TryConsume(stamina.Current - 10f), () => stamina.Recover(100f), "insufficient stamina"),
+                (Dash, () => stamina.enabled = false, () => stamina.enabled = true, "disabled stamina"),
+                (Primary, () => SetField(attacks, "currentAmmo", 0), () => SetField(attacks, "currentAmmo", 29), "empty magazine"),
+                (Reload, () => SetField(attacks, "currentAmmo", attacks.MaxAmmo), () => SetField(attacks, "currentAmmo", 29), "full magazine"),
+                (Secondary, () => secondaryAttack.enabled = false, () => secondaryAttack.enabled = true, "disabled attack"),
+                (Secondary, () => SetField(bindings[1], "origin", null), () => SetField(bindings[1], "origin", secondaryOrigin), "missing origin"),
+                (Secondary, () => secondaryAttack.Pool = null, () => secondaryAttack.Pool = secondaryPool, "unconfigured projectile"),
+                (Skill2, () => SetField(bindings[3].Attack, "cooldownEndsAt", Time.timeAsDouble + 0.1d),
+                    () => SetField(bindings[3].Attack, "cooldownEndsAt", 0d), "active cooldown")
+            };
+            foreach (var invalidInput in invalidInputs)
+            {
+                int totalBefore = TotalShots(), ultimateBefore = shots[4];
+                int invalidDashBefore = dashCount, invalidReloadBefore = reloadCount;
+                pressed = Skill1;
+                yield return new WaitForSeconds(0.03f);
+                pressed = Ultimate;
+                yield return new WaitForSeconds(0.03f);
+                Check(controller.BufferedAction == PlayerAction.Ultimate,
+                    invalidInput.Label + " probe has an eligible ordinary reservation");
+                float eligibleRemaining = controller.BufferRemaining;
+                invalidInput.Invalidate();
+                pressed = invalidInput.Mask;
+                yield return null;
+                Check(controller.BufferedAction == PlayerAction.Ultimate && controller.BufferRemaining < eligibleRemaining,
+                    invalidInput.Label + " press cannot replace or extend an existing reservation");
+                invalidInput.Restore();
+                yield return new WaitForSeconds(0.65f);
+                Check(shots[4] == ultimateBefore + 1 && TotalShots() == totalBefore + 2 &&
+                    dashCount == invalidDashBefore && reloadCount == invalidReloadBefore,
+                    invalidInput.Label + " becoming valid before unlock never executes the rejected input");
+                yield return ResetCase();
+            }
+
             // A dash pressed during windup must survive lower-priority presses and held fire.
             int primaryBefore = shots[0];
             int dashBefore = dashCount;
@@ -234,11 +293,14 @@ namespace ProjectU.Editor
             yield return ResetCase();
 
             dashBefore = dashCount;
-            stamina.TryConsume(stamina.Current - 10f);
             pressed = Primary;
             yield return new WaitForSeconds(0.05f);
             pressed = Dash;
-            yield return new WaitForSeconds(0.35f);
+            yield return new WaitForSeconds(0.05f);
+            Check(controller.BufferedAction == PlayerAction.Dash && stamina.Current == stamina.Max,
+                "eligible dash is buffered without reserving stamina");
+            stamina.TryConsume(stamina.Current - 10f);
+            yield return new WaitForSeconds(0.3f);
             Check(dashCount == dashBefore && controller.BufferedAction == PlayerAction.None && stamina.Current == 10f,
                 "execution-time stamina failure discards dash without consumption");
             stamina.Recover(100f);
@@ -251,12 +313,27 @@ namespace ProjectU.Editor
             pressed = Skill1;
             yield return new WaitForSeconds(0.2f);
             pressed = Skill1;
+            yield return null;
+            Check(controller.BufferedAction == PlayerAction.None, "active cooldown rejects input before creating a reservation");
             yield return new WaitForSeconds(0.2f);
             Check(shots[2] == skillBefore + 1 && controller.BufferedAction == PlayerAction.None,
-                "execution-time cooldown failure discards the queued skill");
+                "rejected cooldown input leaves no queued skill");
             yield return new WaitForSeconds(1f);
             Check(shots[2] == skillBefore + 1, "discarded skill never waits for cooldown recovery");
             SetField(bindings[2].Attack.Data, "cooldown", 0f);
+            yield return ResetCase();
+
+            int skill2Before = shots[3];
+            pressed = Primary;
+            yield return new WaitForSeconds(0.05f);
+            pressed = Skill2;
+            yield return new WaitForSeconds(0.05f);
+            Check(controller.BufferedAction == PlayerAction.Skill2, "ready skill is eligible when its input arrives");
+            SetField(bindings[3].Attack, "cooldownEndsAt", Time.timeAsDouble + 0.5d);
+            yield return new WaitForSeconds(0.35f);
+            Check(shots[3] == skill2Before && controller.BufferedAction == PlayerAction.None,
+                "cooldown acquired after buffering is rechecked and consumes the reservation");
+            SetField(bindings[3].Attack, "cooldownEndsAt", 0d);
             yield return ResetCase();
 
             secondaryBefore = shots[1];
@@ -279,6 +356,15 @@ namespace ProjectU.Editor
             yield return new WaitForSeconds(0.08f);
             Check(motor.VerticalSpeed > 0f && input.transform.position.x > position.x + 0.1f &&
                 controller.BufferedAction == PlayerAction.Dash, "movement and grounded jump work while dash is queued during attack");
+            dashBefore = dashCount;
+            yield return new WaitForSeconds(0.3f);
+            Check(!motor.IsGrounded && motor.CanPerformActions && controller.BufferedAction == PlayerAction.None &&
+                dashCount == dashBefore && stamina.Current == stamina.Max,
+                "buffered dash is discarded without stamina use when attack unlocks in the air");
+            movement = Vector2.zero;
+            yield return new WaitForSeconds(0.6f);
+            Check(motor.IsGrounded && dashCount == dashBefore && stamina.Current == stamina.Max,
+                "discarded buffered dash does not execute after landing");
             yield return ResetCase();
 
             foreach (string interruption in new[] { "Pause", "Cursor", "Reader", "Controller", "Focus" })

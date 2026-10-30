@@ -169,8 +169,9 @@ namespace ProjectU.Editor
                 otherActions = false;
                 movement = Vector2.zero;
                 while (owner.IsPerformingAttack) yield return null;
-                Check(motor.CanPerformActions && motor.CanDash && attack.CooldownRemaining > 0f && !attack.CanAttack && attacks.CanReload,
-                    binding.Slot + " cooldown alone permits other actions and reload");
+                Check(motor.CanPerformActions && !motor.IsGrounded && !motor.CanDash &&
+                    attack.CooldownRemaining > 0f && !attack.CanAttack && attacks.CanReload,
+                    binding.Slot + " cooldown alone permits combat actions and reload while airborne dash remains blocked");
                 yield return new WaitForSeconds(0.06f);
                 Check(executions == baseline + 1 && !attacks.IsReloading, binding.Slot + " rejected taps are not buffered");
             }

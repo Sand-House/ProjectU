@@ -46,8 +46,9 @@ namespace ProjectU
         // Jump requests ignore attack/dash recovery locks. Grounding is checked when moving.
         public bool CanJump => isActiveAndEnabled && controller != null && controller.enabled &&
             Time.timeScale > 0f && Time.deltaTime > 0f && !IsDashing;
-        public bool CanDash => isActiveAndEnabled && controller != null && controller.enabled &&
-            Time.deltaTime > 0f && CanPerformActions && IsPositiveFinite(playerStat.DashDistance) &&
+        public bool CanDash => CanDashIgnoringActionLock && CanPerformActions;
+        internal bool CanDashIgnoringActionLock => isActiveAndEnabled && controller != null && controller.enabled &&
+            IsGrounded && Time.deltaTime > 0f && IsPositiveFinite(playerStat.DashDistance) &&
             IsPositiveFinite(dashDuration) && IsPositiveFinite(playerStat.DashDistance / dashDuration);
 
         // Raised once after a dash has successfully entered its movement/action-lock state.

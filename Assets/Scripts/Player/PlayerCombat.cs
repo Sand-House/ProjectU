@@ -31,8 +31,12 @@ namespace ProjectU
         public int MaxAmmo => stat.MaxMagazine;
         public bool IsReloading { get; private set; }
         public float ReloadRemaining => IsReloading ? reloadWorkRemaining / stat.ReloadSpeedMultiplier : 0f;
-        public bool CanReload => isActiveAndEnabled && Time.timeScale > 0f && Time.deltaTime > 0f &&
-            !IsReloading && CurrentAmmo < MaxAmmo && CanUseWeapon() && !IsReloadBlocked();
+        public bool CanReload => CanStartReload(false);
+        internal bool CanReloadIgnoringActionLock => CanStartReload(true);
+
+        private bool CanStartReload(bool ignoreActionLock) => isActiveAndEnabled && Time.timeScale > 0f &&
+            Time.deltaTime > 0f && !IsReloading && CurrentAmmo < MaxAmmo &&
+            CanUseWeapon(ignoreActionLock) && !IsReloadBlocked(ignoreActionLock);
 
         public PlayerAttackBinding GetBinding(AttackSlot slot)
         {
@@ -166,13 +170,19 @@ namespace ProjectU
             return binding.Attack.TryAttack(binding.Origin, point);
         }
 
-        public bool CanAttack(AttackSlot slot)
+        public bool CanAttack(AttackSlot slot) => CanAttack(slot, false);
+
+        internal bool CanAttackIgnoringActionLock(AttackSlot slot) => CanAttack(slot, true);
+
+        private bool CanAttack(AttackSlot slot, bool ignoreActionLock)
         {
-            if (!isActiveAndEnabled || Time.deltaTime <= 0f || !CanUseWeapon()) return false;
+            if (!isActiveAndEnabled || Time.deltaTime <= 0f || !CanUseWeapon(ignoreActionLock)) return false;
             if ((slot == AttackSlot.PrimaryFire || slot == AttackSlot.SecondaryFire) && IsReloading) return false;
             if (slot == AttackSlot.PrimaryFire && CurrentAmmo == 0) return false;
             PlayerAttackBinding binding = GetBinding(slot);
-            return binding != null && binding.Attack != null && binding.Origin != null && binding.Attack.CanAttack;
+            return binding != null && binding.Attack != null && binding.Origin != null &&
+                AttackData.IsFinite(binding.Origin.position) &&
+                (ignoreActionLock ? binding.Attack.CanAttackIgnoringActionLock : binding.Attack.CanAttack);
         }
 
         public bool TryReload()
@@ -192,10 +202,10 @@ namespace ProjectU
             return true;
         }
 
-        private bool CanUseWeapon()
+        private bool CanUseWeapon(bool ignoreActionLock = false)
         {
             // An attack's own lock must not cancel its pending execution.
-            if (motor != null && motor.IsDashActionLocked) return false;
+            if (!ignoreActionLock && motor != null && motor.IsDashActionLocked) return false;
             Attack primary = GetBinding(AttackSlot.PrimaryFire)?.Attack;
             // Other attack slots can still be used by a character with no primary binding.
             if (primary != null) return primary.Owner != null && primary.Owner.IsAlive;
@@ -203,10 +213,10 @@ namespace ProjectU
             return owner == null || owner.IsAlive;
         }
 
-        private bool IsReloadBlocked()
+        private bool IsReloadBlocked(bool ignoreActionLock = false)
         {
             Attack primary = GetBinding(AttackSlot.PrimaryFire)?.Attack;
-            return primary == null || primary.Owner.IsPerformingAttack;
+            return primary == null || (!ignoreActionLock && primary.Owner.IsPerformingAttack);
         }
 
         private void OnAttackStarted(PlayerAttackBinding binding)
