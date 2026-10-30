@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -116,13 +117,13 @@ namespace ProjectU.Editor
             };
             attacks.AttackExecuted += slot =>
             {
-                if (slot == AttackSlot.PrimaryFire) primaryShots++;
-                else if (slot == AttackSlot.SecondaryFire) secondaryShots++;
+                if (slot == PlayerActionSlot.PrimaryFire) primaryShots++;
+                else if (slot == PlayerActionSlot.SecondaryFire) secondaryShots++;
                 else skills++;
             };
-            Attack primary = attacks.GetBinding(AttackSlot.PrimaryFire).Attack;
-            Attack secondary = attacks.GetBinding(AttackSlot.SecondaryFire).Attack;
-            Attack grenade = attacks.GetBinding(AttackSlot.Skill1).Attack;
+            Attack primary = attacks.GetBinding(PlayerActionSlot.PrimaryFire).Attack;
+            Attack secondary = attacks.GetBinding(PlayerActionSlot.SecondaryFire).Attack;
+            Attack grenade = attacks.GetBinding(PlayerActionSlot.Skill1).Attack;
             var primaryData = Instantiate((HitscanAttackData)primary.Data);
             SetField(primaryData, "recoveryTime", 0f);
             SetField(primaryData, "spreadAngle", 0f);
@@ -172,7 +173,7 @@ namespace ProjectU.Editor
             heldMask = 0;
             pressMask = 3;
             yield return new WaitForSeconds(0.1f);
-            Check(attacks.CurrentAmmo == 0 && !attacks.IsReloading && primary.Phase == AttackPhase.Recovery && starts == 1,
+            Check(attacks.CurrentAmmo == 0 && !attacks.IsReloading && PlayerActionValidationUtility.For(primary).Phase == PlayerActionPhase.Recovery && starts == 1,
                 "last primary recovery blocks secondary fire and defers automatic reload");
             while (starts < 2) yield return null;
             Check(primaryShots == previousPrimary + 30 && attacks.CurrentAmmo == 0 && attacks.IsReloading,
@@ -196,13 +197,13 @@ namespace ProjectU.Editor
             SetField(grenade, "data", grenadeData);
             pressMask = 4;
             yield return new WaitForSeconds(0.05f);
-            Check(!attacks.IsReloading && grenade.Phase == AttackPhase.Windup && attacks.CurrentAmmo == 0,
+            Check(!attacks.IsReloading && PlayerActionValidationUtility.For(grenade).Phase == PlayerActionPhase.Windup && attacks.CurrentAmmo == 0,
                 "accepted skill cancels reload immediately at windup start");
             yield return new WaitForSeconds(0.2f);
-            Check(!attacks.IsReloading && skills == 1 && grenade.Phase == AttackPhase.Recovery,
+            Check(!attacks.IsReloading && skills == 1 && PlayerActionValidationUtility.For(grenade).Phase == PlayerActionPhase.Recovery,
                 "skill recovery blocks empty auto reload");
             while (!attacks.IsReloading) yield return null;
-            Check(starts == 4 && grenade.CooldownRemaining > 0f && attacks.CurrentAmmo == 0,
+            Check(starts == 4 && PlayerActionValidationUtility.For(grenade).CooldownRemaining > 0f && attacks.CurrentAmmo == 0,
                 "empty auto reload retries after skill recovery while cooldown/fuse continue");
             yield return new WaitForSeconds(0.2f);
             int beforeRejectedSkill = starts;
@@ -234,18 +235,18 @@ namespace ProjectU.Editor
 
             // All skill slots use the same accepted-start rule, independent of Soldier animation.
             attacks.enabled = false;
-            var bindings = new List<PlayerAttackBinding>(attacks.AttackBindings);
-            foreach (AttackSlot slot in new[] { AttackSlot.Skill2, AttackSlot.Ultimate })
+            var bindings = new List<PlayerActionBinding>(attacks.ActionBindings.Where(item => item.Attack != null).ToList());
+            foreach (PlayerActionSlot slot in new[] { PlayerActionSlot.Skill2, PlayerActionSlot.Ultimate })
             {
                 var attack = input.gameObject.AddComponent<HitscanAttack>();
                 SetField(attack, "data", primaryData);
-                var binding = new PlayerAttackBinding();
+                var binding = new PlayerActionBinding();
                 SetField(binding, "slot", slot);
                 SetField(binding, "attack", attack);
-                SetField(binding, "origin", attacks.GetBinding(AttackSlot.PrimaryFire).Origin);
+                SetField(binding, "origin", attacks.GetBinding(PlayerActionSlot.PrimaryFire).Origin);
                 bindings.Add(binding);
             }
-            SetField(attacks, "attackBindings", bindings.ToArray());
+            SetField(attacks, "actionBindings", bindings.ToArray());
             attacks.enabled = true;
             foreach (int skillMask in new[] { 32, 64 })
             {
@@ -279,18 +280,18 @@ namespace ProjectU.Editor
             SetField(primaryData, "windupTime", 0.2f);
             pressMask = 1;
             yield return new WaitForSeconds(0.05f);
-            Check(primary.Phase == AttackPhase.Windup && attacks.CurrentAmmo == 5, "primary reserves no ammo before execution");
+            Check(PlayerActionValidationUtility.For(primary).Phase == PlayerActionPhase.Windup && attacks.CurrentAmmo == 5, "primary reserves no ammo before execution");
             pressMask = 8;
             yield return new WaitForSeconds(0.1f);
-            Check(primary.Phase == AttackPhase.Windup && !attacks.IsReloading && attacks.CurrentAmmo == 5,
+            Check(PlayerActionValidationUtility.For(primary).Phase == PlayerActionPhase.Windup && !attacks.IsReloading && attacks.CurrentAmmo == 5,
                 "manual reload is rejected during primary windup without cancelling it");
-            Check(primary.CancelAttack() && attacks.CurrentAmmo == 5,
+            Check(PlayerActionValidationUtility.For(primary).Cancel() && attacks.CurrentAmmo == 5,
                 "explicit primary cancellation does not consume ammo");
             attacks.enabled = false;
             attacks.enabled = true;
             var lostOrigin = new GameObject("Temporary Reload Test Origin");
             lostOrigin.transform.position = input.transform.position + Vector3.up;
-            Check(primary.TryAttack(lostOrigin.transform, attacks.GetAimPoint()), "primary accepts temporary origin");
+            Check(PlayerActionValidationUtility.For(primary).TryStart(lostOrigin.transform, attacks.GetAimPoint()), "primary accepts temporary origin");
             Destroy(lostOrigin);
             yield return new WaitForSeconds(0.3f);
             Check(attacks.CurrentAmmo == 5, "failed execution does not consume ammo");
@@ -346,12 +347,6 @@ namespace ProjectU.Editor
                 null, new object[] { pressed, held, false }, null);
 
         private static void SetField(object target, string name, object value)
-        {
-            Type type = target.GetType();
-            FieldInfo field;
-            while ((field = type.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)) == null)
-                type = type.BaseType;
-            field.SetValue(target, value);
-        }
+        { PlayerActionValidationUtility.Set(target, name, value); }
     }
 }

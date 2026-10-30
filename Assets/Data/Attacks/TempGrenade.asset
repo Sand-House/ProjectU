@@ -15,10 +15,6 @@ MonoBehaviour:
   damage: 100
   canCritical: 0
   criticalMultiplier: 2
-  windupTime: 0
-  recoveryTime: 1
-  cooldown: 6
-  repeatWhileHeld: 0
   targetRule: 0
   hitMask:
     serializedVersion: 2

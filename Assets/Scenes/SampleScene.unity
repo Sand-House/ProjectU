@@ -1827,6 +1827,13 @@ GameObject:
   - component: {fileID: 1295477706}
   - component: {fileID: 1295477707}
   - component: {fileID: 1295477708}
+  - component: {fileID: 1295477710}
+  - component: {fileID: 1295477711}
+  - component: {fileID: 1295477712}
+  - component: {fileID: 1295477713}
+  - component: {fileID: 1295477714}
+  - component: {fileID: 1295477715}
+  - component: {fileID: 1295477716}
   m_Layer: 2
   m_Name: Player
   m_TagString: Player
@@ -1849,7 +1856,6 @@ MonoBehaviour:
   jumpHeight: 1.5
   gravity: 25
   dashDuration: 0.2
-  dashPostDelay: 0.3
 --- !u!114 &1295477693
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1976,7 +1982,6 @@ MonoBehaviour:
   playerCamera: {fileID: 330585548}
   logInput: 1
   heldLogInterval: 0.5
-  dashStaminaCost: 25
   maxInputBufferTime: 1
 --- !u!114 &1295477699
 MonoBehaviour:
@@ -1990,16 +1995,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 810bdef62c39a4b4c94901ea221cd967, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerCombat
-  attackBindings:
+  actionBindings:
   - slot: 0
-    attack: {fileID: 1295477706}
-    origin: {fileID: 962656585}
+    action: {fileID: 1295477710}
   - slot: 1
-    attack: {fileID: 1295477707}
-    origin: {fileID: 962656585}
+    action: {fileID: 1295477711}
   - slot: 2
-    attack: {fileID: 1295477708}
-    origin: {fileID: 962656585}
+    action: {fileID: 1295477712}
+  - slot: 3
+    action: {fileID: 1295477713}
+  - slot: 4
+    action: {fileID: 1295477714}
+  - slot: 5
+    action: {fileID: 1295477715}
+  - slot: 6
+    action: {fileID: 1295477716}
   aimCamera: {fileID: 330585545}
   aimDistance: 100
 --- !u!114 &1295477700
@@ -2693,3 +2703,126 @@ SceneRoots:
   - {fileID: 1266429779}
   - {fileID: 1295477697}
   - {fileID: 264866011}
+--- !u!114 &1295477710
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1295477691}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee01cd47e15b4b1dbef244464ad003c2, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.SoilderPrimaryFireAction
+  windupTime: 0
+  recoveryTime: 0.25
+  cooldown: 0
+  repeatWhileHeld: 1
+  attack: {fileID: 1295477706}
+  origin: {fileID: 962656585}
+--- !u!114 &1295477711
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1295477691}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c399526b8bcb4516bb706ca91d398de3, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.SoilderSecondaryFireAction
+  windupTime: 0
+  recoveryTime: 0.5
+  cooldown: 0
+  repeatWhileHeld: 1
+  attack: {fileID: 1295477707}
+  origin: {fileID: 962656585}
+--- !u!114 &1295477712
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1295477691}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce0527975d634a7c96461c10873c27c0, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.SoilderSkill1Action
+  windupTime: 0
+  recoveryTime: 1
+  cooldown: 6
+  repeatWhileHeld: 0
+  attack: {fileID: 1295477708}
+  origin: {fileID: 962656585}
+--- !u!114 &1295477713
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1295477691}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 782fd1991a6840c4a97af7a2c5965999, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.SoilderSkill2Action
+  windupTime: 0
+  recoveryTime: 0
+  cooldown: 0
+  repeatWhileHeld: 0
+  attack: {fileID: 0}
+  origin: {fileID: 0}
+--- !u!114 &1295477714
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1295477691}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94bb96d772a3422695803a13199ab04c, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.SoilderUltimateAction
+  windupTime: 0
+  recoveryTime: 0
+  cooldown: 0
+  repeatWhileHeld: 0
+  attack: {fileID: 0}
+  origin: {fileID: 0}
+--- !u!114 &1295477715
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1295477691}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 19dd2c6ff7ca443ea445703037a6ed6f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.SoilderDashAction
+  windupTime: 0
+  recoveryTime: 0.3
+  cooldown: 0
+  repeatWhileHeld: 0
+  staminaCost: 25
+--- !u!114 &1295477716
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1295477691}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6bc1ded7e734b54bd4099cd4372a006, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.SoilderReloadAction
+  windupTime: 0
+  recoveryTime: 0
+  cooldown: 0
+  repeatWhileHeld: 0

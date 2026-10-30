@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -103,7 +104,7 @@ namespace ProjectU.Editor
             var settings = new SerializedObject(motor);
             Check(input.GetComponent<PlayerStat>().DashDistance == 5f &&
                 settings.FindProperty("dashDuration").floatValue == 0.2f &&
-                settings.FindProperty("dashPostDelay").floatValue == 0.3f, "saved Inspector dash settings");
+                input.GetComponent<SoilderDashAction>().RecoveryTime == 0.3f, "saved Inspector dash settings");
             SetField(input.GetComponent<PlayerController>(), "logInput", false);
             // Retain the immediate-lock probes; buffered follow-ups have their own suite.
             SetField(input.GetComponent<PlayerController>(), "maxInputBufferTime", 0f);
@@ -116,10 +117,10 @@ namespace ProjectU.Editor
             attacks.AttackExecuted += slot =>
             {
                 executed++;
-                if (slot == AttackSlot.Skill1) grenadeExecutions++;
+                if (slot == PlayerActionSlot.Skill1) grenadeExecutions++;
             };
-            foreach (PlayerAttackBinding binding in attacks.AttackBindings)
-                binding.Attack.OnCancelled += () => cancelled++;
+            foreach (PlayerActionBinding binding in attacks.ActionBindings.Where(item => item.Attack != null).ToList())
+                PlayerActionValidationUtility.For(binding.Attack).OnCancelled += reason => cancelled++;
             gameObject.AddComponent<PlayerDashValidationObserver>().Driver = this;
             yield return new WaitForSeconds(0.2f);
 
@@ -136,7 +137,7 @@ namespace ProjectU.Editor
             yield return null;
             Check(!motor.IsDashing && stamina.Current == 100f &&
                 stamina.RecoveryDelayRemaining <= airborneRecoveryDelay &&
-                input.GetComponent<PlayerController>().BufferedAction == PlayerAction.None,
+                input.GetComponent<PlayerController>().BufferedAction == PlayerActionSlot.None,
                 "rising dash input spends no stamina and leaves no reservation");
             while (motor.VerticalSpeed > 0f) yield return null;
             Check(!motor.IsGrounded && !motor.TryDash(Vector3.forward), "direct dash is rejected while falling");
@@ -200,19 +201,19 @@ namespace ProjectU.Editor
             yield return null;
             yield return null;
             Check(animationController.IsReloading, "reload begins before dash");
-            Attack primary = attacks.GetBinding(AttackSlot.PrimaryFire).Attack;
+            Attack primary = attacks.GetBinding(PlayerActionSlot.PrimaryFire).Attack;
             var windupData = Instantiate((HitscanAttackData)primary.Data);
             SetField(windupData, "windupTime", 0.1f);
             SetField(primary, "data", windupData);
-            Check(primary.TryAttack(attacks.GetBinding(AttackSlot.PrimaryFire).Origin,
-                attacks.GetAimPoint()) && primary.Phase != AttackPhase.Windup,
-                "reload immediately cancels a direct primary request");
+            Check(!PlayerActionValidationUtility.For(primary).TryStart(attacks.GetBinding(PlayerActionSlot.PrimaryFire).Origin,
+                attacks.GetAimPoint()) && PlayerActionValidationUtility.For(primary).Phase != PlayerActionPhase.Windup,
+                "reload rejects a direct primary action before accepting windup");
             int baseline = executed;
             int eventBaseline = dashExecutions;
             dashPress = dashHeld = otherActions = true;
             yield return null;
             yield return null;
-            Check(!animationController.IsReloading && primary.Phase != AttackPhase.Windup && cancelled == 1,
+            Check(!animationController.IsReloading && PlayerActionValidationUtility.For(primary).Phase != PlayerActionPhase.Windup && cancelled == 0,
                 "dash cancels reload after its primary guard rejected pending fire");
             Check(motor.VerticalSpeed <= 0f && stamina.Current == 75f && executed == baseline,
                 "dash wins over simultaneous jump, fire, grenade, reload and repeated Shift");
@@ -247,15 +248,15 @@ namespace ProjectU.Editor
             fireHeld = false;
             while (!motor.CanPerformActions) yield return null;
             stamina.Recover(100f);
-            while (!primary.CanAttack) yield return null;
-            Check(primary.TryAttack(attacks.GetBinding(AttackSlot.PrimaryFire).Origin, attacks.GetAimPoint()) &&
-                primary.Phase == AttackPhase.Windup, "primary windup is accepted after reload cancellation");
+            while (!PlayerActionValidationUtility.For(primary).CanStart) yield return null;
+            Check(PlayerActionValidationUtility.For(primary).TryStart(attacks.GetBinding(PlayerActionSlot.PrimaryFire).Origin, attacks.GetAimPoint()) &&
+                PlayerActionValidationUtility.For(primary).Phase == PlayerActionPhase.Windup, "primary windup is accepted after reload cancellation");
             int cancellationsBeforeDash = cancelled;
             dashPress = true;
             yield return null;
             Check(!motor.IsDashing && stamina.Current == 100f, "attack windup rejects a dash without spending stamina");
             yield return null;
-            Check(primary.Phase == AttackPhase.Windup && cancelled == cancellationsBeforeDash,
+            Check(PlayerActionValidationUtility.For(primary).Phase == PlayerActionPhase.Windup && cancelled == cancellationsBeforeDash,
                 "rejected dash preserves the accepted primary windup");
             while (!motor.CanPerformActions) yield return null;
             dashPress = true;
@@ -278,7 +279,7 @@ namespace ProjectU.Editor
                 "insufficient stamina rejects dash without displacement or event");
 
             // Isolate visual interruption from the saved grenade's recovery/cooldown.
-            Attack grenade = attacks.GetBinding(AttackSlot.Skill1).Attack;
+            Attack grenade = attacks.GetBinding(PlayerActionSlot.Skill1).Attack;
             var visualGrenadeData = Instantiate((ProjectileAttackData)grenade.Data);
             SetField(visualGrenadeData, "recoveryTime", 0f);
             SetField(visualGrenadeData, "cooldown", 0f);
@@ -354,10 +355,10 @@ namespace ProjectU.Editor
             Time.timeScale = 1f;
             while (motor.IsDashing) yield return null;
             Check(Mathf.Abs(input.transform.position.z - 3f) < 0.03f, "custom distance and longer duration");
-            remaining = GetField<float>(motor, "dashPostDelayRemaining");
+            remaining = motor.GetComponent<SoilderDashAction>().RecoveryRemaining;
             Time.timeScale = 0f;
             for (int i = 0; i < 4; i++) yield return null;
-            Check(GetField<float>(motor, "dashPostDelayRemaining") == remaining && !motor.CanPerformActions && !motor.CanJump,
+            Check(motor.GetComponent<SoilderDashAction>().RecoveryRemaining == remaining && !motor.CanPerformActions && !motor.CanJump,
                 "pause freezes post-delay");
             Time.timeScale = 1f;
             while (!motor.CanPerformActions) yield return null;
@@ -455,13 +456,7 @@ namespace ProjectU.Editor
                 null, new object[] { pressed, held, false }, null);
 
         private static void SetField(object target, string name, object value)
-        {
-            Type type = target.GetType();
-            FieldInfo field;
-            while ((field = type.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)) == null)
-                type = type.BaseType;
-            field.SetValue(target, value);
-        }
+        { PlayerActionValidationUtility.Set(target, name, value); }
 
         private static T GetField<T>(object target, string name) =>
             (T)target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(target);

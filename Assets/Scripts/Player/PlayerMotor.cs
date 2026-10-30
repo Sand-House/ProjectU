@@ -17,8 +17,6 @@ namespace ProjectU
         [Header("Dash")]
         [SerializeField, Min(0.01f), Tooltip("Game seconds used to travel the dash distance.")]
         private float dashDuration = 0.2f;
-        [SerializeField, Min(0f), Tooltip("Game seconds after the dash during which only movement and jumping are allowed.")]
-        private float dashPostDelay = 0.3f;
 
         private CharacterController controller;
         private PlayerStat playerStat;
@@ -31,24 +29,36 @@ namespace ProjectU
         private Vector3 dashDirection;
         private float dashSpeed;
         private float dashRemaining;
-        private float dashPostDelayRemaining;
-        private int dashBlockedFrame = -1;
+        private PlayerAction movementAction;
+        private PlayerCombat combat;
+        private PlayerAction DashAction
+        {
+            get
+            {
+                if (combat == null) combat = GetComponent<PlayerCombat>();
+                PlayerAction bound = combat != null ? combat.GetAction(PlayerActionSlot.Dash) : null;
+                if (bound != null) return bound;
+                foreach (PlayerAction action in GetComponents<PlayerAction>())
+                    if (action.Slot == PlayerActionSlot.Dash) return action;
+                return null;
+            }
+        }
 
         public bool IsGrounded => controller != null && controller.isGrounded;
         public float VerticalSpeed => verticalSpeed;
         public float MoveSpeed => playerStat.MoveSpeed;
         public Vector3 HorizontalVelocity { get; private set; }
         public bool IsDashing => dashRemaining > 0f;
-        public bool IsDashPostDelay => !IsDashing && dashPostDelayRemaining > 0f;
+        public bool IsDashPostDelay => DashAction != null && DashAction.Phase == PlayerActionPhase.Recovery;
         // Keep every consumer blocked on the last frame containing dash/recovery time.
-        public bool IsDashActionLocked => IsDashing || IsDashPostDelay || dashBlockedFrame == Time.frameCount;
-        public bool CanPerformActions => !IsDashActionLocked && (combatant == null || !combatant.IsPerformingAttack);
+        public bool IsDashActionLocked => DashAction != null && DashAction.Blocks(PlayerActionSlot.PrimaryFire);
+        public bool CanPerformActions => combatant == null || !combatant.IsActionDelayLocked;
         // Jump requests ignore attack/dash recovery locks. Grounding is checked when moving.
         public bool CanJump => isActiveAndEnabled && controller != null && controller.enabled &&
             Time.timeScale > 0f && Time.deltaTime > 0f && !IsDashing;
-        public bool CanDash => CanDashIgnoringActionLock && CanPerformActions;
+        public bool CanDash => DashAction != null && DashAction.CanStart;
         internal bool CanDashIgnoringActionLock => isActiveAndEnabled && controller != null && controller.enabled &&
-            IsGrounded && Time.deltaTime > 0f && IsPositiveFinite(playerStat.DashDistance) &&
+            IsGrounded && Time.timeScale > 0f && Time.deltaTime > 0f && IsPositiveFinite(playerStat.DashDistance) &&
             IsPositiveFinite(dashDuration) && IsPositiveFinite(playerStat.DashDistance / dashDuration);
 
         // Raised once after a dash has successfully entered its movement/action-lock state.
@@ -81,23 +91,29 @@ namespace ProjectU
         // The caller checks action/resource availability before requesting movement.
         // Direction and settings are captured once; looking or steering cannot bend a dash.
         public bool TryDash(Vector3 worldDirection)
+            => DashAction != null && DashAction.TryStart(PlayerActionContext.Move(worldDirection));
+
+        internal bool BeginDashMovement(PlayerAction action, Vector3 worldDirection)
         {
             worldDirection.y = 0f;
-            if (!CanDash || !IsPositiveFinite(worldDirection.sqrMagnitude))
+            if (action == null || !action.IsExecuting || action.gameObject != gameObject ||
+                IsDashing || !CanDashIgnoringActionLock || !IsPositiveFinite(worldDirection.sqrMagnitude))
                 return false;
 
             dashDirection = worldDirection.normalized;
             dashSpeed = playerStat.DashDistance / dashDuration;
             dashRemaining = dashDuration;
-            dashPostDelayRemaining = NonNegativeFinite(dashPostDelay);
-            dashBlockedFrame = Time.frameCount;
+            movementAction = action;
             jumpRequested = false;
-            OnDashExecuted?.Invoke();
             return true;
         }
 
+        internal void NotifyDashExecuted() => OnDashExecuted?.Invoke();
+        internal void StopDashMovement() => dashRemaining = 0f;
+
         private void Update()
         {
+            DashAction?.Process(PlayerActionStage.BeforeMotor);
             Vector3 velocity = moveDirection * MoveSpeed;
             bool shouldJump = jumpRequested && CanJump;
             bool shouldRotate = hasMoveCommand;
@@ -111,12 +127,10 @@ namespace ProjectU
             if (shouldRotate)
                 transform.rotation = Quaternion.Euler(0f, facingYaw, 0f);
 
-            if (IsDashActionLocked)
-                dashBlockedFrame = Time.frameCount;
+            bool wasDashing = IsDashing;
             float dashTime = Mathf.Min(dashRemaining, Time.deltaTime);
             Vector3 displacement = dashDirection * (dashSpeed * dashTime) + velocity * (Time.deltaTime - dashTime);
             dashRemaining = Mathf.Max(0f, dashRemaining - dashTime);
-            dashPostDelayRemaining = Mathf.Max(0f, dashPostDelayRemaining - (Time.deltaTime - dashTime));
 
             if (controller.isGrounded && verticalSpeed < 0f)
                 verticalSpeed = GroundStickSpeed;
@@ -133,6 +147,8 @@ namespace ProjectU
                 verticalSpeed = 0f;
             if ((collisions & CollisionFlags.Below) != 0 && verticalSpeed < 0f)
                 verticalSpeed = GroundStickSpeed;
+            if (wasDashing && !IsDashing)
+                movementAction?.FinishFromMovement(Time.timeAsDouble - (Time.deltaTime - dashTime));
         }
 
         private void ClearCommands()
@@ -147,8 +163,9 @@ namespace ProjectU
             verticalSpeed = 0f;
             HorizontalVelocity = Vector3.zero;
             dashRemaining = 0f;
-            dashPostDelayRemaining = 0f;
-            dashBlockedFrame = -1;
+            movementAction?.CancelFromDependency();
+            PlayerAction dash = DashAction;
+            if (dash != movementAction) dash?.CancelFromDependency();
             ClearCommands();
         }
 
@@ -156,13 +173,10 @@ namespace ProjectU
         {
             jumpHeight = Mathf.Max(0f, jumpHeight);
             gravity = Mathf.Max(0.1f, gravity);
-            dashDuration = Mathf.Max(0.01f, NonNegativeFinite(dashDuration));
-            dashPostDelay = NonNegativeFinite(dashPostDelay);
+            dashDuration = AttackData.FiniteAtLeast(dashDuration, 0.01f);
         }
 
         private static bool IsPositiveFinite(float value) => value > 0f && !float.IsInfinity(value);
 
-        private static float NonNegativeFinite(float value) =>
-            float.IsNaN(value) || float.IsInfinity(value) ? 0f : Mathf.Max(0f, value);
     }
 }

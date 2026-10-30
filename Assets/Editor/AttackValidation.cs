@@ -100,41 +100,41 @@ namespace ProjectU.Editor
             AddHitbox(near, Vector3.zero, false); // Two colliders on one unit must count once.
             HitscanAttack attack = Attack<HitscanAttack>(source, rifle);
             Physics.SyncTransforms();
-            Check(attack.TryAttack(source.transform.position + Vector3.forward * 20f) && !attack.TryAttack(), "request accepted once");
-            Check(near.Mortal.HP == 100 && attack.Phase == AttackPhase.Windup, "windup has no immediate damage");
+            Check(PlayerActionValidationUtility.For(attack).TryStart(source.transform.position + Vector3.forward * 20f) && !PlayerActionValidationUtility.For(attack).TryStart(), "request accepted once");
+            Check(near.Mortal.HP == 100 && PlayerActionValidationUtility.For(attack).Phase == PlayerActionPhase.Windup, "windup has no immediate damage");
             yield return new WaitForSeconds(0.04f);
             Check(near.Mortal.HP == 100, "windup waits in game time");
             yield return new WaitForSeconds(0.08f);
             Check(near.Mortal.HP == 90 && far.Mortal.HP == 100 && friendly.Mortal.HP == 100, "hostile-only hitscan and zero penetration");
             Check(Vector3.Distance(attack.LastShotEndPoint, near.transform.position - Vector3.forward * 0.25f) < 0.001f,
                 "debug line skips ally and stops at first target surface with zero penetration");
-            Check(attack.CooldownRemaining > 0f && !attack.CanAttack && attack.Phase == AttackPhase.Recovery,
+            Check(PlayerActionValidationUtility.For(attack).CooldownRemaining > 0f && !PlayerActionValidationUtility.For(attack).CanStart && PlayerActionValidationUtility.For(attack).Phase == PlayerActionPhase.Recovery,
                 "execution starts cooldown and recovery together");
-            attack.enabled = false;
-            attack.enabled = true;
-            Check(!attack.CanAttack, "disable does not reset executed cooldown");
-            float remaining = attack.CooldownRemaining;
+            PlayerActionValidationUtility.For(attack).enabled = false;
+            PlayerActionValidationUtility.For(attack).enabled = true;
+            Check(!PlayerActionValidationUtility.For(attack).CanStart, "disable does not reset executed cooldown");
+            float remaining = PlayerActionValidationUtility.For(attack).CooldownRemaining;
             Time.timeScale = 0f;
             yield return new WaitForSecondsRealtime(0.06f);
-            Check(Mathf.Abs(attack.CooldownRemaining - remaining) < 0.001f && !attack.TryAttack(), "pause freezes cooldown and rejects requests");
+            Check(Mathf.Abs(PlayerActionValidationUtility.For(attack).CooldownRemaining - remaining) < 0.001f && !PlayerActionValidationUtility.For(attack).TryStart(), "pause freezes cooldown and rejects requests");
             Time.timeScale = 1f;
             yield return new WaitForSeconds(0.3f);
-            Check(attack.CanAttack, "cooldown resumes");
+            Check(PlayerActionValidationUtility.For(attack).CanStart, "cooldown resumes");
 
             Set(rifle, "windupTime", 0f);
             Set(rifle, "enemyPenetrationCount", 1);
-            Check(attack.TryAttack(), "penetrating hitscan request");
+            Check(PlayerActionValidationUtility.For(attack).TryStart(), "penetrating hitscan request");
             yield return null;
             Check(near.Mortal.HP == 80 && far.Mortal.HP == 90, "additional enemy penetration and collider deduplication");
             Check(Vector3.Distance(attack.LastShotEndPoint, far.transform.position - Vector3.forward * 0.25f) < 0.001f,
                 "debug line passes duplicate hitboxes and stops at penetration limit target surface");
             HitscanAttack twin = Attack<HitscanAttack>(source, rifle);
-            Check(!twin.CanAttack, "shared owner recovery blocks a different attack");
+            Check(!PlayerActionValidationUtility.For(twin).CanStart, "shared owner recovery blocks a different attack");
             yield return new WaitForSeconds(0.13f);
-            Check(twin.Data == attack.Data && twin.CanAttack && !attack.CanAttack, "shared asset has independent runtime state");
+            Check(twin.Data == attack.Data && PlayerActionValidationUtility.For(twin).CanStart && !PlayerActionValidationUtility.For(attack).CanStart, "shared asset has independent runtime state");
             far.gameObject.SetActive(false);
             Physics.SyncTransforms();
-            twin.TryAttack(source.transform.position + Vector3.forward * 20f);
+            PlayerActionValidationUtility.For(twin).TryStart(source.transform.position + Vector3.forward * 20f);
             yield return new WaitForSeconds(0.01f);
             Check(Vector3.Distance(twin.LastShotEndPoint,
                 twin.LastAttackPosition + Vector3.forward * rifle.MaxDistance) < 0.001f,
@@ -151,9 +151,9 @@ namespace ProjectU.Editor
             Set(critical, "spreadAngle", 0f);
             Set(critical, "canCritical", true);
             HitscanAttack enemyAttack = Attack<HitscanAttack>(enemyShooter, critical);
-            enemyAttack.DamageMultiplier = 1.5f;
+            PlayerActionValidationUtility.For(enemyAttack).DamageMultiplier = 1.5f;
             Physics.SyncTransforms();
-            Check(enemyAttack.TryAttack(playerTarget.transform.position), "enemy uses same attack component");
+            Check(PlayerActionValidationUtility.For(enemyAttack).TryStart(playerTarget.transform.position), "enemy uses same attack component");
             yield return null;
             Check(playerTarget.Mortal.HP == 64, "trigger headshot, damage multiplier and Ignore Raycast target");
             Check(Vector3.Distance(enemyAttack.LastShotEndPoint, playerTarget.transform.position - Vector3.forward * 0.2f) < 0.001f,
@@ -174,7 +174,7 @@ namespace ProjectU.Editor
             Box("Ignored Trigger", new Vector3(20f, 0f, 1f), Vector3.one * 0.5f).GetComponent<BoxCollider>().isTrigger = true;
             HitscanAttack wallAttack = Attack<HitscanAttack>(wallShooter, rifle);
             Physics.SyncTransforms();
-            wallAttack.TryAttack(covered.transform.position);
+            PlayerActionValidationUtility.For(wallAttack).TryStart(covered.transform.position);
             yield return null;
             Check(covered.Mortal.HP == 100, "world geometry blocks penetrating hitscan");
             Check(Vector3.Distance(wallAttack.LastShotEndPoint, root.transform.position + new Vector3(20f, 0f, 1.9f)) < 0.001f,
@@ -190,7 +190,7 @@ namespace ProjectU.Editor
             UnityEngine.Random.InitState(12345);
             for (int shot = 1; shot <= 3; shot++)
             {
-                Check(spreadAttack.TryAttack(spreadShooter.transform.position + Vector3.forward * 20f), "spread shot " + shot);
+                Check(PlayerActionValidationUtility.For(spreadAttack).TryStart(spreadShooter.transform.position + Vector3.forward * 20f), "spread shot " + shot);
                 yield return null;
                 float angle = Vector3.Angle(Vector3.forward, spreadAttack.LastShotDirection);
                 Check(spreadAttack.ConsecutiveShots == shot && (shot < 3 ? angle < 0.001f : angle > 0.01f && angle <= 6.01f), "spread threshold " + shot);
@@ -199,7 +199,7 @@ namespace ProjectU.Editor
                     "missed debug line follows actual spread direction to maximum range " + shot);
             }
             Set(spread, "spreadAngle", 0f);
-            bool zeroSpreadAccepted = spreadAttack.TryAttack();
+            bool zeroSpreadAccepted = PlayerActionValidationUtility.For(spreadAttack).TryStart();
             yield return null;
             Check(zeroSpreadAccepted && spreadAttack.ConsecutiveShots == 4 &&
                 Vector3.Angle(Vector3.forward, spreadAttack.LastShotDirection) < 0.001f,
@@ -219,11 +219,11 @@ namespace ProjectU.Editor
             Set(melee, "originOffset", Vector3.zero);
             MeleeAttack meleeAttack = Attack<MeleeAttack>(meleeSource, melee);
             Physics.SyncTransforms();
-            meleeAttack.TryAttack(front.transform.position);
+            PlayerActionValidationUtility.For(meleeAttack).TryStart(front.transform.position);
             yield return null;
             Check(front.Mortal.HP == 90 && side.Mortal.HP == 100 && back.Mortal.HP == 100 && high.Mortal.HP == 100, "sector, height and area deduplication");
             Set(melee, "shape", (int)MeleeShape.Circle);
-            meleeAttack.TryAttack();
+            PlayerActionValidationUtility.For(meleeAttack).TryStart();
             yield return null;
             Check(front.Mortal.HP == 80 && side.Mortal.HP == 90 && back.Mortal.HP == 90 && high.Mortal.HP == 100, "circle attack");
 
@@ -243,13 +243,13 @@ namespace ProjectU.Editor
             ProjectileAttack projectileAttack = Attack<ProjectileAttack>(projectileSource, projectile);
             projectileAttack.Pool = pool;
             Physics.SyncTransforms();
-            projectileAttack.TryAttack(projectileSource.transform.position + Vector3.forward * 20f);
+            PlayerActionValidationUtility.For(projectileAttack).TryStart(projectileSource.transform.position + Vector3.forward * 20f);
             yield return null;
             Projectile shotInstance = projectileAttack.LastProjectile;
             Check(shotInstance != null && shotInstance.HasAttackData &&
                 Vector3.Distance(shotInstance.transform.localScale, bulletPrefab.transform.localScale * 2f) < 0.001f, "projectile executes and scales");
             projectileSource.Faction = Faction.Enemy;
-            projectileAttack.DamageMultiplier = 3f;
+            PlayerActionValidationUtility.For(projectileAttack).DamageMultiplier = 3f;
             yield return new WaitForSeconds(0.3f + 6f / bulletPrefab.Speed);
             Check(projectileNear.Mortal.HP == 90 && projectileFar.Mortal.HP == 90 && projectileFriendly.Mortal.HP == 100,
                 "projectile piercing, ally passage and launch snapshot");
@@ -260,17 +260,17 @@ namespace ProjectU.Editor
             Check(!legacy.HasAttackData && Vector3.Distance(legacy.transform.localScale, bulletPrefab.transform.localScale) < 0.001f, "legacy spawn resets payload and scale");
             legacy.Despawn();
             Set(projectile, "piercesEnemies", false);
-            projectileAttack.DamageMultiplier = 1f;
-            projectileAttack.TryAttack();
+            PlayerActionValidationUtility.For(projectileAttack).DamageMultiplier = 1f;
+            PlayerActionValidationUtility.For(projectileAttack).TryStart();
             yield return new WaitForSeconds(0.15f + 2f / bulletPrefab.Speed);
             Check(projectileNear.Mortal.HP == 80 && projectileFar.Mortal.HP == 90 && !projectileAttack.LastProjectile.IsActive, "nonpiercing projectile stops at first target");
             var first = pool.Spawn(bulletPrefab, null, root.transform.position + Vector3.up * 100f, Vector3.forward);
             var second = pool.Spawn(bulletPrefab, null, root.transform.position + Vector3.up * 110f, Vector3.forward);
             int failed = 0;
-            projectileAttack.OnFailed += () => failed++;
-            Check(projectileAttack.TryAttack(), "capacity failure accepts windup request");
+            PlayerActionValidationUtility.For(projectileAttack).OnFailed += () => failed++;
+            Check(PlayerActionValidationUtility.For(projectileAttack).TryStart(), "capacity failure accepts windup request");
             yield return null;
-            Check(failed == 1 && projectileAttack.CooldownRemaining == 0f && projectileAttack.LastProjectile == null, "pool failure does not claim execution or cooldown");
+            Check(failed == 1 && PlayerActionValidationUtility.For(projectileAttack).CooldownRemaining == 0f && projectileAttack.LastProjectile == null, "pool failure does not claim execution or cooldown");
             first.Despawn();
             second.Despawn();
 
@@ -300,20 +300,20 @@ namespace ProjectU.Editor
             int executed = 0;
             int cancelled = 0;
             cancel.OnExecuted += () => executed++;
-            cancel.OnCancelled += () => cancelled++;
-            cancel.TryAttack();
-            cancel.enabled = false;
-            cancel.enabled = true;
+            PlayerActionValidationUtility.For(cancel).OnCancelled += reason => cancelled++;
+            PlayerActionValidationUtility.For(cancel).TryStart();
+            PlayerActionValidationUtility.For(cancel).enabled = false;
+            PlayerActionValidationUtility.For(cancel).enabled = true;
             yield return new WaitForSeconds(0.12f);
-            Check(executed == 0 && cancelled == 1 && cancel.CanAttack, "disable cancels pending windup");
-            cancel.TryAttack();
+            Check(executed == 0 && cancelled == 1 && PlayerActionValidationUtility.For(cancel).CanStart, "disable cancels pending windup");
+            PlayerActionValidationUtility.For(cancel).TryStart();
             Time.timeScale = 0f;
             yield return new WaitForSecondsRealtime(0.14f);
-            Check(executed == 0 && cancel.Phase == AttackPhase.Windup, "pause freezes windup");
+            Check(executed == 0 && PlayerActionValidationUtility.For(cancel).Phase == PlayerActionPhase.Windup, "pause freezes windup");
             Time.timeScale = 1f;
             cancelSource.Mortal.Dead();
             yield return null;
-            Check(executed == 0 && cancelled == 2 && !cancel.CanAttack, "death cancels pending attack");
+            Check(executed == 0 && cancelled == 2 && !PlayerActionValidationUtility.For(cancel).CanStart, "death cancels pending attack");
 
             Combatant positionedSource = Unit("Positioned Hitscan", Vector3.right * 110f, Faction.Player);
             positionedSource.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
@@ -325,10 +325,10 @@ namespace ProjectU.Editor
             Set(positionedData, "windupTime", 0.05f);
             HitscanAttack positionedAttack = Attack<HitscanAttack>(positionedSource, positionedData);
             Transform positionedMuzzle = Origin(positionedSource, new Vector3(0f, 0.5f, 0.5f));
-            Check(positionedAttack.TryAttack(positionedMuzzle, positionedTarget.transform.position), "request accepts runtime muzzle transform");
+            Check(PlayerActionValidationUtility.For(positionedAttack).TryStart(positionedMuzzle, positionedTarget.transform.position), "request accepts runtime muzzle transform");
             positionedMuzzle.localPosition = new Vector3(0f, 1f, 1f);
             Vector3 expectedOrigin = root.transform.position + new Vector3(112f, 1f, 0f);
-            Check(Vector3.Distance(positionedAttack.WorldAttackPosition, expectedOrigin) < 0.001f,
+            Check(Vector3.Distance(PlayerActionValidationUtility.For(positionedAttack).WorldAttackPosition, expectedOrigin) < 0.001f,
                 "requested muzzle follows local movement character rotation and scale during windup");
             Physics.SyncTransforms();
             yield return new WaitForSeconds(0.08f);
@@ -341,7 +341,7 @@ namespace ProjectU.Editor
             Combatant otherSource = Unit("Shared Data Other Muzzle", Vector3.right * 120f, Faction.Player);
             Transform otherMuzzle = Origin(otherSource, Vector3.up);
             HitscanAttack otherAttack = Attack<HitscanAttack>(otherSource, positionedData);
-            otherAttack.TryAttack(otherMuzzle, otherMuzzle.position + Vector3.forward * 20f);
+            PlayerActionValidationUtility.For(otherAttack).TryStart(otherMuzzle, otherMuzzle.position + Vector3.forward * 20f);
             yield return new WaitForSeconds(0.08f);
             Check(otherAttack.Data == positionedAttack.Data &&
                 Vector3.Distance(otherAttack.LastAttackPosition, otherMuzzle.position) < 0.001f &&
@@ -357,7 +357,7 @@ namespace ProjectU.Editor
             MeleeAttack positionedMelee = Attack<MeleeAttack>(positionedMeleeSource, positionedMeleeData);
             Physics.SyncTransforms();
             Vector3 meleePosition = positionedMeleeSource.transform.position + Vector3.forward * 3f;
-            positionedMelee.TryAttack(meleePosition, positionedMeleeTarget.transform.position);
+            PlayerActionValidationUtility.For(positionedMelee).TryStart(meleePosition, positionedMeleeTarget.transform.position);
             yield return null;
             Check(positionedMeleeTarget.Mortal.HP == 90 && unshiftedMeleeTarget.Mortal.HP == 100,
                 "melee range starts at caller-supplied world position");
@@ -379,7 +379,7 @@ namespace ProjectU.Editor
                 firedDirection = body.linearVelocity.normalized;
             };
             Vector3 angledAim = muzzle.position + Vector3.forward * 20f;
-            angledAttack.TryAttack(muzzle, angledAim);
+            PlayerActionValidationUtility.For(angledAttack).TryStart(muzzle, angledAim);
             angledSource.transform.position += Vector3.up * 0.3f;
             angledSource.transform.rotation = Quaternion.Euler(0f, 45f, 0f);
             yield return new WaitForSeconds(0.1f);
@@ -392,7 +392,7 @@ namespace ProjectU.Editor
             Set(angledData, "windupTime", 0f);
             // Aim from the offset origin, so an offset muzzle still converges on the requested point.
             Vector3 aimDirection = new Vector3(-0.2f, 0.1f, 1f).normalized;
-            angledAttack.TryAttack(muzzle, muzzle.position + aimDirection * 20f);
+            PlayerActionValidationUtility.For(angledAttack).TryStart(muzzle, muzzle.position + aimDirection * 20f);
             yield return null;
             Check(Vector3.Angle(aimDirection, firedDirection) < 0.05f,
                 "zero launch angle aims from offset position at requested point");
@@ -403,14 +403,14 @@ namespace ProjectU.Editor
             HitscanAttack missingAttack = Attack<HitscanAttack>(missingSource, positionedData);
             int missingFailures = 0;
             int missingExecutions = 0;
-            missingAttack.OnFailed += () => missingFailures++;
+            PlayerActionValidationUtility.For(missingAttack).OnFailed += () => missingFailures++;
             missingAttack.OnExecuted += () => missingExecutions++;
-            Check(!missingAttack.TryAttack((Transform)null, Vector3.forward) &&
-                !missingAttack.TryAttack(new Vector3(float.NaN, 0f, 0f), Vector3.forward), "invalid runtime origins are rejected");
-            missingAttack.TryAttack(missingMuzzle, missingMuzzle.position + Vector3.forward * 10f);
+            Check(!PlayerActionValidationUtility.For(missingAttack).TryStart((Transform)null, Vector3.forward) &&
+                !PlayerActionValidationUtility.For(missingAttack).TryStart(new Vector3(float.NaN, 0f, 0f), Vector3.forward), "invalid runtime origins are rejected");
+            PlayerActionValidationUtility.For(missingAttack).TryStart(missingMuzzle, missingMuzzle.position + Vector3.forward * 10f);
             Destroy(missingMuzzle.gameObject);
             yield return new WaitForSeconds(0.08f);
-            Check(missingFailures == 1 && missingExecutions == 0 && missingAttack.CooldownRemaining == 0f,
+            Check(missingFailures == 1 && missingExecutions == 0 && PlayerActionValidationUtility.For(missingAttack).CooldownRemaining == 0f,
                 "lost muzzle during windup fails without firing from a fallback position");
 
             Combatant blockedSource = Unit("Blocked Runtime Muzzle", Vector3.right * 180f, Faction.Player);
@@ -418,7 +418,7 @@ namespace ProjectU.Editor
             GameObject muzzleWall = Box("Muzzle Wall", new Vector3(180f, 0f, 1f), new Vector3(2f, 2f, 0.2f));
             Combatant blockedTarget = Unit("Behind Muzzle Wall", new Vector3(181f, 0f, 4f), Faction.Enemy);
             HitscanAttack blockedAttack = Attack<HitscanAttack>(blockedSource, positionedData);
-            blockedAttack.TryAttack(blockedMuzzle, blockedTarget.transform.position);
+            PlayerActionValidationUtility.For(blockedAttack).TryStart(blockedMuzzle, blockedTarget.transform.position);
             blockedMuzzle.localPosition = Vector3.forward * 2f;
             Physics.SyncTransforms();
             yield return new WaitForSeconds(0.08f);
@@ -434,7 +434,7 @@ namespace ProjectU.Editor
             blockedBullet.Pool = pool;
             Vector3 blockedSpawn = Vector3.zero;
             blockedBullet.OnExecuted += () => blockedSpawn = blockedBullet.LastProjectile.transform.position;
-            blockedBullet.TryAttack(blockedMuzzle, blockedTarget.transform.position);
+            PlayerActionValidationUtility.For(blockedBullet).TryStart(blockedMuzzle, blockedTarget.transform.position);
             yield return new WaitForSeconds(0.1f);
             Check(blockedTarget.Mortal.HP == 100 && blockedSpawn.z < muzzleWall.GetComponent<Collider>().bounds.min.z &&
                 !blockedBullet.LastProjectile.IsActive, "projectile also spawns before wall and returns on impact");
@@ -516,17 +516,7 @@ namespace ProjectU.Editor
         }
 
         private static void Set(UnityEngine.Object target, string name, object value)
-        {
-            var serialized = new SerializedObject(target);
-            SerializedProperty property = serialized.FindProperty(name);
-            if (property == null) throw new Exception("Missing property: " + name);
-            if (value is bool boolean) property.boolValue = boolean;
-            else if (value is int integer) property.intValue = integer;
-            else if (value is float number) property.floatValue = number;
-            else if (value is Vector3 vector) property.vector3Value = vector;
-            else property.objectReferenceValue = (UnityEngine.Object)value;
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-        }
+        { PlayerActionValidationUtility.Set(target, name, value); }
 
         private void Check(bool condition, string message)
         {

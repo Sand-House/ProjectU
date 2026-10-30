@@ -80,14 +80,22 @@ namespace ProjectU
 
         public bool TryConsume(float amount)
         {
+            if (!TryConsumeWithoutNotification(amount)) return false;
+            NotifyChanged();
+            return true;
+        }
+
+        internal bool TryConsumeWithoutNotification(float amount)
+        {
             if (!isActiveAndEnabled || !CanConsume(amount))
                 return false;
 
             current = Current - amount;
             recoveryDelayRemaining = RecoveryDelay;
-            NotifyChanged();
             return true;
         }
+
+        internal void PublishChanged() => NotifyChanged();
 
         // Explicit recovery (e.g. a pickup) bypasses the wait without resetting it.
         // Returns the amount actually restored; automatic recovery calls this too.

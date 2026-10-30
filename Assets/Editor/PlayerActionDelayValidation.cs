@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -95,18 +96,18 @@ namespace ProjectU.Editor
             SetField(input.GetComponent<PlayerController>(), "maxInputBufferTime", 0f);
             stamina.RecoveryRate = 0f;
             attacks.enabled = false;
-            var bindings = new List<PlayerAttackBinding>(attacks.AttackBindings);
-            foreach (AttackSlot slot in new[] { AttackSlot.Skill2, AttackSlot.Ultimate })
+            var bindings = new List<PlayerActionBinding>(attacks.ActionBindings.Where(item => item.Attack != null).ToList());
+            foreach (PlayerActionSlot slot in new[] { PlayerActionSlot.Skill2, PlayerActionSlot.Ultimate })
             {
                 var extra = input.gameObject.AddComponent<HitscanAttack>();
                 SetField(extra, "data", Instantiate((HitscanAttackData)bindings[0].Attack.Data));
-                var binding = new PlayerAttackBinding();
+                var binding = new PlayerActionBinding();
                 SetField(binding, "slot", slot);
                 SetField(binding, "attack", extra);
                 SetField(binding, "origin", bindings[0].Origin);
                 bindings.Add(binding);
             }
-            foreach (PlayerAttackBinding binding in bindings)
+            foreach (PlayerActionBinding binding in bindings)
             {
                 AttackData data = Instantiate(binding.Attack.Data);
                 SetField(data, "windupTime", 0.18f);
@@ -114,49 +115,49 @@ namespace ProjectU.Editor
                 SetField(data, "cooldown", 0.9f);
                 SetField(binding.Attack, "data", data);
             }
-            SetField(attacks, "attackBindings", bindings.ToArray());
+            SetField(attacks, "actionBindings", bindings.ToArray());
             attacks.enabled = true;
             attacks.AttackExecuted += slot => executions++;
             yield return new WaitForSeconds(0.2f);
 
-            foreach (PlayerAttackBinding binding in bindings)
+            foreach (PlayerActionBinding binding in bindings)
             {
                 ResetPosition();
                 while (!motor.IsGrounded) yield return null;
                 stamina.Recover(100f);
                 int baseline = executions;
                 Attack attack = binding.Attack;
-                Check(attack.TryAttack(binding.Origin, attacks.GetAimPoint()) && owner.IsPerformingAttack &&
+                Check(PlayerActionValidationUtility.For(attack).TryStart(binding.Origin, attacks.GetAimPoint()) && owner.IsPerformingAttack &&
                     !motor.CanPerformActions && !motor.CanDash, binding.Slot + " immediately locks actions at windup start");
                 Check(!attacks.TryReload() && !motor.TryDash(Vector3.forward), binding.Slot + " blocks reload and direct dash APIs");
-                foreach (PlayerAttackBinding rival in bindings)
+                foreach (PlayerActionBinding rival in bindings)
                     if (rival != binding)
-                        Check(!rival.Attack.TryAttack(rival.Origin, attacks.GetAimPoint()), binding.Slot + " blocks direct " + rival.Slot);
+                        Check(!PlayerActionValidationUtility.For(rival.Attack).TryStart(rival.Origin, attacks.GetAimPoint()), binding.Slot + " blocks direct " + rival.Slot);
                 movement = Vector2.right;
                 Vector3 before = input.transform.position;
                 otherActions = true;
                 pressMask = 31;
                 yield return new WaitForSeconds(0.08f);
-                Check(attack.Phase == AttackPhase.Windup && executions == baseline && !attacks.IsReloading &&
+                Check(PlayerActionValidationUtility.For(attack).Phase == PlayerActionPhase.Windup && executions == baseline && !attacks.IsReloading &&
                     !motor.IsDashing && stamina.Current == 100f && motor.VerticalSpeed > 0f && motor.CanJump,
                     binding.Slot + " windup permits jump and rejects attack dash reload without cancelling or consuming stamina");
                 Check(Vector3.ProjectOnPlane(input.transform.position - before, Vector3.up).magnitude > 0.2f,
                     binding.Slot + " windup permits horizontal movement during jump");
                 yield return new WaitForSeconds(0.15f);
-                Check(attack.Phase == AttackPhase.Recovery && executions == baseline + 1 && !motor.CanPerformActions,
+                Check(PlayerActionValidationUtility.For(attack).Phase == PlayerActionPhase.Recovery && executions == baseline + 1 && !motor.CanPerformActions,
                     binding.Slot + " executes once and keeps the shared lock during recovery");
                 // Land independently so a second jump proves recovery permits new input too.
                 otherActions = false;
                 ResetPosition();
                 while (!motor.IsGrounded) yield return null;
-                Check(attack.Phase == AttackPhase.Recovery && !motor.CanPerformActions && motor.CanJump,
+                Check(PlayerActionValidationUtility.For(attack).Phase == PlayerActionPhase.Recovery && !motor.CanPerformActions && motor.CanJump,
                     binding.Slot + " recovery permits a new jump request while the action lock remains");
                 before = input.transform.position;
                 otherActions = true;
                 pressMask = 31;
-                foreach (PlayerAttackBinding rival in bindings)
+                foreach (PlayerActionBinding rival in bindings)
                     if (rival != binding)
-                        Check(!rival.Attack.CanAttack, binding.Slot + " recovery blocks " + rival.Slot);
+                        Check(!PlayerActionValidationUtility.For(rival.Attack).CanStart, binding.Slot + " recovery blocks " + rival.Slot);
                 Check(!attacks.TryReload() && !motor.TryDash(Vector3.forward), binding.Slot + " recovery blocks direct actions");
                 yield return new WaitForSeconds(0.08f);
                 Check(executions == baseline + 1 && !motor.IsDashing && stamina.Current == 100f &&
@@ -170,14 +171,14 @@ namespace ProjectU.Editor
                 movement = Vector2.zero;
                 while (owner.IsPerformingAttack) yield return null;
                 Check(motor.CanPerformActions && !motor.IsGrounded && !motor.CanDash &&
-                    attack.CooldownRemaining > 0f && !attack.CanAttack && attacks.CanReload,
+                    PlayerActionValidationUtility.For(attack).CooldownRemaining > 0f && !PlayerActionValidationUtility.For(attack).CanStart && attacks.CanReload,
                     binding.Slot + " cooldown alone permits combat actions and reload while airborne dash remains blocked");
                 yield return new WaitForSeconds(0.06f);
                 Check(executions == baseline + 1 && !attacks.IsReloading, binding.Slot + " rejected taps are not buffered");
             }
 
             // All five buttons on an idle frame reserve only one attack, even with zero delays.
-            foreach (PlayerAttackBinding binding in bindings)
+            foreach (PlayerActionBinding binding in bindings)
             {
                 SetField(binding.Attack.Data, "windupTime", 0f);
                 SetField(binding.Attack.Data, "recoveryTime", 0f);
@@ -185,12 +186,12 @@ namespace ProjectU.Editor
             }
             yield return new WaitForSeconds(1f);
             bool reentrantBlocked = true;
-            foreach (PlayerAttackBinding binding in bindings)
+            foreach (PlayerActionBinding binding in bindings)
                 binding.Attack.OnExecuted += () =>
                 {
                     reentrantBlocked &= owner.IsPerformingAttack && !motor.CanDash && !attacks.TryReload();
-                    foreach (PlayerAttackBinding rival in bindings)
-                        reentrantBlocked &= !rival.Attack.TryAttack(rival.Origin, attacks.GetAimPoint());
+                    foreach (PlayerActionBinding rival in bindings)
+                        reentrantBlocked &= !PlayerActionValidationUtility.For(rival.Attack).TryStart(rival.Origin, attacks.GetAimPoint());
                 };
             int simultaneous = executions;
             pressMask = 31;
@@ -207,43 +208,43 @@ namespace ProjectU.Editor
             SetField(primary.Data, "windupTime", 0.2f);
             SetField(primary.Data, "recoveryTime", 0.3f);
             input.GetComponent<PlayerStat>().AttackSpeed = 2f;
-            primary.SpeedMultiplier = 2f;
-            Check(primary.TryAttack(bindings[0].Origin, attacks.GetAimPoint()), "speed-scaled windup accepts request");
+            PlayerActionValidationUtility.For(primary).SpeedMultiplier = 2f;
+            Check(PlayerActionValidationUtility.For(primary).TryStart(bindings[0].Origin, attacks.GetAimPoint()), "speed-scaled windup accepts request");
             int pauseBaseline = executions;
             Time.timeScale = 0f;
             for (int i = 0; i < 5; i++) yield return null;
-            Check(primary.Phase == AttackPhase.Windup && owner.IsPerformingAttack && executions == pauseBaseline,
+            Check(PlayerActionValidationUtility.For(primary).Phase == PlayerActionPhase.Windup && owner.IsPerformingAttack && executions == pauseBaseline,
                 "pause freezes windup and preserves action lock");
             Check(!motor.CanJump, "paused windup rejects jump requests");
             Time.timeScale = 1f;
             yield return new WaitForSeconds(0.12f);
-            Check(primary.Phase == AttackPhase.Recovery && executions == pauseBaseline + 1, "attack speed scales windup and execution");
-            float remaining = primary.RecoveryRemaining;
+            Check(PlayerActionValidationUtility.For(primary).Phase == PlayerActionPhase.Recovery && executions == pauseBaseline + 1, "attack speed scales windup and execution");
+            float remaining = PlayerActionValidationUtility.For(primary).RecoveryRemaining;
             Time.timeScale = 0f;
             for (int i = 0; i < 5; i++) yield return null;
-            Check(Mathf.Abs(primary.RecoveryRemaining - remaining) < 0.0001f && !motor.CanDash && !motor.CanJump,
+            Check(Mathf.Abs(PlayerActionValidationUtility.For(primary).RecoveryRemaining - remaining) < 0.0001f && !motor.CanDash && !motor.CanJump,
                 "pause freezes recovery and preserves action lock");
             Time.timeScale = 1f;
             yield return new WaitForSeconds(0.17f);
             Check(!owner.IsPerformingAttack && motor.CanPerformActions, "speed-scaled recovery unlocks without an extra timer");
 
-            Check(primary.TryAttack(bindings[0].Origin, attacks.GetAimPoint()) && primary.CancelAttack() &&
-                !owner.IsPerformingAttack && rivalAttack.CanAttack, "explicit cancellation releases the shared windup lock");
+            Check(PlayerActionValidationUtility.For(primary).TryStart(bindings[0].Origin, attacks.GetAimPoint()) && PlayerActionValidationUtility.For(primary).Cancel() &&
+                !owner.IsPerformingAttack && PlayerActionValidationUtility.For(rivalAttack).CanStart, "explicit cancellation releases the shared windup lock");
             var lostOrigin = new GameObject("Lost Action Delay Origin");
-            Check(primary.TryAttack(lostOrigin.transform, attacks.GetAimPoint()), "failure probe accepts temporary origin");
+            Check(PlayerActionValidationUtility.For(primary).TryStart(lostOrigin.transform, attacks.GetAimPoint()), "failure probe accepts temporary origin");
             int failedBaseline = executions;
             Destroy(lostOrigin);
             yield return new WaitForSeconds(0.15f);
             Check(executions == failedBaseline && !owner.IsPerformingAttack && motor.CanDash,
                 "failed execution releases the shared lock without recovery");
-            Check(primary.TryAttack(bindings[0].Origin, attacks.GetAimPoint()), "disable probe starts windup");
-            primary.enabled = false;
-            Check(!owner.IsPerformingAttack && rivalAttack.CanAttack, "disabled attack cancels windup and cannot leave a stale lock");
-            primary.enabled = true;
-            Check(primary.TryAttack(bindings[0].Origin, attacks.GetAimPoint()), "death probe starts windup");
+            Check(PlayerActionValidationUtility.For(primary).TryStart(bindings[0].Origin, attacks.GetAimPoint()), "disable probe starts windup");
+            PlayerActionValidationUtility.For(primary).enabled = false;
+            Check(!owner.IsPerformingAttack && PlayerActionValidationUtility.For(rivalAttack).CanStart, "disabled attack cancels windup and cannot leave a stale lock");
+            PlayerActionValidationUtility.For(primary).enabled = true;
+            Check(PlayerActionValidationUtility.For(primary).TryStart(bindings[0].Origin, attacks.GetAimPoint()), "death probe starts windup");
             input.GetComponent<Mortal>().Dead();
             yield return new WaitForSeconds(0.15f);
-            Check(executions == failedBaseline && !owner.IsPerformingAttack && !rivalAttack.CanAttack,
+            Check(executions == failedBaseline && !owner.IsPerformingAttack && !PlayerActionValidationUtility.For(rivalAttack).CanStart,
                 "death cancels pending execution and prevents new attacks");
         }
 
@@ -291,11 +292,6 @@ namespace ProjectU.Editor
                 null, new object[] { pressed, held, false }, null);
 
         private static void SetField(object target, string name, object value)
-        {
-            Type type = target.GetType();
-            FieldInfo field;
-            while ((field = type.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)) == null) type = type.BaseType;
-            field.SetValue(target, value);
-        }
+        { PlayerActionValidationUtility.Set(target, name, value); }
     }
 }

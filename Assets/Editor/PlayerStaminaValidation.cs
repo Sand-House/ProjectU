@@ -70,7 +70,7 @@ namespace ProjectU.Editor
                 var motorSettings = new SerializedObject(motor);
                 stat.DashDistance = 0.1f;
                 motorSettings.FindProperty("dashDuration").floatValue = 0.01f;
-                motorSettings.FindProperty("dashPostDelay").floatValue = 0f;
+                PlayerActionValidationUtility.Set(input.GetComponent<SoilderDashAction>(), "recoveryTime", 0f);
                 motorSettings.ApplyModifiedPropertiesWithoutUndo();
                 Check(stamina != null && stat != null && stamina.enabled, "Saved scene resource components.");
                 foreach (Transform item in UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsSortMode.None))

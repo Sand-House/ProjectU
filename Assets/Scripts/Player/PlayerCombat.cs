@@ -8,263 +8,185 @@ namespace ProjectU
     [DefaultExecutionOrder(100)]
     public sealed class PlayerCombat : MonoBehaviour
     {
-        [SerializeField] private PlayerAttackBinding[] attackBindings = Array.Empty<PlayerAttackBinding>();
+        [SerializeField] private PlayerActionBinding[] actionBindings = Array.Empty<PlayerActionBinding>();
         [SerializeField] private Camera aimCamera;
-        [SerializeField, Min(1f), Tooltip("Maximum camera-center aim-point search distance. Does not limit attack range.")]
-        private float aimDistance = 100f;
+        [SerializeField, Min(1f)] private float aimDistance = 100f;
         private PlayerStat stat;
-        private PlayerMotor motor;
+        private Combatant owner;
         private int currentAmmo;
-        private float reloadWorkRemaining;
-        private AttackSlot? requestedAttack;
-        private bool reloadRequested;
+        private PlayerActionSlot requestedAction = PlayerActionSlot.None;
         private int requestFrame = -1;
+        private int reloadCompletedFrame = -1;
+        private Vector3 dashDirection;
         private readonly RaycastHit[] aimHits = new RaycastHit[32];
-        private readonly Dictionary<Attack, Action> executionHandlers = new Dictionary<Attack, Action>();
-        private readonly Dictionary<Attack, Action> startHandlers = new Dictionary<Attack, Action>();
+        private readonly Dictionary<PlayerAction, Action> executionHandlers = new Dictionary<PlayerAction, Action>();
 
-        public event Action<AttackSlot> AttackExecuted;
+        public event Action<PlayerActionSlot> AttackExecuted;
+        public event Action<PlayerActionSlot> ActionExecuted;
         public event Action OnReloadStarted;
         public event Action OnReloadCompleted;
-        public IReadOnlyList<PlayerAttackBinding> AttackBindings => attackBindings;
+        public IReadOnlyList<PlayerActionBinding> ActionBindings => actionBindings;
         public int CurrentAmmo => Mathf.Min(currentAmmo, MaxAmmo);
-        public int MaxAmmo => stat.MaxMagazine;
-        public bool IsReloading { get; private set; }
-        public float ReloadRemaining => IsReloading ? reloadWorkRemaining / stat.ReloadSpeedMultiplier : 0f;
-        public bool CanReload => CanStartReload(false);
-        internal bool CanReloadIgnoringActionLock => CanStartReload(true);
+        public int MaxAmmo => Stat.MaxMagazine;
+        private PlayerStat Stat => stat != null ? stat : (stat = GetComponent<PlayerStat>());
+        private IPlayerReloadAction Reload => GetAction(PlayerActionSlot.Reload) as IPlayerReloadAction;
+        public bool IsReloading => Reload != null && Reload.IsReloading;
+        public float ReloadRemaining => Reload != null ? Reload.ReloadRemaining : 0f;
+        public bool CanReload => CanStart(PlayerActionSlot.Reload);
+        internal bool CanReloadIgnoringActionLock => CanBuffer(PlayerActionSlot.Reload);
+        internal Vector3 DashDirection => dashDirection.sqrMagnitude > 0.0001f ? dashDirection : transform.forward;
 
-        private bool CanStartReload(bool ignoreActionLock) => isActiveAndEnabled && Time.timeScale > 0f &&
-            Time.deltaTime > 0f && !IsReloading && CurrentAmmo < MaxAmmo &&
-            CanUseWeapon(ignoreActionLock) && !IsReloadBlocked(ignoreActionLock);
-
-        public PlayerAttackBinding GetBinding(AttackSlot slot)
+        public PlayerActionBinding GetBinding(PlayerActionSlot slot)
         {
-            foreach (PlayerAttackBinding binding in attackBindings)
+            foreach (PlayerActionBinding binding in actionBindings)
                 if (binding != null && binding.Slot == slot) return binding;
             return null;
         }
 
+        public PlayerAction GetAction(PlayerActionSlot slot) => GetBinding(slot)?.Action;
+        public bool CanStart(PlayerActionSlot slot) => isActiveAndEnabled && GetAction(slot) != null && GetAction(slot).CanStart;
+        public bool CanBuffer(PlayerActionSlot slot) => isActiveAndEnabled && GetAction(slot) != null && GetAction(slot).CanBuffer;
+        internal bool IsDelayBlocking(PlayerActionSlot slot) => owner != null && owner.IsDelayBlocking(slot);
+
         private void Awake()
         {
             stat = GetComponent<PlayerStat>();
-            motor = GetComponent<PlayerMotor>();
+            owner = GetComponent<Combatant>();
             currentAmmo = MaxAmmo;
         }
 
         private void OnEnable()
         {
-            if (!ValidateBindings())
+            if (!ValidateBindings()) { enabled = false; return; }
+            foreach (PlayerActionBinding binding in actionBindings)
             {
-                enabled = false;
-                return;
+                PlayerAction action = binding.Action;
+                Action handler = () => ActionExecuted?.Invoke(binding.Slot);
+                executionHandlers.Add(action, handler);
+                action.OnExecuted += handler;
             }
-            foreach (PlayerAttackBinding binding in attackBindings)
-            {
-                Action handler = () => OnAttackExecuted(binding.Slot);
-                executionHandlers.Add(binding.Attack, handler);
-                binding.Attack.OnExecuted += handler;
-                Action started = () => OnAttackStarted(binding);
-                startHandlers.Add(binding.Attack, started);
-                binding.Attack.OnStarted += started;
-            }
-            if (motor != null) motor.OnDashExecuted += OnDashExecuted;
         }
 
         private bool ValidateBindings()
         {
-            if (aimCamera == null)
-            {
-                Debug.LogError("PlayerCombat requires an aim camera.", this);
-                return false;
-            }
-            var slots = new HashSet<AttackSlot>();
+            var slots = new HashSet<PlayerActionSlot>();
+            var actions = new HashSet<PlayerAction>();
             var attacks = new HashSet<Attack>();
-            foreach (PlayerAttackBinding binding in attackBindings)
+            foreach (PlayerActionBinding binding in actionBindings)
             {
-                if (binding == null || !Enum.IsDefined(typeof(AttackSlot), binding.Slot) ||
-                    binding.Attack == null || binding.Origin == null || binding.Attack.gameObject != gameObject ||
-                    !slots.Add(binding.Slot) || !attacks.Add(binding.Attack))
+                if (binding == null || binding.Slot == PlayerActionSlot.None ||
+                    !Enum.IsDefined(typeof(PlayerActionSlot), binding.Slot) || binding.Action == null ||
+                    binding.Action.gameObject != gameObject || binding.Action.Slot != binding.Slot ||
+                    !slots.Add(binding.Slot) || !actions.Add(binding.Action) ||
+                    (binding.Attack != null && !attacks.Add(binding.Attack)))
                 {
-                    Debug.LogError("PlayerCombat bindings require a unique slot, a unique Attack on this player and an origin.", this);
+                    Debug.LogError("PlayerCombat requires unique slots and actions on this player; attack executors cannot be shared by actions.", this);
                     return false;
                 }
             }
             return true;
         }
 
+        internal void SetMovementContext(Vector3 movement, Vector3 forward)
+            => dashDirection = movement.sqrMagnitude > 0.0001f ? movement : forward;
+
+        internal void ProcessBeforeMotor()
+        {
+            if (!isActiveAndEnabled) return;
+            foreach (PlayerActionBinding binding in actionBindings)
+                binding?.Action?.Process(PlayerActionStage.BeforeMotor);
+        }
+
+        private void Prepare(PlayerAction action)
+        {
+            if (action is PlayerAttackAction attackAction)
+            {
+                attackAction.DamageMultiplier = Stat.AttackMultiplier;
+                attackAction.SpeedMultiplier = Stat.AttackSpeed;
+            }
+        }
+
+        public bool TryStartAction(PlayerActionSlot slot)
+        {
+            if (!isActiveAndEnabled) return false;
+            PlayerAction action = GetAction(slot);
+            if (action == null) return false;
+            Prepare(action);
+            return action.TryStart();
+        }
+
+        // Commands last for one LateUpdate. Controller alone owns input history and priority.
+        public void RequestAction(PlayerActionSlot slot)
+        {
+            if (slot == PlayerActionSlot.Dash) { TryStartAction(slot); return; }
+            requestedAction = slot;
+            requestFrame = Time.frameCount;
+        }
+
+        public void RequestReload() => RequestAction(PlayerActionSlot.Reload);
+        public void ClearRequests() { requestedAction = PlayerActionSlot.None; requestFrame = -1; }
+
+        internal void InterruptInput()
+        {
+            ClearRequests();
+            foreach (PlayerActionBinding binding in actionBindings) binding?.Action?.InterruptInput();
+        }
+
+        internal void DeliverInput(PlayerActionSlot slot, ButtonInputState input)
+        {
+            PlayerAction action = GetAction(slot);
+            if (action != null && (input.Released || (action.RequiresHeldInput && !input.Held))) action.Release();
+        }
+
         private void LateUpdate()
         {
-            AttackSlot? attackCommand = requestFrame == Time.frameCount ? requestedAttack : null;
-            bool reloadCommand = requestFrame == Time.frameCount && reloadRequested;
+            PlayerActionSlot command = requestFrame == Time.frameCount ? requestedAction : PlayerActionSlot.None;
             ClearRequests();
             currentAmmo = CurrentAmmo;
-            if (!CanUseWeapon())
+            if (owner != null && !owner.IsAlive)
             {
-                CancelReload();
-                foreach (PlayerAttackBinding binding in attackBindings)
-                    if (binding.Attack != null) binding.Attack.CancelAttack();
+                foreach (PlayerActionBinding binding in actionBindings) binding.Action.Cancel(PlayerActionCancelReason.Death);
                 return;
             }
             if (Time.timeScale <= 0f || Time.deltaTime <= 0f) return;
             bool wasReloading = IsReloading;
-            Vector3 point = GetAimPoint();
-            foreach (PlayerAttackBinding binding in attackBindings)
-            {
-                Attack attack = binding.Attack;
-                if (attack == null || attack.Data == null) continue;
-                Prepare(attack, point);
-            }
-            // Skills can cancel reload before this frame's reload work or completion event.
-            if (attackCommand.HasValue && attackCommand.Value != AttackSlot.PrimaryFire)
-                TryStartAttack(attackCommand.Value, point);
-
-            if (IsReloading)
-            {
-                if (IsReloadBlocked()) CancelReload();
-                else
-                {
-                    // Measure work at base speed so live upgrades also match the animation speed.
-                    reloadWorkRemaining = Mathf.Max(0f, reloadWorkRemaining - Time.deltaTime * stat.ReloadSpeedMultiplier);
-                    if (reloadWorkRemaining <= 0f)
-                    {
-                        currentAmmo = MaxAmmo;
-                        IsReloading = false;
-                        OnReloadCompleted?.Invoke();
-                    }
-                }
-            }
-
-            if (reloadCommand) TryReload();
-            // Let Aim evaluate the restored pose before the first post-reload shot.
-            if (wasReloading || IsReloading || CurrentAmmo == 0) return;
-            if (attackCommand == AttackSlot.PrimaryFire) TryStartAttack(AttackSlot.PrimaryFire, point);
+            foreach (PlayerActionBinding binding in actionBindings) Prepare(binding.Action);
+            // Accepted skills cancel reload before this frame's reload work or completion.
+            if (command != PlayerActionSlot.None && command != PlayerActionSlot.PrimaryFire &&
+                command != PlayerActionSlot.Reload) TryStartAction(command);
+            foreach (PlayerActionBinding binding in actionBindings)
+                binding.Action.Process(PlayerActionStage.CombatLateUpdate);
+            if (command == PlayerActionSlot.Reload) TryReload();
+            if (wasReloading || IsReloading || reloadCompletedFrame == Time.frameCount || CurrentAmmo == 0) return;
+            if (command == PlayerActionSlot.PrimaryFire) TryStartAction(command);
         }
 
-        // Commands last for one LateUpdate and carry no input history or priority policy.
-        public void RequestAttack(AttackSlot slot)
+        public bool TryReload() => TryStartAction(PlayerActionSlot.Reload);
+        public bool CancelReload() => GetAction(PlayerActionSlot.Reload)?.Cancel() == true;
+        internal void ConsumePrimaryAmmo() => currentAmmo = Mathf.Max(0, CurrentAmmo - 1);
+        internal void NotifyAttackExecuted(PlayerActionSlot slot) => AttackExecuted?.Invoke(slot);
+        internal void NotifyReloadStarted() => OnReloadStarted?.Invoke();
+        internal void CompleteReload()
         {
-            requestedAttack = slot;
-            reloadRequested = false;
-            requestFrame = Time.frameCount;
+            currentAmmo = MaxAmmo;
+            reloadCompletedFrame = Time.frameCount;
+            OnReloadCompleted?.Invoke();
         }
 
-        public void RequestReload()
-        {
-            requestedAttack = null;
-            reloadRequested = true;
-            requestFrame = Time.frameCount;
-        }
-
-        public void ClearRequests()
-        {
-            requestedAttack = null;
-            reloadRequested = false;
-            requestFrame = -1;
-        }
-
-        private bool TryStartAttack(AttackSlot slot, Vector3 point)
-        {
-            if (!CanAttack(slot)) return false;
-            PlayerAttackBinding binding = GetBinding(slot);
-            return binding.Attack.TryAttack(binding.Origin, point);
-        }
-
-        public bool CanAttack(AttackSlot slot) => CanAttack(slot, false);
-
-        internal bool CanAttackIgnoringActionLock(AttackSlot slot) => CanAttack(slot, true);
-
-        private bool CanAttack(AttackSlot slot, bool ignoreActionLock)
-        {
-            if (!isActiveAndEnabled || Time.deltaTime <= 0f || !CanUseWeapon(ignoreActionLock)) return false;
-            if ((slot == AttackSlot.PrimaryFire || slot == AttackSlot.SecondaryFire) && IsReloading) return false;
-            if (slot == AttackSlot.PrimaryFire && CurrentAmmo == 0) return false;
-            PlayerAttackBinding binding = GetBinding(slot);
-            return binding != null && binding.Attack != null && binding.Origin != null &&
-                AttackData.IsFinite(binding.Origin.position) &&
-                (ignoreActionLock ? binding.Attack.CanAttackIgnoringActionLock : binding.Attack.CanAttack);
-        }
-
-        public bool TryReload()
-        {
-            if (!CanReload) return false;
-            reloadWorkRemaining = stat.ReloadDuration;
-            IsReloading = true;
-            OnReloadStarted?.Invoke();
-            return true;
-        }
-
-        public bool CancelReload()
-        {
-            if (!IsReloading) return false;
-            IsReloading = false;
-            reloadWorkRemaining = 0f;
-            return true;
-        }
-
-        private bool CanUseWeapon(bool ignoreActionLock = false)
-        {
-            // An attack's own lock must not cancel its pending execution.
-            if (!ignoreActionLock && motor != null && motor.IsDashActionLocked) return false;
-            Attack primary = GetBinding(AttackSlot.PrimaryFire)?.Attack;
-            // Other attack slots can still be used by a character with no primary binding.
-            if (primary != null) return primary.Owner != null && primary.Owner.IsAlive;
-            Combatant owner = GetComponent<Combatant>();
-            return owner == null || owner.IsAlive;
-        }
-
-        private bool IsReloadBlocked(bool ignoreActionLock = false)
-        {
-            Attack primary = GetBinding(AttackSlot.PrimaryFire)?.Attack;
-            return primary == null || (!ignoreActionLock && primary.Owner.IsPerformingAttack);
-        }
-
-        private void OnAttackStarted(PlayerAttackBinding binding)
-        {
-            if (binding.Slot == AttackSlot.PrimaryFire || binding.Slot == AttackSlot.SecondaryFire)
-            {
-                if (IsReloading || (binding.Slot == AttackSlot.PrimaryFire && CurrentAmmo == 0))
-                {
-                    binding.Attack.CancelAttack();
-                    return;
-                }
-            }
-            if (binding.Slot == AttackSlot.PrimaryFire) return;
-            if (binding.Slot != AttackSlot.SecondaryFire) CancelReload();
-        }
-
-        private void OnAttackExecuted(AttackSlot slot)
-        {
-            if (slot == AttackSlot.PrimaryFire) currentAmmo = Mathf.Max(0, CurrentAmmo - 1);
-            AttackExecuted?.Invoke(slot);
-        }
-
-        private void OnDashExecuted() => CancelReload();
-
-        private void Prepare(Attack attack, Vector3 point)
-        {
-            attack.SetAimPoint(point);
-            attack.DamageMultiplier = stat != null ? stat.AttackMultiplier : 1f;
-            attack.SpeedMultiplier = stat != null ? stat.AttackSpeed : 1f;
-        }
-
-        // Both the pose controller and projectiles converge on this camera-center target.
         public Vector3 GetAimPoint()
         {
+            if (aimCamera == null) return transform.position + transform.forward * aimDistance;
             Ray ray = aimCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f));
             Vector3 aimPoint = ray.GetPoint(aimDistance);
             float closest = aimDistance;
             int mask = 0;
-            foreach (PlayerAttackBinding binding in attackBindings)
+            foreach (PlayerActionBinding binding in actionBindings)
                 if (binding != null && binding.Attack != null && binding.Attack.Data != null)
                     mask |= binding.Attack.Data.HitMask;
             int count = Physics.RaycastNonAlloc(ray, aimHits, aimDistance, mask, QueryTriggerInteraction.Collide);
-            // A full buffer may omit the closest hit, so use the complete set in this rare case.
             RaycastHit[] hits = count == aimHits.Length
-                ? Physics.RaycastAll(ray, aimDistance, mask, QueryTriggerInteraction.Collide)
-                : aimHits;
-            if (hits != aimHits)
-                count = hits.Length;
+                ? Physics.RaycastAll(ray, aimDistance, mask, QueryTriggerInteraction.Collide) : aimHits;
+            if (hits != aimHits) count = hits.Length;
             for (int i = 0; i < count; i++)
             {
                 RaycastHit hit = hits[i];
@@ -280,17 +202,10 @@ namespace ProjectU
         private void OnDisable()
         {
             ClearRequests();
-            CancelReload();
-            if (motor != null) motor.OnDashExecuted -= OnDashExecuted;
-            foreach (KeyValuePair<Attack, Action> subscription in startHandlers)
-                if (subscription.Key != null) subscription.Key.OnStarted -= subscription.Value;
-            startHandlers.Clear();
-            foreach (KeyValuePair<Attack, Action> subscription in executionHandlers)
-            {
-                if (subscription.Key == null) continue;
-                subscription.Key.OnExecuted -= subscription.Value;
-                subscription.Key.CancelAttack();
-            }
+            foreach (PlayerActionBinding binding in actionBindings)
+                if (binding?.Action != null) binding.Action.Cancel(PlayerActionCancelReason.Disabled);
+            foreach (KeyValuePair<PlayerAction, Action> handler in executionHandlers)
+                if (handler.Key != null) handler.Key.OnExecuted -= handler.Value;
             executionHandlers.Clear();
         }
     }

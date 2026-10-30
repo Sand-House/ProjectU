@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -96,9 +97,9 @@ namespace ProjectU.Editor
             input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();
             launcher = input.GetComponent<PlayerCombat>();
             aim = input.GetComponent<PlayerAim>();
-            primaryAttack = launcher.GetBinding(AttackSlot.PrimaryFire).Attack as HitscanAttack;
-            secondaryAttack = launcher.GetBinding(AttackSlot.SecondaryFire).Attack as ProjectileAttack;
-            grenadeAttack = launcher.GetBinding(AttackSlot.Skill1).Attack as ProjectileAttack;
+            primaryAttack = launcher.GetBinding(PlayerActionSlot.PrimaryFire).Attack as HitscanAttack;
+            secondaryAttack = launcher.GetBinding(PlayerActionSlot.SecondaryFire).Attack as ProjectileAttack;
+            grenadeAttack = launcher.GetBinding(PlayerActionSlot.Skill1).Attack as ProjectileAttack;
             animationController = input.GetComponent<PlayerAnimation>();
             stat = input.GetComponent<PlayerStat>();
             pool = UnityEngine.Object.FindFirstObjectByType<ProjectilePool>();
@@ -107,11 +108,11 @@ namespace ProjectU.Editor
             Check(primaryAttack != null && secondaryAttack != null && grenadeAttack != null &&
                 secondaryAttack != grenadeAttack && input.GetComponents<Attack>().Length == 3,
                 "three distinct saved attack components");
-            Check(launcher.AttackBindings.Count == 3 &&
-                primaryAttack.Data.RepeatWhileHeld &&
-                secondaryAttack.Data.RepeatWhileHeld &&
-                !grenadeAttack.Data.RepeatWhileHeld &&
-                launcher.GetBinding(AttackSlot.Skill2) == null && launcher.GetBinding(AttackSlot.Ultimate) == null,
+            Check(launcher.ActionBindings.Where(item => item.Attack != null).ToList().Count == 3 &&
+                PlayerActionValidationUtility.For(primaryAttack).RepeatWhileHeld &&
+                PlayerActionValidationUtility.For(secondaryAttack).RepeatWhileHeld &&
+                !PlayerActionValidationUtility.For(grenadeAttack).RepeatWhileHeld &&
+                !launcher.CanStart(PlayerActionSlot.Skill2) && !launcher.CanStart(PlayerActionSlot.Ultimate),
                 "saved attack assets retain repeat policies and unused slots remain empty");
             Check(primaryAttack.Data.name == "TempPrimaryFire" && primaryAttack.Data.Damage == 30f &&
                 secondaryAttack.Data.name == "TempSecondaryFire" && secondaryAttack.Data.Damage == 50f &&
@@ -149,9 +150,9 @@ namespace ProjectU.Editor
 
             launcher.AttackExecuted += slot =>
             {
-                if (slot == AttackSlot.PrimaryFire) { primaryShots++; weaponShots++; }
-                if (slot == AttackSlot.SecondaryFire) { secondaryShots++; weaponShots++; }
-                if (slot != AttackSlot.Skill1) return;
+                if (slot == PlayerActionSlot.PrimaryFire) { primaryShots++; weaponShots++; }
+                if (slot == PlayerActionSlot.SecondaryFire) { secondaryShots++; weaponShots++; }
+                if (slot != PlayerActionSlot.Skill1) return;
                 grenades++;
                 // Keep this isolated damage probe in place; normal prefab ballistics are tested separately.
                 Rigidbody body = grenadeAttack.LastProjectile.GetComponent<Rigidbody>();
@@ -262,7 +263,7 @@ namespace ProjectU.Editor
             Check(RespectsTiming(primaryTimes, timedPrimary) && RespectsTiming(secondaryTimes, timedSecondary),
                 "held shots respect windup recovery and cooldown");
             // A cooldown-only gap now correctly permits reload; probe actual secondary recovery.
-            while (secondaryAttack.Phase != AttackPhase.Recovery) yield return null;
+            while (PlayerActionValidationUtility.For(secondaryAttack).Phase != PlayerActionPhase.Recovery) yield return null;
             pressMask = 8;
             yield return new WaitForSeconds(0.02f);
             Check(!animationController.IsReloading, "active secondary fire prevents manual reload");
@@ -333,13 +334,13 @@ namespace ProjectU.Editor
             Transform shoulderOrigin = Marker(actor.transform, "Shoulder Origin", new Vector3(0.6f, 0.8f, 0.1f));
             var configuration = new SerializedObject(alternativeLauncher);
             configuration.FindProperty("aimCamera").objectReferenceValue = camera;
-            SerializedProperty bindings = configuration.FindProperty("attackBindings");
+            SerializedProperty bindings = configuration.FindProperty("actionBindings");
             bindings.arraySize = 3;
-            SetBinding(bindings.GetArrayElementAtIndex(0), AttackSlot.PrimaryFire, melee, meleeOrigin);
-            SetBinding(bindings.GetArrayElementAtIndex(1), AttackSlot.Skill2, ranged, handOrigin);
-            SetBinding(bindings.GetArrayElementAtIndex(2), AttackSlot.Ultimate, projectile, shoulderOrigin);
+            SetBinding(bindings.GetArrayElementAtIndex(0), PlayerActionSlot.PrimaryFire, melee, meleeOrigin);
+            SetBinding(bindings.GetArrayElementAtIndex(1), PlayerActionSlot.Skill2, ranged, handOrigin);
+            SetBinding(bindings.GetArrayElementAtIndex(2), PlayerActionSlot.Ultimate, projectile, shoulderOrigin);
             configuration.ApplyModifiedPropertiesWithoutUndo();
-            var executedSlots = new List<AttackSlot>();
+            var executedSlots = new List<PlayerActionSlot>();
             alternativeLauncher.AttackExecuted += slot => executedSlots.Add(slot);
             actor.SetActive(true);
             camera.transform.SetPositionAndRotation(actor.transform.position + new Vector3(0f, 0.8f, -5f), Quaternion.identity);
@@ -352,7 +353,7 @@ namespace ProjectU.Editor
 
             alternativePressMask = alternativeHeldMask = 1;
             yield return new WaitForSeconds(0.4f);
-            Check(executedSlots.Count == 1 && executedSlots[0] == AttackSlot.PrimaryFire && meleeTarget.Mortal.HP == 180,
+            Check(executedSlots.Count == 1 && executedSlots[0] == PlayerActionSlot.PrimaryFire && meleeTarget.Mortal.HP == 180,
                 "primary accepts MeleeAttack and press-only configuration prevents held repeats");
             Check(Vector3.Distance(melee.LastAttackPosition, meleeOrigin.position) < 0.001f,
                 "melee receives its independently configured origin");
@@ -361,30 +362,30 @@ namespace ProjectU.Editor
             Physics.SyncTransforms();
             alternativeHeldMask = 16;
             yield return new WaitForSeconds(0.4f);
-            Check(executedSlots.Count >= 3 && executedSlots.FindAll(slot => slot == AttackSlot.Skill2).Count >= 2,
+            Check(executedSlots.Count >= 3 && executedSlots.FindAll(slot => slot == PlayerActionSlot.Skill2).Count >= 2,
                 "Skill2 reads F and can repeat from Held alone");
-            Check(Vector3.Distance(ranged.LastAttackPosition, handOrigin.position) < 0.001f && ranged.DamageMultiplier == 1f,
+            Check(Vector3.Distance(ranged.LastAttackPosition, handOrigin.position) < 0.001f && PlayerActionValidationUtility.For(ranged).DamageMultiplier == 1f,
                 "Skill2 uses its hand origin and default PlayerStat multiplier");
 
             // Only the runtime data copy changes; bindings and saved assets stay untouched.
             SetRepeat(rangedData, false);
             yield return new WaitForSeconds(0.1f);
-            int nonRepeatingShots = executedSlots.FindAll(slot => slot == AttackSlot.Skill2).Count;
+            int nonRepeatingShots = executedSlots.FindAll(slot => slot == PlayerActionSlot.Skill2).Count;
             yield return new WaitForSeconds(0.25f);
-            Check(executedSlots.FindAll(slot => slot == AttackSlot.Skill2).Count == nonRepeatingShots,
-                "changing AttackData repeat policy stops held requests after pending windup completes");
+            Check(executedSlots.FindAll(slot => slot == PlayerActionSlot.Skill2).Count == nonRepeatingShots,
+                "changing action repeat policy stops held requests after pending windup completes");
             alternativePressMask = 16;
             yield return new WaitForSeconds(0.15f);
-            Check(executedSlots.FindAll(slot => slot == AttackSlot.Skill2).Count == nonRepeatingShots + 1,
+            Check(executedSlots.FindAll(slot => slot == PlayerActionSlot.Skill2).Count == nonRepeatingShots + 1,
                 "press still executes once with the same binding and nonrepeating AttackData");
-            Check(!meleeData.RepeatWhileHeld && primaryData.RepeatWhileHeld && secondaryData.RepeatWhileHeld,
+            Check(!PlayerActionValidationUtility.Repeat(meleeData) && PlayerActionValidationUtility.Repeat(primaryData) && PlayerActionValidationUtility.Repeat(secondaryData),
                 "new attack data defaults to press-only and runtime copies preserve original asset policies");
 
             alternativeHeldMask = 0;
             yield return new WaitForSeconds(0.1f);
             alternativePressMask = alternativeHeldMask = 32;
             yield return new WaitForSeconds(0.2f);
-            Check(executedSlots.FindAll(slot => slot == AttackSlot.Ultimate).Count == 1 && projectile.LastProjectile != null &&
+            Check(executedSlots.FindAll(slot => slot == PlayerActionSlot.Ultimate).Count == 1 && projectile.LastProjectile != null &&
                 Vector3.Distance(projectile.LastAttackPosition, shoulderOrigin.position) < 0.001f,
                 "Ultimate reads Q, executes once while held and uses a separate origin");
             alternativeHeldMask = 0;
@@ -400,12 +401,12 @@ namespace ProjectU.Editor
             yield return new WaitForSeconds(0.15f);
             Check(executedSlots.Count == beforeReenableShot + 1 && meleeTarget.Mortal.HP == 160,
                 "reenabling subscribes once and retains configured attacks");
-            Check(ranged.TryAttack(handOrigin, alternativeLauncher.GetAimPoint()) && ranged.Phase == AttackPhase.Windup,
+            Check(PlayerActionValidationUtility.For(ranged).TryStart(handOrigin, alternativeLauncher.GetAimPoint()) && PlayerActionValidationUtility.For(ranged).Phase == PlayerActionPhase.Windup,
                 "bound attack accepts a pending windup before disable");
             alternativeLauncher.enabled = false;
             int beforeCancellation = executedSlots.Count;
             yield return new WaitForSeconds(0.1f);
-            Check(executedSlots.Count == beforeCancellation && ranged.Phase != AttackPhase.Windup,
+            Check(executedSlots.Count == beforeCancellation && PlayerActionValidationUtility.For(ranged).Phase != PlayerActionPhase.Windup,
                 "disabling cancels pending bound attacks and removes event handlers");
             alternativeInput = null;
             actor.SetActive(false);
@@ -451,17 +452,16 @@ namespace ProjectU.Editor
             return marker;
         }
 
-        private static void SetBinding(SerializedProperty binding, AttackSlot slot, Attack attack, Transform origin)
+        private static void SetBinding(SerializedProperty binding, PlayerActionSlot slot, Attack attack, Transform origin)
         {
-            binding.FindPropertyRelative("slot").enumValueIndex = (int)slot;
-            binding.FindPropertyRelative("attack").objectReferenceValue = attack;
-            binding.FindPropertyRelative("origin").objectReferenceValue = origin;
+            binding.FindPropertyRelative("slot").intValue = (int)slot;
+            binding.FindPropertyRelative("action").objectReferenceValue = PlayerActionValidationUtility.Attach(attack, slot, origin);
         }
 
         private static void SetRepeat(AttackData data, bool repeat)
         {
             var serialized = new SerializedObject(data);
-            serialized.FindProperty("repeatWhileHeld").boolValue = repeat;
+            PlayerActionValidationUtility.Set(serialized.targetObject, "repeatWhileHeld", repeat);
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -488,10 +488,11 @@ namespace ProjectU.Editor
         private static AttackData TimedData(AttackData source, float cooldown)
         {
             AttackData data = Instantiate(source);
+            PlayerActionValidationUtility.CopyTiming(source, data);
             var serialized = new SerializedObject(data);
-            serialized.FindProperty("windupTime").floatValue = 0.03f;
-            serialized.FindProperty("recoveryTime").floatValue = 0.05f;
-            serialized.FindProperty("cooldown").floatValue = cooldown;
+            PlayerActionValidationUtility.Set(serialized.targetObject, "windupTime", 0.03f);
+            PlayerActionValidationUtility.Set(serialized.targetObject, "recoveryTime", 0.05f);
+            PlayerActionValidationUtility.Set(serialized.targetObject, "cooldown", cooldown);
             serialized.ApplyModifiedPropertiesWithoutUndo();
             return data;
         }
@@ -499,13 +500,13 @@ namespace ProjectU.Editor
         private static void SetData(Attack attack, AttackData data)
         {
             var serialized = new SerializedObject(attack);
-            serialized.FindProperty("data").objectReferenceValue = data;
+            PlayerActionValidationUtility.Set(serialized.targetObject, "data", data);
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static bool RespectsTiming(List<double> times, AttackData data)
         {
-            double interval = Math.Max(data.RecoveryTime, data.Cooldown) + data.WindupTime;
+            double interval = Math.Max(PlayerActionValidationUtility.TimingFloat(data, "recoveryTime"), PlayerActionValidationUtility.TimingFloat(data, "cooldown")) + PlayerActionValidationUtility.TimingFloat(data, "windupTime");
             for (int i = 1; i < times.Count; i++)
                 if (times[i] - times[i - 1] < interval - 0.0001d) return false;
             return true;

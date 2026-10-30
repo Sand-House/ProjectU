@@ -12,7 +12,7 @@ namespace ProjectU
     {
         [SerializeField] private Faction faction = Faction.Enemy;
         private Mortal mortal;
-        private readonly List<Attack> attacks = new List<Attack>();
+        private readonly List<PlayerAction> actions = new List<PlayerAction>();
 
         public Faction Faction { get => faction; set => faction = value; }
         public Mortal Mortal
@@ -28,12 +28,38 @@ namespace ProjectU
         {
             get
             {
-                // Reuse the list and include attacks added at runtime, even without player bindings.
-                GetComponents(attacks);
-                foreach (Attack attack in attacks)
-                    if (attack.BlocksActions) return true;
+                GetComponents(actions);
+                foreach (PlayerAction action in actions)
+                    if (action.IsAttackAction && action.IsDelayLocked) return true;
                 return false;
             }
+        }
+
+        public bool IsActionDelayLocked
+        {
+            get
+            {
+                GetComponents(actions);
+                foreach (PlayerAction action in actions)
+                    if (action.IsDelayLocked) return true;
+                return false;
+            }
+        }
+
+        internal bool BlocksAction(PlayerActionSlot slot, bool ignoreDelay, PlayerAction except = null)
+        {
+            GetComponents(actions);
+            foreach (PlayerAction action in actions)
+                if (action != except && !(ignoreDelay && action.IsDelayLocked) && action.Blocks(slot)) return true;
+            return false;
+        }
+
+        internal bool IsDelayBlocking(PlayerActionSlot slot)
+        {
+            GetComponents(actions);
+            foreach (PlayerAction action in actions)
+                if (action.IsDelayLocked && action.Blocks(slot)) return true;
+            return false;
         }
 
         public bool CanTarget(Combatant target, AttackTargetRule rule = AttackTargetRule.Hostile)

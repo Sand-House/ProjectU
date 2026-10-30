@@ -162,23 +162,23 @@ namespace ProjectU.Editor
                     "Visuals must not add self-colliders.");
                 // Isolate pose/origin alignment from the saved weapon's spread and fire interval.
                 // PlayerAttackValidation covers the actual saved data and attack timing separately.
-                Attack primary = launcher.GetBinding(AttackSlot.PrimaryFire).Attack;
+                Attack primary = launcher.GetBinding(PlayerActionSlot.PrimaryFire).Attack;
                 alignmentAttackData = Instantiate((HitscanAttackData)primary.Data);
                 var alignmentData = new SerializedObject(alignmentAttackData);
                 alignmentData.FindProperty("spreadAngle").floatValue = 0f;
-                alignmentData.FindProperty("windupTime").floatValue = 0f;
-                alignmentData.FindProperty("recoveryTime").floatValue = 0f;
-                alignmentData.FindProperty("cooldown").floatValue = 0f;
+                PlayerActionValidationUtility.Set(alignmentData.targetObject, "windupTime", 0f);
+                PlayerActionValidationUtility.Set(alignmentData.targetObject, "recoveryTime", 0f);
+                PlayerActionValidationUtility.Set(alignmentData.targetObject, "cooldown", 0f);
                 alignmentData.ApplyModifiedPropertiesWithoutUndo();
                 var primaryComponent = new SerializedObject(primary);
-                primaryComponent.FindProperty("data").objectReferenceValue = alignmentAttackData;
+                PlayerActionValidationUtility.Set(primaryComponent.targetObject, "data", alignmentAttackData);
                 primaryComponent.ApplyModifiedPropertiesWithoutUndo();
                 var controller = new SerializedObject(input.GetComponent<PlayerController>());
                 controller.FindProperty("logInput").boolValue = false;
                 controller.FindProperty("maxInputBufferTime").floatValue = 0f;
                 controller.ApplyModifiedPropertiesWithoutUndo();
-                launcher.AttackExecuted += slot => { if (slot == AttackSlot.PrimaryFire) ValidateShot(); };
-                launcher.AttackExecuted += slot => { if (slot == AttackSlot.Skill1) ValidateGrenade(); };
+                launcher.AttackExecuted += slot => { if (slot == PlayerActionSlot.PrimaryFire) ValidateShot(); };
+                launcher.AttackExecuted += slot => { if (slot == PlayerActionSlot.Skill1) ValidateGrenade(); };
                 report.unityVersion = Application.unityVersion;
                 phaseStarted = Time.time;
                 wallStarted = EditorApplication.timeSinceStartup;
@@ -518,7 +518,7 @@ namespace ProjectU.Editor
         {
             try
             {
-                PlayerAttackBinding binding = launcher.GetBinding(AttackSlot.Skill1);
+                PlayerActionBinding binding = launcher.GetBinding(PlayerActionSlot.Skill1);
                 Check(phase == 27 && Time.frameCount == grenadeRequestFrame,
                     "Grenade still launches in the E input frame without waiting for the animation.");
                 Check(binding.Origin == aim.Muzzle &&
@@ -526,7 +526,7 @@ namespace ProjectU.Editor
                     "Grenade still launches from the existing same-frame Muzzle.");
                 Check(binding.Origin.localPosition == new Vector3(0f, 0f, 0.665f), "Muzzle local offset is unchanged.");
                 var data = (ProjectileAttackData)binding.Attack.Data;
-                Check(data.WindupTime == 0f && data.RecoveryTime == 1f && data.Cooldown == 6f && data.LaunchAngle == 12f,
+                Check(PlayerActionValidationUtility.TimingFloat(data, "windupTime") == 0f && PlayerActionValidationUtility.TimingFloat(data, "recoveryTime") == 1f && PlayerActionValidationUtility.TimingFloat(data, "cooldown") == 6f && data.LaunchAngle == 12f,
                     "Saved grenade timing and launch angle remain unchanged.");
                 report.grenades++;
             }
@@ -537,7 +537,7 @@ namespace ProjectU.Editor
         {
             try
             {
-                HitscanAttack primary = (HitscanAttack)launcher.GetBinding(AttackSlot.PrimaryFire).Attack;
+                HitscanAttack primary = (HitscanAttack)launcher.GetBinding(PlayerActionSlot.PrimaryFire).Attack;
                 Vector3 origin = primary.LastAttackPosition;
                 Vector3 expected = aim.AimPoint - origin;
                 float angle = Vector3.Angle(primary.LastShotDirection, expected);

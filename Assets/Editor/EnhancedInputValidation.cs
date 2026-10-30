@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -95,18 +96,18 @@ namespace ProjectU.Editor
             Check((float)GetField(controller, "maxInputBufferTime") == 1f, "saved buffer limit is one game second");
             stamina.RecoveryRate = 0f;
             attacks.enabled = false;
-            var bindings = new List<PlayerAttackBinding>(attacks.AttackBindings);
-            foreach (AttackSlot slot in new[] { AttackSlot.Skill2, AttackSlot.Ultimate })
+            var bindings = new List<PlayerActionBinding>(attacks.ActionBindings.Where(item => item.Attack != null).ToList());
+            foreach (PlayerActionSlot slot in new[] { PlayerActionSlot.Skill2, PlayerActionSlot.Ultimate })
             {
                 var extra = input.gameObject.AddComponent<HitscanAttack>();
                 SetField(extra, "data", Instantiate((HitscanAttackData)bindings[0].Attack.Data));
-                var binding = new PlayerAttackBinding();
+                var binding = new PlayerActionBinding();
                 SetField(binding, "slot", slot);
                 SetField(binding, "attack", extra);
                 SetField(binding, "origin", bindings[0].Origin);
                 bindings.Add(binding);
             }
-            foreach (PlayerAttackBinding binding in bindings)
+            foreach (PlayerActionBinding binding in bindings)
             {
                 AttackData data = Instantiate(binding.Attack.Data);
                 SetField(data, "windupTime", 0.12f);
@@ -114,7 +115,7 @@ namespace ProjectU.Editor
                 SetField(data, "cooldown", 0f);
                 SetField(binding.Attack, "data", data);
             }
-            SetField(attacks, "attackBindings", bindings.ToArray());
+            SetField(attacks, "actionBindings", bindings.ToArray());
             attacks.enabled = true;
             attacks.AttackExecuted += slot => shots[(int)slot]++;
             attacks.OnReloadStarted += () => reloadCount++;
@@ -129,13 +130,13 @@ namespace ProjectU.Editor
             Check(!motor.IsGrounded && !motor.CanPerformActions, "airborne buffer probe has an active attack delay");
             pressed = Dash;
             yield return new WaitForSeconds(0.05f);
-            Check(controller.BufferedAction == PlayerAction.None && stamina.Current == stamina.Max,
+            Check(controller.BufferedAction == PlayerActionSlot.None && stamina.Current == stamina.Max,
                 "airborne dash is rejected when pressed during an attack delay");
             yield return new WaitForSeconds(0.85f);
             Check(motor.IsGrounded && !motor.CanPerformActions,
                 "airborne buffer probe lands before the attack recovery finishes");
             yield return new WaitForSeconds(0.3f);
-            Check(dashCount == airborneDashBefore && controller.BufferedAction == PlayerAction.None &&
+            Check(dashCount == airborneDashBefore && controller.BufferedAction == PlayerActionSlot.None &&
                 stamina.Current == stamina.Max, "airborne press never dashes after landing and attack recovery");
             SetField(bindings[0].Attack.Data, "recoveryTime", 0.18f);
             yield return ResetCase();
@@ -153,8 +154,8 @@ namespace ProjectU.Editor
                 (Secondary, () => secondaryAttack.enabled = false, () => secondaryAttack.enabled = true, "disabled attack"),
                 (Secondary, () => SetField(bindings[1], "origin", null), () => SetField(bindings[1], "origin", secondaryOrigin), "missing origin"),
                 (Secondary, () => secondaryAttack.Pool = null, () => secondaryAttack.Pool = secondaryPool, "unconfigured projectile"),
-                (Skill2, () => SetField(bindings[3].Attack, "cooldownEndsAt", Time.timeAsDouble + 0.1d),
-                    () => SetField(bindings[3].Attack, "cooldownEndsAt", 0d), "active cooldown")
+                (Skill2, () => SetField(bindings[3].Action, "cooldownEndsAt", Time.timeAsDouble + 0.1d),
+                    () => SetField(bindings[3].Action, "cooldownEndsAt", 0d), "active cooldown")
             };
             foreach (var invalidInput in invalidInputs)
             {
@@ -164,13 +165,13 @@ namespace ProjectU.Editor
                 yield return new WaitForSeconds(0.03f);
                 pressed = Ultimate;
                 yield return new WaitForSeconds(0.03f);
-                Check(controller.BufferedAction == PlayerAction.Ultimate,
+                Check(controller.BufferedAction == PlayerActionSlot.Ultimate,
                     invalidInput.Label + " probe has an eligible ordinary reservation");
                 float eligibleRemaining = controller.BufferRemaining;
                 invalidInput.Invalidate();
                 pressed = invalidInput.Mask;
                 yield return null;
-                Check(controller.BufferedAction == PlayerAction.Ultimate && controller.BufferRemaining < eligibleRemaining,
+                Check(controller.BufferedAction == PlayerActionSlot.Ultimate && controller.BufferRemaining < eligibleRemaining,
                     invalidInput.Label + " press cannot replace or extend an existing reservation");
                 invalidInput.Restore();
                 yield return new WaitForSeconds(0.65f);
@@ -189,16 +190,16 @@ namespace ProjectU.Editor
             pressed = Dash;
             yield return new WaitForSeconds(0.05f);
             float remaining = controller.BufferRemaining;
-            Check(controller.BufferedAction == PlayerAction.Dash && stamina.Current == stamina.Max && !motor.IsDashing,
+            Check(controller.BufferedAction == PlayerActionSlot.Dash && stamina.Current == stamina.Max && !motor.IsDashing,
                 "windup stores dash without cancelling attack or consuming stamina");
             pressed = Reload | Skill1 | Secondary;
             yield return new WaitForSeconds(0.05f);
-            Check(controller.BufferedAction == PlayerAction.Dash && controller.BufferRemaining < remaining,
+            Check(controller.BufferedAction == PlayerActionSlot.Dash && controller.BufferRemaining < remaining,
                 "lower-priority presses cannot overwrite or refresh a queued dash");
             yield return new WaitForSeconds(0.2f);
             Check(dashCount == dashBefore + 1 && shots[0] == primaryBefore + 1 && motor.IsDashing,
                 "buffered dash starts before the next held primary shot");
-            Check(stamina.Current == stamina.Max - 25f && controller.BufferedAction == PlayerAction.None,
+            Check(stamina.Current == stamina.Max - 25f && controller.BufferedAction == PlayerActionSlot.None,
                 "dash consumes stamina once and clears the only reservation");
             yield return new WaitForSeconds(0.7f);
             Check(shots[0] > primaryBefore + 1, "held primary resumes after dash recovery");
@@ -211,7 +212,7 @@ namespace ProjectU.Editor
             Check(dashCount == dashBefore + 1 && TotalShots() == primaryBefore && motor.VerticalSpeed <= 0f,
                 "idle simultaneous inputs choose dash before every attack reload and jump");
             yield return new WaitForSeconds(0.6f);
-            Check(TotalShots() == primaryBefore && controller.BufferedAction == PlayerAction.None,
+            Check(TotalShots() == primaryBefore && controller.BufferedAction == PlayerActionSlot.None,
                 "losing simultaneous presses do not become a second reservation");
             yield return ResetCase();
 
@@ -226,11 +227,11 @@ namespace ProjectU.Editor
                 if (i == 0) before++;
                 pressed = masks[i];
                 yield return new WaitForSeconds(0.05f);
-                Check(controller.BufferedAction == (PlayerAction)((int)PlayerAction.PrimaryFire + i),
-                    ((AttackSlot)i) + " tap is retained after release during windup");
+                Check(controller.BufferedAction == (PlayerActionSlot)((int)PlayerActionSlot.PrimaryFire + i),
+                    ((PlayerActionSlot)i) + " tap is retained after release during windup");
                 yield return new WaitForSeconds(0.55f);
-                Check(shots[i] == before + 1 && controller.BufferedAction == PlayerAction.None,
-                    ((AttackSlot)i) + " deferred tap executes exactly once");
+                Check(shots[i] == before + 1 && controller.BufferedAction == PlayerActionSlot.None,
+                    ((PlayerActionSlot)i) + " deferred tap executes exactly once");
                 yield return ResetCase();
             }
 
@@ -241,7 +242,7 @@ namespace ProjectU.Editor
             yield return new WaitForSeconds(0.05f);
             pressed = Secondary;
             yield return new WaitForSeconds(0.05f);
-            Check(controller.BufferedAction == PlayerAction.SecondaryFire, "latest ordinary press replaces the one previous reservation");
+            Check(controller.BufferedAction == PlayerActionSlot.SecondaryFire, "latest ordinary press replaces the one previous reservation");
             pressed = Reload;
             yield return new WaitForSeconds(0.25f);
             Check(attacks.IsReloading && reloadCount == reloadBefore + 1 && shots[1] == secondaryBefore && shots[2] == skillBefore,
@@ -254,7 +255,7 @@ namespace ProjectU.Editor
             Check(motor.IsDashPostDelay, "dash movement has entered recovery");
             pressed = Skill1;
             yield return new WaitForSeconds(0.05f);
-            Check(controller.BufferedAction == PlayerAction.Skill1 && shots[2] == skillBefore,
+            Check(controller.BufferedAction == PlayerActionSlot.Skill1 && shots[2] == skillBefore,
                 "dash recovery retains one skill without executing it early");
             yield return new WaitForSeconds(0.45f);
             Check(shots[2] == skillBefore + 1, "queued skill executes after dash recovery");
@@ -265,7 +266,7 @@ namespace ProjectU.Editor
             yield return new WaitForSeconds(0.05f);
             pressed = Primary;
             yield return new WaitForSeconds(0.05f);
-            Check(controller.BufferedAction == PlayerAction.PrimaryFire && motor.IsDashing,
+            Check(controller.BufferedAction == PlayerActionSlot.PrimaryFire && motor.IsDashing,
                 "dash movement also retains a tap until its recovery finishes");
             yield return new WaitForSeconds(0.65f);
             Check(shots[0] == primaryBefore + 1, "dash movement tap executes once after the complete lock");
@@ -277,7 +278,7 @@ namespace ProjectU.Editor
             yield return new WaitForSeconds(0.05f);
             pressed = Secondary;
             yield return new WaitForSeconds(0.12f);
-            Check(controller.BufferedAction == PlayerAction.None, "maximum buffer duration expires during an unfinished delay");
+            Check(controller.BufferedAction == PlayerActionSlot.None, "maximum buffer duration expires during an unfinished delay");
             yield return new WaitForSeconds(0.4f);
             Check(shots[1] == secondaryBefore, "expired tap does not execute when the delay ends");
             yield return ResetCase();
@@ -288,7 +289,7 @@ namespace ProjectU.Editor
             yield return new WaitForSeconds(0.05f);
             pressed = Secondary;
             yield return new WaitForSeconds(0.4f);
-            Check(shots[0] == primaryBefore + 1 && shots[1] == secondaryBefore && controller.BufferedAction == PlayerAction.None,
+            Check(shots[0] == primaryBefore + 1 && shots[1] == secondaryBefore && controller.BufferedAction == PlayerActionSlot.None,
                 "zero limit permits immediate input while disabling deferred input");
             yield return ResetCase();
 
@@ -297,11 +298,11 @@ namespace ProjectU.Editor
             yield return new WaitForSeconds(0.05f);
             pressed = Dash;
             yield return new WaitForSeconds(0.05f);
-            Check(controller.BufferedAction == PlayerAction.Dash && stamina.Current == stamina.Max,
+            Check(controller.BufferedAction == PlayerActionSlot.Dash && stamina.Current == stamina.Max,
                 "eligible dash is buffered without reserving stamina");
             stamina.TryConsume(stamina.Current - 10f);
             yield return new WaitForSeconds(0.3f);
-            Check(dashCount == dashBefore && controller.BufferedAction == PlayerAction.None && stamina.Current == 10f,
+            Check(dashCount == dashBefore && controller.BufferedAction == PlayerActionSlot.None && stamina.Current == 10f,
                 "execution-time stamina failure discards dash without consumption");
             stamina.Recover(100f);
             yield return new WaitForSeconds(0.6f);
@@ -314,9 +315,9 @@ namespace ProjectU.Editor
             yield return new WaitForSeconds(0.2f);
             pressed = Skill1;
             yield return null;
-            Check(controller.BufferedAction == PlayerAction.None, "active cooldown rejects input before creating a reservation");
+            Check(controller.BufferedAction == PlayerActionSlot.None, "active cooldown rejects input before creating a reservation");
             yield return new WaitForSeconds(0.2f);
-            Check(shots[2] == skillBefore + 1 && controller.BufferedAction == PlayerAction.None,
+            Check(shots[2] == skillBefore + 1 && controller.BufferedAction == PlayerActionSlot.None,
                 "rejected cooldown input leaves no queued skill");
             yield return new WaitForSeconds(1f);
             Check(shots[2] == skillBefore + 1, "discarded skill never waits for cooldown recovery");
@@ -328,12 +329,12 @@ namespace ProjectU.Editor
             yield return new WaitForSeconds(0.05f);
             pressed = Skill2;
             yield return new WaitForSeconds(0.05f);
-            Check(controller.BufferedAction == PlayerAction.Skill2, "ready skill is eligible when its input arrives");
-            SetField(bindings[3].Attack, "cooldownEndsAt", Time.timeAsDouble + 0.5d);
+            Check(controller.BufferedAction == PlayerActionSlot.Skill2, "ready skill is eligible when its input arrives");
+            SetField(bindings[3].Action, "cooldownEndsAt", Time.timeAsDouble + 0.5d);
             yield return new WaitForSeconds(0.35f);
-            Check(shots[3] == skill2Before && controller.BufferedAction == PlayerAction.None,
+            Check(shots[3] == skill2Before && controller.BufferedAction == PlayerActionSlot.None,
                 "cooldown acquired after buffering is rechecked and consumes the reservation");
-            SetField(bindings[3].Attack, "cooldownEndsAt", 0d);
+            SetField(bindings[3].Action, "cooldownEndsAt", 0d);
             yield return ResetCase();
 
             secondaryBefore = shots[1];
@@ -342,7 +343,7 @@ namespace ProjectU.Editor
             held = Secondary;
             yield return new WaitForSeconds(0.08f);
             held = 0;
-            Check(controller.BufferedAction == PlayerAction.None, "held repetition alone never creates a reservation");
+            Check(controller.BufferedAction == PlayerActionSlot.None, "held repetition alone never creates a reservation");
             yield return new WaitForSeconds(0.35f);
             Check(shots[1] == secondaryBefore, "releasing a held action before unlock leaves no delayed shot");
             yield return ResetCase();
@@ -355,10 +356,10 @@ namespace ProjectU.Editor
             pressed = Jump | Dash;
             yield return new WaitForSeconds(0.08f);
             Check(motor.VerticalSpeed > 0f && input.transform.position.x > position.x + 0.1f &&
-                controller.BufferedAction == PlayerAction.Dash, "movement and grounded jump work while dash is queued during attack");
+                controller.BufferedAction == PlayerActionSlot.Dash, "movement and grounded jump work while dash is queued during attack");
             dashBefore = dashCount;
             yield return new WaitForSeconds(0.3f);
-            Check(!motor.IsGrounded && motor.CanPerformActions && controller.BufferedAction == PlayerAction.None &&
+            Check(!motor.IsGrounded && motor.CanPerformActions && controller.BufferedAction == PlayerActionSlot.None &&
                 dashCount == dashBefore && stamina.Current == stamina.Max,
                 "buffered dash is discarded without stamina use when attack unlocks in the air");
             movement = Vector2.zero;
@@ -374,7 +375,7 @@ namespace ProjectU.Editor
                 yield return new WaitForSeconds(0.05f);
                 pressed = Dash;
                 yield return new WaitForSeconds(0.05f);
-                Check(controller.BufferedAction == PlayerAction.Dash, interruption + " probe has a pending dash");
+                Check(controller.BufferedAction == PlayerActionSlot.Dash, interruption + " probe has a pending dash");
                 if (interruption == "Pause") Time.timeScale = 0f;
                 if (interruption == "Cursor")
                 {
@@ -390,7 +391,7 @@ namespace ProjectU.Editor
                     input.SendMessage("OnApplicationFocus", false);
                 }
                 for (int frame = 0; frame < 3; frame++) yield return null;
-                Check(controller.BufferedAction == PlayerAction.None, interruption + " clears the reservation");
+                Check(controller.BufferedAction == PlayerActionSlot.None, interruption + " clears the reservation");
                 Time.timeScale = 1f;
                 input.enabled = true;
                 controller.enabled = true;
@@ -408,7 +409,7 @@ namespace ProjectU.Editor
             yield return new WaitForSeconds(0.05f);
             input.GetComponent<Mortal>().Dead();
             yield return new WaitForSeconds(0.5f);
-            Check(dashCount == dashBefore && controller.BufferedAction == PlayerAction.None,
+            Check(dashCount == dashBefore && controller.BufferedAction == PlayerActionSlot.None,
                 "death discards pending input and prevents deferred execution");
         }
 
@@ -462,7 +463,7 @@ namespace ProjectU.Editor
         {
             if (!condition) throw new InvalidOperationException(message +
                 $"; input={input.IsGameplayInputEnabled}, focus={Application.isFocused}, cursor={Cursor.lockState}, " +
-                $"buffer={controller.BufferedAction}, phase={attacks.GetBinding(AttackSlot.PrimaryFire).Attack.Phase}, " +
+                $"buffer={controller.BufferedAction}, phase={attacks.GetBinding(PlayerActionSlot.PrimaryFire).Action.Phase}, " +
                 $"dashes={dashCount}, shots={TotalShots()}, stamina={stamina.Current}");
             checks.Add(message);
         }
@@ -471,11 +472,6 @@ namespace ProjectU.Editor
         private static object GetField(object target, string name) =>
             target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(target);
         private static void SetField(object target, string name, object value)
-        {
-            Type type = target.GetType();
-            FieldInfo field;
-            while ((field = type.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)) == null) type = type.BaseType;
-            field.SetValue(target, value);
-        }
+        { PlayerActionValidationUtility.Set(target, name, value); }
     }
 }

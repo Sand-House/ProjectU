@@ -104,9 +104,9 @@ namespace ProjectU
 
         private void OnReloadCompleted() => ReturnToRifleAim();
 
-        private void OnAttackExecuted(AttackSlot slot)
+        private void OnAttackExecuted(PlayerActionSlot slot)
         {
-            if (slot == AttackSlot.Skill1)
+            if (slot == PlayerActionSlot.Skill1)
             {
                 // Visual playback only: the attack has already launched its grenade.
                 reloadVisualActive = false;
@@ -115,7 +115,7 @@ namespace ProjectU
                 animator.SetTrigger(Skill1);
                 return;
             }
-            if (slot != AttackSlot.PrimaryFire && slot != AttackSlot.SecondaryFire) return;
+            if (slot != PlayerActionSlot.PrimaryFire && slot != PlayerActionSlot.SecondaryFire) return;
             reloadVisualActive = false;
             animator.ResetTrigger(Skill1);
             animator.ResetTrigger(Reload);

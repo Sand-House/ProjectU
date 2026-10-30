@@ -1,93 +1,72 @@
 # 플레이어 입력·선입력 설계
 
-기준 날짜: **2026-10-30**. `PlayerController` 하나가 이동 명령과 전투 행동 선택을 담당한다. 별도 `PlayerActionController`는 추가하지 않는다. 입력 선택 주체는 `PlayerController`, 기능 컴포넌트는 `PlayerAim`·`PlayerAnimation`·`PlayerCombat`·`PlayerCamera`로 명명한다.
+기준 날짜: **2026-10-30, PlayerAction 리팩토링 반영**. 공통 부모 PlayerAction과 Soilder 접두사의 일곱 액션을 구현했다. 상세 필드·상속·저장값 이관은 [PlayerAction 설계](PlayerAction%20설계.md)를 참고한다. 아래 6~9절은 해당 작업 당시의 검증·변경 기록이며 이번 검증은 후속 절에 기록한다.
 
 ## 1. 클래스의 역할과 책임
 
-| 클래스 | 책임 | 보유하는 상태 |
+| 클래스 | 책임 | 상태 원본 |
 |---|---|---|
-| `ButtonInputState` | 한 프레임의 Pressed·Held·Released를 읽기 전용 스냅샷으로 전달 | 해당 프레임의 버튼 상태 |
-| `PlayerInputReader` | Input System 액션과 입력 수집, 커서·포커스·일시정지 처리. `IsGameplayInputEnabled`로 조작 가능 여부 제공 | 이동·시점·8개 버튼 스냅샷, 커서 재잠금 사격 억제 |
-| `PlayerController` | 카메라 Yaw 기준 이동·점프 명령, 입력 수신 시 자격 검사, 다음 행동 한 개의 예약·만료·교체, 대시 최우선 선택, 홀딩 반복·자동 장전 요청 | `maxInputBufferTime`, 예약 행동·만료 시각, 대시 소모량·입력 로그 |
-| `PlayerMotor` | 이동·회전·중력·점프·충돌·대시 이동과 후딜 실행. 행동 가능 상태 제공 | 실제 속도·접지·대시 방향·남은 이동/후딜 시간 |
-| `PlayerStamina` | 스태미나 검증·소모·회복·회복 지연과 변경 이벤트 | 현재 스태미나·회복 대기 |
-| `PlayerCombat` | Controller의 한 프레임 공격/장전 명령 수신. 최신 조준·배율 준비, 바인딩의 Attack 호출, 탄약·장전·취소·이벤트 관리 | 한 프레임 실행 명령, 탄창·장전 상태 |
-| `PlayerAttackBinding` | 슬롯과 실제 Attack·Origin 연결 | 프리팹/씬의 참조. 반복 정책은 Attack.Data에서 조회 |
-| `Attack` / `Combatant` | 공격 수락·선딜·실제 실행·후딜·쿨타임, 같은 캐릭터의 공격 잠금과 생존 확인 | 공격별 실행 상태와 공유 행동 제한 |
-| `PlayerAim` / `PlayerCamera` | 조준점·상체·총구·양팔 IK와 카메라 갱신 | 시각 자세·시점 |
-| `PlayerAnimation` | 실제 이동 상태와 공격·대시·장전 이벤트에 반응 | Animator 상태. 입력 예약·행동 잠금의 원본이 아님 |
-| `PlayerStat` | 이동·대시 거리·공격 배율·탄창·장전 시간/속도·최대 스태미나 원본 | 강화·Inspector 능력치 |
+| ButtonInputState / PlayerInputReader | 프레임별 Pressed·Held·Released, 커서·포커스·입력 가능 여부 | 현재 입력 스냅샷 |
+| PlayerController | 카메라 기준 이동·점프 명령, 전투 선택·우선순위·한 개 예약·만료·반복·자동 장전 요청 | maxInputBufferTime·예약 슬롯·만료 시각·로그 |
+| PlayerCombat | 슬롯/액션 연결, 실행 가능 조회·한 프레임 명령·조준/배율·탄창·외부 이벤트 | 한 프레임 명령·탄창 |
+| PlayerAction / PlayerAttackAction | 공통 타이밍·단계·검증·취소 / 공격 실행 어댑터 | 액션별 선딜·유지·후딜·쿨타임·반복 |
+| Soilder…Action | 기본·보조 발사·스킬·궁극기·대시·장전 구현 | 개별 조건·자원·효과와 장전 작업량 |
+| PlayerActionBinding | PlayerActionSlot과 PlayerAction 연결 | 씬/프리팹 참조 |
+| Attack / Combatant | 동기 공격 효과 / 같은 소유자의 액션 제한 집계·진영·생존 | 공격 결과·공통 제한 조회 |
+| PlayerMotor | 실제 이동·점프·중력·충돌·대시 이동 | 접지·속도·대시 이동 상태 |
+| PlayerStamina / PlayerStat | 스태미나·능력치 | 자원·강화 원본 |
+| PlayerAim / PlayerCamera / PlayerAnimation | 시각 조준·시점·이벤트 기반 애니메이션 | 시각 자세·시점 |
 
-```mermaid
-flowchart TD
-    Reader[PlayerInputReader] --> Controller[PlayerController]
-    Camera[PlayerCamera Yaw] --> Controller
-    Controller -->|이동·점프·대시| Motor[PlayerMotor]
-    Controller -->|대시 자원 검증·소모| Stamina[PlayerStamina]
-    Controller -->|공격·재장전 명령| Executor[PlayerCombat]
-    Executor -->|최신 Origin과 조준점| Attack[Attack]
-    Aim[PlayerAim] -->|총구 자세 보정| Executor
-```
-
-입력의 우선순위와 예약 여부는 Controller 한 곳에서 결정한다. PlayerCombat는 버튼을 직접 읽거나 별도의 선입력을 저장하지 않는다. 기존 공개 `TryReload`·`CancelReload`와 공통 `Attack.TryAttack` API는 유지한다.
+입력 선택과 예약은 Controller 한 곳에서 담당한다. 액션은 Reader를 직접 읽지 않는다. 별도 PlayerActionController와 두 번째 선입력 저장소는 없다. 기존 PlayerAction enum·AttackSlot은 PlayerActionSlot으로 통합했다.
 
 ## 2. 선입력 규칙
 
-1. **다음 행동은 한 개만 저장한다.** 큐로 여러 행동을 이어서 실행하지 않는다.
-2. **입력이 들어온 시점에 딜레이 외 실행 조건을 만족해야 한다.** 대시의 접지·스태미나·유효 설정, 공격의 쿨타임·탄약·장전·활성·생존·데이터·Origin·투사체 구성, 장전의 탄창·진행 상태를 확인한다. 조건을 충족하지 못한 입력은 예약하지 않으며 기존 예약을 교체하거나 만료 시각을 연장하지 않는다. 이 검사는 자원 소모·행동 실행을 발생시키지 않는다.
-3. **공격 선딜·후딜 또는 대시 이동·후딜만 기다린다.** 입력 시 자격을 충족한 행동은 첫 행동 선택 시점까지 기다린다. 최대 선입력 시간이 먼저 지나면 버리며 이미 시작한 행동의 딜레이는 취소하지 않는다.
-4. **유효한 대시 입력이 최우선이다.** 새 Dash.Pressed는 일반 예약을 교체하며, 예약된 대시는 다른 행동으로 교체할 수 없다. 낮은 우선순위 입력이나 Held는 대시의 만료 시각도 늘리지 못한다. 자격을 충족한 새 대시 누름만 새 예약으로 갱신한다.
-5. **실행 직전에 조건을 다시 검사한다.** 예약 후 접지·자원·쿨타임·탄약·장전·활성·구성 등이 달라져 실패하면 요청을 버린다. 착지·자원 회복·쿨타임 종료를 기다리지 않는다.
-6. **한 번 시도한 예약은 지운다.** 공격/장전은 Controller가 그 프레임 실행 명령을 넘길 때 예약을 소비하고, PlayerCombat가 LateUpdate에서 최종 수락 여부를 검사한다. 대시는 Controller에서 즉시 검사·실행한다. 조작 중단 시에도 예약과 미처리 명령을 지운다.
+1. 다음 행동 한 개만 저장한다.
+2. 수신 시 공격·대시 딜레이 외 자격을 만족해야 한다. 접지·스태미나·쿨타임·탄약·장전·활성·생존·공격 구성·Origin을 확인하며 검사 자체는 소모·실행을 만들지 않는다.
+3. 유효하지 않은 새 입력은 예약 생성·교체·만료 연장에 참여하지 않는다.
+4. 유효한 대시는 일반 예약을 교체하고, 일반 입력·Held는 예약 대시를 교체하거나 연장하지 못한다.
+5. 선택한 슬롯을 막는 딜레이가 끝나는 첫 실행 기회에 조건을 다시 검사한다. 시도한 예약은 성공·실패와 관계없이 소비하며 자원 회복·착지·쿨타임 종료를 기다리지 않는다.
+6. 일반 예약은 더 나중의 유효한 Pressed로 교체한다. 동일 프레임은 Dash → 비기본 공격 바인딩 순서 → Reload → PrimaryFire다.
+7. 예약을 시도한 프레임에는 다른 홀딩 행동을 추가 실행하지 않는다. 반복·자동 장전은 다음 프레임부터 다시 시도할 수 있다.
 
-일반 예약은 더 나중 프레임의 자격을 충족한 새 Pressed로 교체한다. 동일 프레임의 우선순위는 **Dash → 비기본 공격의 바인딩 순서 → Reload → PrimaryFire**다. 현재 SampleScene의 비기본 공격 순서는 SecondaryFire → Skill1이며, 미연결 Skill2·Ultimate는 기존 입력 로그만 유지한다. 실제 바인딩이 추가되면 같은 규칙에 참여한다.
+CanBuffer는 현재 딜레이만 제외하고, CanStart는 현재 행동 제한도 포함한다. 장전 중 두 발사 금지는 두 검사에 모두 적용한다. 대시는 수신과 실행 시 모두 접지해야 하며 공중 입력은 예약하지 않는다.
 
-유효한 예약을 시도한 프레임에는 다른 홀딩 행동을 추가 실행하지 않는다. 실패한 예약 다음 프레임부터 홀딩 반복·빈 탄창 자동 장전은 다시 시도할 수 있다. 같은 누름의 예약이 남아서 재시도되는 것은 아니다.
+예약에는 슬롯과 만료 시각만 둔다. 공격은 최신 Origin·조준점, 대시는 실행 프레임의 이동 방향 또는 카메라 Yaw 전방을 사용한다. 실제 대시 시작 이후 방향은 고정한다.
 
-대시는 **입력 시점과 실행 시점 모두 지면에 접지 중이어야** 한다. 공중에서 받은 Dash.Pressed는 공격·대시 딜레이 중에도 예약하지 않는다. 지상에서 유효하게 예약한 대시도 첫 실행 기회에 공중이면 스태미나를 소모하지 않고 버리며 착지까지 기다리지 않는다. 직접 TryDash 호출도 접지를 검사한다.
+## 3. 최대 유지 시간
 
-## 3. 최대 선입력 시간
+설정은 SampleScene의 PlayerController.maxInputBufferTime이며 현재 **1초**다. Time.timeAsDouble로 만료를 계산하며 한도 이상이면 버린다. 0은 딜레이 중 예약을 비활성화하되 실행 가능한 새 누름은 허용한다. 음수·NaN·Infinity는 0으로 정리한다. BufferedAction과 BufferRemaining은 읽기 전용 진단 값이다.
 
-- 설정 위치: SampleScene의 Player → `PlayerController` → **Max Input Buffer Time** (`maxInputBufferTime`).
-- 코드·씬 초기값: **1초**. 최종 조작감에 따라 Inspector에서 조절한다.
-- `Time.timeAsDouble` 기준 게임 시간으로 만료 시각을 정한다. 경과 시간이 한도 이상이면 만료한다.
-- **0초**는 딜레이 중 예약을 비활성화한다. 실행 가능한 프레임의 새 누름은 즉시 처리한다.
-- 음수·NaN·Infinity는 Inspector 검증에서 0으로 보정한다. 진행 중 예약은 누른 시점에 정한 만료 시각을 사용한다.
-- `BufferedAction`과 `BufferRemaining`은 외부 읽기 전용 진단 값이다.
-
-현재 수류탄 후딜은 1초다. 한도를 그보다 짧게 설정하면 후딜 초반의 입력이 끝나기 전에 만료될 수 있다. 만료된 대시는 이후 입력을 보호하지 않으며 다른 가능한 행동을 선택할 수 있다.
-
-## 4. 이동·점프·홀딩·장전
+## 4. 이동·점프·반복·유지·장전
 
 | 대상 | 정책 |
 |---|---|
-| WASD·시점 | 현재 프레임 입력을 사용. 예약하지 않음 |
-| Jump.Pressed | 기존 CanJump·접지 규칙으로 즉시 처리. 실제 대시 이동 중·공중 입력은 예약하지 않음 |
-| Dash·공격·스킬·수동 Reload.Pressed | 수신 시 딜레이 외 실행 조건을 만족한 입력만 행동 제한 중 한 개 예약. 제한이 없으면 즉시 한 번 시도 |
-| RepeatWhileHeld 공격 | 예약이 없는 경우에만 현재 Held와 CanAttack(slot)으로 실행 가능한 공격을 골라 반복 요청. 반복 요청은 버퍼에 넣지 않음 |
-| 0발 자동 장전 | 예약·비기본 홀딩 공격 다음에 매 프레임 요청. 실제 장전 시작 가능 여부는 PlayerCombat에서 확인 |
-| 장전 중 기본·보조 발사 | 기존처럼 거절. 장전 완료까지 짧은 발사 누름을 추가 예약하지 않음 |
-| 장전 중 대시·스킬 | 대시 시작 성공·스킬 요청 수락 때 기존 장전을 보충 없이 취소 |
+| WASD·시점 | 현재 입력 사용. 예약하지 않음 |
+| Jump.Pressed | CanJump·접지로 즉시 판단. 공중·실제 대시 이동 중 입력은 예약하지 않음 |
+| 전투 Pressed | 유효한 입력만 한 개 예약하거나 즉시 한 번 시도 |
+| RepeatWhileHeld | PlayerAction의 설정. 예약 다음에 실행 가능한 현재 Held를 반복 요청 |
+| 유지형 액션 | 한 번 시작해 Active로 유지. 다른 행동 잠금 중에도 Release를 전달 |
+| 유지형 예약의 버튼 해제 | 예약 폐기. 일반 발사·수류탄의 짧은 누름은 유지 |
+| 0발 자동 장전 | 예약·비기본 반복 다음에 매 프레임 다시 요청 |
+| 장전 중 기본·보조 발사 | 수신·실행 모두 거절 |
+| 장전 중 대시·스킬 | 대시 시작 성공 / 스킬 수락 시 보충 없이 취소 |
 
-예약 대시의 방향은 **실행하는 프레임의 이동 입력**, 무입력이면 그 프레임의 카메라 Yaw 전방이다. 대시가 시작된 뒤에는 방향을 고정한다. 공격도 예약 시점의 조준점이나 총구 좌표를 복사하지 않으며 기존 조준·Origin 처리를 사용한다.
-
-좌클릭을 누른 채 Shift를 공격 딜레이 중 눌렀다면: 현재 공격 완료 → 예약 대시 → 대시 후딜 완료 → 계속 Held인 기본 발사 재개. Shift를 계속 누르는 것만으로 대시를 반복하지 않는다.
+장전 진행은 SoilderReloadAction, 탄창은 PlayerCombat, 스태미나 소모 정책은 SoilderDashAction이 담당한다. RepeatWhileHeld를 자동 장전 조건이나 줌 유지 여부로 사용하지 않는다.
 
 ## 5. 조작 중단과 실행 순서
 
-일시정지, 포커스 상실, 커서 해제, Reader 비활성화, Controller 비활성화, 사망은 예약을 지운다. 조작 재개 후 이전 예약을 실행하지 않는다. 공격·장전의 기존 일시정지 규칙은 유지한다. 사망 후 이동 중단·연출은 여전히 후속 작업이다.
+정지·커서 해제·포커스 상실·Reader/Controller 비활성화·사망은 예약과 미처리 명령을 지운다. Reader가 Released를 합성하지 않더라도 유지형 액션은 중단 통지로 정리한다. 기존 공격·장전의 일시정지 규칙은 유지한다.
 
 | 순서 | 실행 |
 |---|---|
-| Update -200 | Reader가 스냅샷과 조작 가능 여부 제공 |
-| Update -100 / -75 | Camera Yaw / Stamina 회복 갱신 |
-| Update -50 | Controller가 예약 만료·새 누름 교체·다음 행동 선택. 대시 실행 또는 공격/장전 명령 전달, 이동·점프 명령 전달 |
-| Update 0 / 50 | Motor 이동 / Animation 상태 갱신 |
-| LateUpdate -100 / 75 | Camera 최종 배치 / Aim 상체·총구·IK 보정 |
-| LateUpdate 100 | PlayerCombat가 한 프레임 명령 소비, 최신 조준·배율과 장전 상태 검사 |
-| LateUpdate 110 | Attack이 선딜 완료 후 최신 Origin·벽 보정·피해·후딜·쿨타임 처리 |
+| Update -200 / -100 / -75 | Reader / Camera Yaw / Stamina 회복 |
+| Update -50 | Controller의 입력·해제·예약·선택, PlayerCombat 경유 대시 시작 |
+| Update 0 / 50 | Motor 실제 이동 / Animation 갱신 |
+| LateUpdate -100 / 75 | Camera 배치 / Aim 총구·상체·IK 보정 |
+| LateUpdate 100 | PlayerCombat 명령 소비·조준/배율 준비·ReloadAction 작업 |
+| LateUpdate 110 | PlayerAction 선딜 완료, Attack 동기 호출·실행 결과 확정 |
 
-PlayerCombat의 명령은 전달 프레임에만 유효하고 한 번 소비한다. 실행 순서를 바꾸거나 공격 잠금을 우회하지 않는다. 기존 바인딩·AttackData.RepeatWhileHeld·피해·공격/대시 시간·스태미나·Muzzle·GUID는 유지한다.
+PlayerCombat의 지연 명령은 전달 프레임에 한 번 소비한다. Attack에 독립 타이머·예약·LateUpdate는 없다. 이동·점프 조작과 대시 이동·후딜의 허용 범위는 기존 규칙을 유지한다.
 
 ## 6. 검증
 
@@ -147,3 +126,27 @@ PlayerMotor.CanDash에 IsGrounded 조건을 추가했다. Controller가 스태�
 Controller.CanAcceptAction이 입력 수신 시 자격을 검사한다. Motor·PlayerCombat·Attack의 내부 IgnoringActionLock 조회는 공격·대시 딜레이만 제외한 공통 실행 조건을 재사용한다. 대시는 접지·유효 설정·스태미나 활성/잔량, 공격은 활성·생존·데이터·쿨타임·Origin·탄약·장전·투사체 구성, 장전은 덜 찬 탄창·진행 상태를 확인한다. 조건이 맞는 새 입력만 기존 우선순위에 참여하며 실패한 입력은 예약 생성·교체·유효 시간 연장을 하지 않는다. 자원은 실행 성공 시에만 소모하고, 예약 후 조건이 바뀌면 기존 실행 재검사에서 한 번 실패한 뒤 폐기한다. 기존 한 개 예약·대시 우선·최대 유지 시간·중단 폐기·홀딩 및 자동 장전 재시도 규칙은 유지한다.
 
 이번에 원본 프로젝트의 Unity 6000.3.25f1에서 EnhancedInputValidation 85개, AttackValidation 68개, PlayerAttackValidation 50개, PlayerDashValidation 70개, PlayerReloadValidation 40개, PlayerActionDelayValidation 110개를 직접 실행해 총 423개와 종료 코드 0을 확인했다. 공중 입력 후 딜레이 종료 전 착지, 스태미나 부족/비활성·0발·가득 찬 탄창·비활성 공격·없는 Origin·투사체 구성 실패·쿨타임 입력의 기존 예약 보호와 이후 조건 충족 시 재실행 방지, 예약 후 자원·쿨타임 변경에 대한 실행 재검사를 포함한다. Unity C# 컴파일 오류·경고는 없었으며 씬·프리팹·공격 에셋·meta·실행 순서는 유지했다. 로그·결과는 Logs/InputEligibility_20261030/의 각 검증명.log, Results.json, RegressionResults.json에 있다. 실제 키·마우스 수동 플레이·이미지 렌더링·애니메이션/스태미나/투사체/Mortal 독립 검증은 이번에 다시 수행하지 않았다. 조작감 조정·남은 애니메이션·스킬 효과·적 AI·사망 행동·반복 전투 흐름은 후속 작업이다.
+
+## 10. 2026-10-30 PlayerAction·Soilder 전투 액션 구현과 이번 검증
+
+이번 원본 프로젝트의 Unity **6000.3.25f1**에서 다음 9종 검증이 모두 종료 코드 0으로 통과했다. 아래 수치형 검사 **466개**와 애니메이션·스태미나 검증은 이번 직접 실행 결과다.
+
+| 검증 | 결과 | 로그 |
+|---|---|---|
+| PlayerActionValidation | 43개 | PlayerActionValidation.Final.log |
+| AttackValidation | 68개 | AttackValidation.Regression.log |
+| PlayerAttackValidation | 50개 | PlayerAttackValidation.Final.log |
+| PlayerDashValidation | 70개 | PlayerDashValidation.Final.log |
+| PlayerReloadValidation | 40개 | PlayerReloadValidation.Final.log |
+| PlayerActionDelayValidation | 110개 | PlayerActionDelayValidation.Regression.log |
+| EnhancedInputValidation | 85개 | EnhancedInputValidation.Final.log |
+| PlayerAnimationValidation | 17발·이동·점프·사격·장전·투척·양팔 IK·벽 보정·정지 | PlayerAnimationValidation.Regression.log |
+| PlayerStaminaValidation | 능력치·Shift·소모·회복·정지·이벤트·이동/대시 원본 | PlayerStaminaValidation.Regression.log |
+
+로그는 `Logs/PlayerAction_20261030/`에 있다. 최종 결과 목록은 `Results.Final.json`, C# 런타임·에디터 빌드는 `DotnetBuild.Final.log`의 경고 0·오류 0이다. 애니메이션 검증의 총구/공격 방향 최대 오차는 약 0.028도, 비차단 총구~실제 원점 거리는 0m다.
+
+`Integrity.Final.json`에서 원본 meta 107개(바인딩 이름 이동 포함)의 SHA256 동일, 변경 대상 외 에셋 36개 동일, 여섯 공격 에셋의 네 요청 필드 외 내용 동일, 씬의 의도된 액션 추가·바인딩·필드 이동 외 내용 동일, 새 액션 설정 28개·참조·GUID 중복 없음·공통 Motor/Combat의 Soilder 구체 타입 의존 없음·구형 런타임 API 제거를 확인했다. `git diff --check`도 통과했다.
+
+초기 선입력 실행의 옛 Attack 쿨타임 필드 접근은 검증기를 새 액션 필드로 변경해 해결했다. 최초 회귀에서 발견한 Motor 비활성화 후 대시 후딜 잠금 잔류는 의존 기능 종료 시 액션 잠금을 정리하도록 수정했고, 대시·장전·선입력·새 액션을 다시 확인했다. 기존 직접 Attack 요청을 액션 요청으로 옮기면서 장전 중 발사는 수락 전 거절하도록 기대값을 맞췄다. Initial·Regression의 중간 실패와 최종 통과를 구분한다.
+
+실제 키·마우스 수동 플레이·이미지 렌더링·공통 Mortal/Projectile 독립 검증은 이번에 실행하지 않았다. Skill2·Ultimate 효과, 실제 줌·버프·추가 애니메이션·적 AI·사망 행동·반복 전투 흐름은 후속 작업이다.
