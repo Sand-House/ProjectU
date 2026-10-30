@@ -44,7 +44,7 @@ namespace ProjectU.Editor
     public sealed class PlayerReloadValidationDriver : MonoBehaviour
     {
         private PlayerInputReader input;
-        private PlayerAttackController attacks;
+        private PlayerCombat attacks;
         private PlayerStat stat;
         private PlayerMotor motor;
         private Animator animator;
@@ -91,7 +91,7 @@ namespace ProjectU.Editor
             wallStarted = EditorApplication.timeSinceStartup;
             Time.captureDeltaTime = 1f / 60f;
             input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();
-            attacks = input.GetComponent<PlayerAttackController>();
+            attacks = input.GetComponent<PlayerCombat>();
             stat = input.GetComponent<PlayerStat>();
             motor = input.GetComponent<PlayerMotor>();
             animator = input.GetComponentInChildren<Animator>();

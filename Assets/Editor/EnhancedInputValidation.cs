@@ -48,7 +48,7 @@ namespace ProjectU.Editor
             Reload = 32, Dash = 64, Jump = 128;
         private PlayerInputReader input;
         private PlayerController controller;
-        private PlayerAttackController attacks;
+        private PlayerCombat attacks;
         private PlayerMotor motor;
         private PlayerStamina stamina;
         private int pressed;
@@ -88,7 +88,7 @@ namespace ProjectU.Editor
             Time.captureDeltaTime = 1f / 60f;
             input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();
             controller = input.GetComponent<PlayerController>();
-            attacks = input.GetComponent<PlayerAttackController>();
+            attacks = input.GetComponent<PlayerCombat>();
             motor = input.GetComponent<PlayerMotor>();
             stamina = input.GetComponent<PlayerStamina>();
             SetField(controller, "logInput", false);

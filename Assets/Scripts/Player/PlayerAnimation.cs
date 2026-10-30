@@ -3,8 +3,8 @@ using UnityEngine;
 namespace ProjectU
 {
     [DefaultExecutionOrder(50)]
-    [RequireComponent(typeof(PlayerMotor), typeof(PlayerAttackController))]
-    public sealed class PlayerAnimationController : MonoBehaviour
+    [RequireComponent(typeof(PlayerMotor), typeof(PlayerCombat))]
+    public sealed class PlayerAnimation : MonoBehaviour
     {
         private static readonly int MoveX = Animator.StringToHash("MoveX");
         private static readonly int MoveZ = Animator.StringToHash("MoveZ");
@@ -21,7 +21,7 @@ namespace ProjectU
         [SerializeField, Min(0f)] private float movementDampTime = 0.08f;
         private PlayerMotor motor;
         private PlayerStat stat;
-        private PlayerAttackController launcher;
+        private PlayerCombat launcher;
         private bool reloadVisualActive;
         private bool animatorPaused;
 
@@ -34,10 +34,10 @@ namespace ProjectU
         {
             motor = GetComponent<PlayerMotor>();
             stat = GetComponent<PlayerStat>();
-            launcher = GetComponent<PlayerAttackController>();
+            launcher = GetComponent<PlayerCombat>();
             if (animator == null || !animator.isHuman || animator.runtimeAnimatorController == null)
             {
-                Debug.LogError("PlayerAnimationController requires a configured Humanoid Animator.", this);
+                Debug.LogError("PlayerAnimation requires a configured Humanoid Animator.", this);
                 enabled = false;
                 return;
             }

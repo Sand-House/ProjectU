@@ -45,15 +45,15 @@ namespace ProjectU.Editor
     public sealed class PlayerAttackValidationDriver : MonoBehaviour
     {
         private PlayerInputReader input;
-        private PlayerAttackController launcher;
-        private PlayerAimController aim;
+        private PlayerCombat launcher;
+        private PlayerAim aim;
         private HitscanAttack primaryAttack;
         private ProjectileAttack secondaryAttack;
         private ProjectileAttack grenadeAttack;
         private PlayerInputReader alternativeInput;
         private int alternativePressMask;
         private int alternativeHeldMask;
-        private PlayerAnimationController animationController;
+        private PlayerAnimation animationController;
         private PlayerStat stat;
         private ProjectilePool pool;
         private GameObject root;
@@ -94,12 +94,12 @@ namespace ProjectU.Editor
         private IEnumerator Validate()
         {
             input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();
-            launcher = input.GetComponent<PlayerAttackController>();
-            aim = input.GetComponent<PlayerAimController>();
+            launcher = input.GetComponent<PlayerCombat>();
+            aim = input.GetComponent<PlayerAim>();
             primaryAttack = launcher.GetBinding(AttackSlot.PrimaryFire).Attack as HitscanAttack;
             secondaryAttack = launcher.GetBinding(AttackSlot.SecondaryFire).Attack as ProjectileAttack;
             grenadeAttack = launcher.GetBinding(AttackSlot.Skill1).Attack as ProjectileAttack;
-            animationController = input.GetComponent<PlayerAnimationController>();
+            animationController = input.GetComponent<PlayerAnimation>();
             stat = input.GetComponent<PlayerStat>();
             pool = UnityEngine.Object.FindFirstObjectByType<ProjectilePool>();
             Check(launcher.enabled && input.GetComponent<Combatant>().Faction == Faction.Player && input.GetComponent<Mortal>().HP == 100,
@@ -134,10 +134,10 @@ namespace ProjectU.Editor
             playerCommands.ApplyModifiedPropertiesWithoutUndo();
             input.GetComponent<PlayerMotor>().enabled = false;
             // Keep this input/damage probe still; animated muzzle tracking is validated separately.
-            input.GetComponent<PlayerAimController>().enabled = false;
-            UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>().enabled = false;
+            input.GetComponent<PlayerAim>().enabled = false;
+            UnityEngine.Object.FindFirstObjectByType<PlayerCamera>().enabled = false;
             input.transform.SetPositionAndRotation(new Vector3(1000f, 1000f, 1000f), Quaternion.identity);
-            Camera camera = UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>().GetComponent<Camera>();
+            Camera camera = UnityEngine.Object.FindFirstObjectByType<PlayerCamera>().GetComponent<Camera>();
             Vector3 muzzle = aim.Muzzle.position;
             Check(aim.Muzzle.name == "Muzzle" && aim.Muzzle.parent.name == "Prototype Rifle",
                 "saved muzzle marker is attached to the rifle");
@@ -310,10 +310,10 @@ namespace ProjectU.Editor
             var melee = actor.AddComponent<MeleeAttack>();
             var ranged = actor.AddComponent<HitscanAttack>();
             var projectile = actor.AddComponent<ProjectileAttack>();
-            var alternativeLauncher = actor.AddComponent<PlayerAttackController>();
+            var alternativeLauncher = actor.AddComponent<PlayerCombat>();
             var alternativeController = actor.AddComponent<PlayerController>();
             var alternativeCommands = new SerializedObject(alternativeController);
-            alternativeCommands.FindProperty("playerCamera").objectReferenceValue = camera.GetComponent<PlayerCameraController>();
+            alternativeCommands.FindProperty("playerCamera").objectReferenceValue = camera.GetComponent<PlayerCamera>();
             alternativeCommands.FindProperty("logInput").boolValue = false;
             alternativeCommands.FindProperty("maxInputBufferTime").floatValue = 0f;
             alternativeCommands.ApplyModifiedPropertiesWithoutUndo();

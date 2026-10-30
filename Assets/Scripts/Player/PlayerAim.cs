@@ -4,8 +4,8 @@ namespace ProjectU
 {
     // Runs after camera and Animator, before Launcher requests attacks and Attack executes.
     [DefaultExecutionOrder(75)]
-    [RequireComponent(typeof(PlayerAnimationController), typeof(PlayerAttackController))]
-    public sealed class PlayerAimController : MonoBehaviour
+    [RequireComponent(typeof(PlayerAnimation), typeof(PlayerCombat))]
+    public sealed class PlayerAim : MonoBehaviour
     {
         [SerializeField] private Animator animator;
         [SerializeField] private Transform weapon;
@@ -16,8 +16,8 @@ namespace ProjectU
         [SerializeField, Range(0f, 1f)] private float spineWeight = 0.35f;
         [SerializeField, Range(0f, 90f)] private float maximumBodyAngle = 80f;
 
-        private PlayerAnimationController animationController;
-        private PlayerAttackController launcher;
+        private PlayerAnimation animationController;
+        private PlayerCombat launcher;
         private Transform spine;
         private Transform chest;
         private Transform rightHand;
@@ -32,8 +32,8 @@ namespace ProjectU
 
         private void Awake()
         {
-            animationController = GetComponent<PlayerAnimationController>();
-            launcher = GetComponent<PlayerAttackController>();
+            animationController = GetComponent<PlayerAnimation>();
+            launcher = GetComponent<PlayerCombat>();
             if (animator == null || !animator.isHuman || weapon == null || leftGrip == null || muzzle == null)
             {
                 FailConfiguration();
@@ -54,7 +54,7 @@ namespace ProjectU
 
         private void FailConfiguration()
         {
-            Debug.LogError("PlayerAimController requires Humanoid bones, a weapon, a left grip and a muzzle.", this);
+            Debug.LogError("PlayerAim requires Humanoid bones, a weapon, a left grip and a muzzle.", this);
             enabled = false;
         }
 

@@ -9,7 +9,7 @@ namespace ProjectU
     [RequireComponent(typeof(PlayerStamina))]
     public sealed class PlayerController : MonoBehaviour
     {
-        [SerializeField] private PlayerCameraController playerCamera;
+        [SerializeField] private PlayerCamera playerCamera;
         [SerializeField] private bool logInput = true;
         [SerializeField, Min(0.1f), Tooltip("Seconds between held-input logs for each action.")]
         private float heldLogInterval = 0.5f;
@@ -21,7 +21,7 @@ namespace ProjectU
         private PlayerInputReader input;
         private PlayerMotor motor;
         private PlayerStamina stamina;
-        private PlayerAttackController attacks;
+        private PlayerCombat attacks;
         private Combatant combatant;
         private PlayerAction bufferedAction;
         private double bufferExpiresAt;
@@ -36,7 +36,7 @@ namespace ProjectU
             input = GetComponent<PlayerInputReader>();
             motor = GetComponent<PlayerMotor>();
             stamina = GetComponent<PlayerStamina>();
-            attacks = GetComponent<PlayerAttackController>();
+            attacks = GetComponent<PlayerCombat>();
             combatant = GetComponent<Combatant>();
             if (playerCamera == null)
             {

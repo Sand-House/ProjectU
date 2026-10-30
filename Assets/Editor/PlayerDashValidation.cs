@@ -47,9 +47,9 @@ namespace ProjectU.Editor
         private PlayerInputReader input;
         private PlayerMotor motor;
         private PlayerStamina stamina;
-        private PlayerAnimationController animationController;
-        private PlayerAttackController attacks;
-        private PlayerCameraController cameraController;
+        private PlayerAnimation animationController;
+        private PlayerCombat attacks;
+        private PlayerCamera cameraController;
         private Vector2 movement;
         private bool dashPress;
         private bool dashHeld;
@@ -97,9 +97,9 @@ namespace ProjectU.Editor
             input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();
             motor = input.GetComponent<PlayerMotor>();
             stamina = input.GetComponent<PlayerStamina>();
-            animationController = input.GetComponent<PlayerAnimationController>();
-            attacks = input.GetComponent<PlayerAttackController>();
-            cameraController = UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>();
+            animationController = input.GetComponent<PlayerAnimation>();
+            attacks = input.GetComponent<PlayerCombat>();
+            cameraController = UnityEngine.Object.FindFirstObjectByType<PlayerCamera>();
             var settings = new SerializedObject(motor);
             Check(input.GetComponent<PlayerStat>().DashDistance == 5f &&
                 settings.FindProperty("dashDuration").floatValue == 0.2f &&
@@ -131,7 +131,7 @@ namespace ProjectU.Editor
                 ResetPosition();
                 stamina.Recover(100f);
                 float yaw = direction == Vector2.zero ? 90f : 35f;
-                typeof(PlayerCameraController).GetProperty("Yaw").SetValue(cameraController, yaw);
+                typeof(PlayerCamera).GetProperty("Yaw").SetValue(cameraController, yaw);
                 movement = direction;
                 Vector3 expected = Quaternion.Euler(0f, yaw, 0f) *
                     (direction == Vector2.zero ? Vector3.forward : new Vector3(direction.x, 0f, direction.y));
@@ -145,7 +145,7 @@ namespace ProjectU.Editor
                     "OnDashExecuted fires once after dash state is initialized: " + direction);
                 // Stop normal movement, then turn the camera mid-dash to prove direction is captured.
                 movement = Vector2.zero;
-                typeof(PlayerCameraController).GetProperty("Yaw").SetValue(cameraController, yaw + 80f);
+                typeof(PlayerCamera).GetProperty("Yaw").SetValue(cameraController, yaw + 80f);
                 while (motor.IsDashing) yield return null;
                 Vector3 displacement = input.transform.position - before;
                 displacement.y = 0f;
@@ -253,7 +253,7 @@ namespace ProjectU.Editor
             SetField(grenade, "data", visualGrenadeData);
             // A dash cancels grenade visuals once the gameplay action lock has ended.
             ResetPosition();
-            typeof(PlayerCameraController).GetProperty("Yaw").SetValue(cameraController, 0f);
+            typeof(PlayerCamera).GetProperty("Yaw").SetValue(cameraController, 0f);
             stamina.Recover(100f);
             int grenadeBaseline = grenadeExecutions;
             grenadePress = true;
@@ -290,7 +290,7 @@ namespace ProjectU.Editor
             wall.transform.position = input.transform.position + new Vector3(0f, 1f, 2f);
             wall.transform.localScale = new Vector3(10f, 5f, 0.2f);
             Physics.SyncTransforms();
-            typeof(PlayerCameraController).GetProperty("Yaw").SetValue(cameraController, 0f);
+            typeof(PlayerCamera).GetProperty("Yaw").SetValue(cameraController, 0f);
             SetField(motor, "dashDuration", 0.005f);
             SetField(motor, "dashPostDelay", 0f);
             stamina.Recover(100f);

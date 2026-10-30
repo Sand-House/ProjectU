@@ -110,10 +110,10 @@ namespace ProjectU.Editor
         private readonly Report report = new Report();
         private PlayerInputReader input;
         private PlayerMotor motor;
-        private PlayerCameraController cameraController;
-        private PlayerAnimationController animationController;
-        private PlayerAimController aim;
-        private PlayerAttackController launcher;
+        private PlayerCamera cameraController;
+        private PlayerAnimation animationController;
+        private PlayerAim aim;
+        private PlayerCombat launcher;
         private HitscanAttackData alignmentAttackData;
         private ProjectilePool pool;
         private Animator animator;
@@ -144,10 +144,10 @@ namespace ProjectU.Editor
             {
                 input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();
                 motor = input.GetComponent<PlayerMotor>();
-                cameraController = UnityEngine.Object.FindFirstObjectByType<PlayerCameraController>();
-                animationController = input.GetComponent<PlayerAnimationController>();
-                aim = input.GetComponent<PlayerAimController>();
-                launcher = input.GetComponent<PlayerAttackController>();
+                cameraController = UnityEngine.Object.FindFirstObjectByType<PlayerCamera>();
+                animationController = input.GetComponent<PlayerAnimation>();
+                aim = input.GetComponent<PlayerAim>();
+                launcher = input.GetComponent<PlayerCombat>();
                 pool = UnityEngine.Object.FindFirstObjectByType<ProjectilePool>();
                 animator = input.GetComponentInChildren<Animator>();
                 leftGrip = input.transform.Find("Soldier Visual/Prototype Rifle/Left Grip");

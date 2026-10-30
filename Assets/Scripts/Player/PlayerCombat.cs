@@ -6,7 +6,7 @@ namespace ProjectU
 {
     [RequireComponent(typeof(PlayerStat))]
     [DefaultExecutionOrder(100)]
-    public sealed class PlayerAttackController : MonoBehaviour
+    public sealed class PlayerCombat : MonoBehaviour
     {
         [SerializeField] private PlayerAttackBinding[] attackBindings = Array.Empty<PlayerAttackBinding>();
         [SerializeField] private Camera aimCamera;
@@ -71,7 +71,7 @@ namespace ProjectU
         {
             if (aimCamera == null)
             {
-                Debug.LogError("PlayerAttackController requires an aim camera.", this);
+                Debug.LogError("PlayerCombat requires an aim camera.", this);
                 return false;
             }
             var slots = new HashSet<AttackSlot>();
@@ -82,7 +82,7 @@ namespace ProjectU
                     binding.Attack == null || binding.Origin == null || binding.Attack.gameObject != gameObject ||
                     !slots.Add(binding.Slot) || !attacks.Add(binding.Attack))
                 {
-                    Debug.LogError("PlayerAttackController bindings require a unique slot, a unique Attack on this player and an origin.", this);
+                    Debug.LogError("PlayerCombat bindings require a unique slot, a unique Attack on this player and an origin.", this);
                     return false;
                 }
             }

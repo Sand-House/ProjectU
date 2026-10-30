@@ -44,7 +44,7 @@ namespace ProjectU.Editor
     public sealed class PlayerActionDelayValidationDriver : MonoBehaviour
     {
         private PlayerInputReader input;
-        private PlayerAttackController attacks;
+        private PlayerCombat attacks;
         private PlayerMotor motor;
         private PlayerStamina stamina;
         private Combatant owner;
@@ -86,7 +86,7 @@ namespace ProjectU.Editor
             started = EditorApplication.timeSinceStartup;
             Time.captureDeltaTime = 1f / 60f;
             input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();
-            attacks = input.GetComponent<PlayerAttackController>();
+            attacks = input.GetComponent<PlayerCombat>();
             motor = input.GetComponent<PlayerMotor>();
             stamina = input.GetComponent<PlayerStamina>();
             owner = input.GetComponent<Combatant>();

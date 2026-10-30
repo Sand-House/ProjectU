@@ -4,7 +4,7 @@ namespace ProjectU
 {
     [DefaultExecutionOrder(-100)]
     [RequireComponent(typeof(Camera))]
-    public sealed class PlayerCameraController : MonoBehaviour
+    public sealed class PlayerCamera : MonoBehaviour
     {
         [SerializeField] private Transform target;
         [SerializeField] private PlayerInputReader input;
@@ -29,7 +29,7 @@ namespace ProjectU
         {
             if (target == null || input == null)
             {
-                Debug.LogError("PlayerCameraController requires Target and Input references.", this);
+                Debug.LogError("PlayerCamera requires Target and Input references.", this);
                 enabled = false;
                 return;
             }
