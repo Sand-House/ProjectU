@@ -105,7 +105,6 @@ namespace ProjectU.Editor
             Check(input.GetComponent<PlayerStat>().DashDistance == 5f &&
                 settings.FindProperty("dashDuration").floatValue == 0.2f &&
                 input.GetComponent<SoilderDashAction>().RecoveryTime == 0.3f, "saved Inspector dash settings");
-            SetField(input.GetComponent<PlayerController>(), "logInput", false);
             // Retain the immediate-lock probes; buffered follow-ups have their own suite.
             SetField(input.GetComponent<PlayerController>(), "maxInputBufferTime", 0f);
             stamina.RecoveryRate = 0f;

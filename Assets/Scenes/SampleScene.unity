@@ -1980,8 +1980,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerController
   playerCamera: {fileID: 330585548}
-  logInput: 1
-  heldLogInterval: 0.5
   maxInputBufferTime: 1
 --- !u!114 &1295477699
 MonoBehaviour:
@@ -2722,6 +2720,8 @@ MonoBehaviour:
   recoveryTime: 0.25
   cooldown: 0
   repeatWhileHeld: 1
+  requiresGrounded: 0
+  canMove: 1
   attack: {fileID: 1295477706}
 --- !u!114 &1295477711
 MonoBehaviour:
@@ -2739,6 +2739,8 @@ MonoBehaviour:
   recoveryTime: 0.5
   cooldown: 0
   repeatWhileHeld: 1
+  requiresGrounded: 0
+  canMove: 1
   attack: {fileID: 1295477707}
 --- !u!114 &1295477712
 MonoBehaviour:
@@ -2756,6 +2758,8 @@ MonoBehaviour:
   recoveryTime: 1
   cooldown: 6
   repeatWhileHeld: 0
+  requiresGrounded: 0
+  canMove: 1
   attack: {fileID: 1295477708}
 --- !u!114 &1295477713
 MonoBehaviour:
@@ -2769,11 +2773,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 782fd1991a6840c4a97af7a2c5965999, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.SoilderSkill2Action
-  windupTime: 0
-  recoveryTime: 0
+  windupTime: 0.5
+  recoveryTime: 1
   cooldown: 0
   repeatWhileHeld: 0
-  attack: {fileID: 0}
+  requiresGrounded: 1
+  canMove: 1
 --- !u!114 &1295477714
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2786,11 +2791,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 94bb96d772a3422695803a13199ab04c, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.SoilderUltimateAction
-  windupTime: 0
-  recoveryTime: 0
+  windupTime: 0.5
+  recoveryTime: 1
   cooldown: 0
   repeatWhileHeld: 0
-  attack: {fileID: 0}
+  requiresGrounded: 0
+  canMove: 0
 --- !u!114 &1295477715
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2807,6 +2813,8 @@ MonoBehaviour:
   recoveryTime: 0.3
   cooldown: 0
   repeatWhileHeld: 0
+  requiresGrounded: 1
+  canMove: 1
   staminaCost: 25
 --- !u!114 &1295477716
 MonoBehaviour:
@@ -2824,3 +2832,5 @@ MonoBehaviour:
   recoveryTime: 0
   cooldown: 0
   repeatWhileHeld: 0
+  requiresGrounded: 0
+  canMove: 1

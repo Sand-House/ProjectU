@@ -54,9 +54,14 @@ namespace ProjectU
         [SerializeField, Min(0f)] private float recoveryTime;
         [SerializeField, Min(0f)] private float cooldown;
         [SerializeField] private bool repeatWhileHeld;
+        [SerializeField, Tooltip("Require ground contact when accepting and executing this action.")]
+        private bool requiresGrounded;
+        [SerializeField, Tooltip("Allow normal movement and jumping during windup, active execution and recovery.")]
+        private bool canMove = true;
 
         private Combatant owner;
         private PlayerCombat combat;
+        private PlayerMotor motor;
         private bool pending, active, recoveryPending, completionPending;
         private bool executing;
         private double executeAt, recoveryEndsAt, cooldownEndsAt;
@@ -73,10 +78,14 @@ namespace ProjectU
         protected virtual bool WaitForRecoveryTick => false;
         public Combatant Owner => owner != null ? owner : (owner = GetComponent<Combatant>());
         protected PlayerCombat Combat => combat != null ? combat : (combat = GetComponent<PlayerCombat>());
+        protected PlayerMotor Motor => motor != null ? motor : (motor = GetComponent<PlayerMotor>());
         public float WindupTime => AttackData.FiniteAtLeast(windupTime, 0f);
         public float RecoveryTime => AttackData.FiniteAtLeast(recoveryTime, 0f);
         public float Cooldown => AttackData.FiniteAtLeast(cooldown, 0f);
         public bool RepeatWhileHeld => repeatWhileHeld;
+        public bool RequiresGrounded => requiresGrounded;
+        public bool CanMove => canMove;
+        public bool BlocksMovement => !CanMove && HasActionLock;
         public float SpeedMultiplier
         {
             get => speedMultiplier;
@@ -112,7 +121,9 @@ namespace ProjectU
                 Owner != null && Owner.IsAlive && CooldownRemaining <= 0f &&
                 (ignoreDelay ? (UsesDelayLock || (!pending && !active)) :
                     (!IsActive && lastBlockingFrame != Time.frameCount)) &&
-                CheckRequirements(request) && !Owner.BlocksAction(Slot, ignoreDelay);
+                MeetsGroundRequirement && CheckRequirements(request) && !Owner.BlocksAction(Slot, ignoreDelay);
+
+        private bool MeetsGroundRequirement => !RequiresGrounded || (Motor != null && Motor.IsGrounded);
 
         public bool TryStart() => TryStart(default);
 
@@ -161,7 +172,7 @@ namespace ProjectU
                 Time.timeAsDouble < executeAt) return;
             pending = false;
             lastBlockingFrame = Time.frameCount;
-            if (Owner == null || !Owner.IsAlive || !CheckRequirements(context) ||
+            if (Owner == null || !Owner.IsAlive || !MeetsGroundRequirement || !CheckRequirements(context) ||
                 Owner.BlocksAction(Slot, false, this))
             {
                 completionPending = false;

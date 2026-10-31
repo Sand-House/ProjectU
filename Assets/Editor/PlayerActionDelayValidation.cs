@@ -91,7 +91,6 @@ namespace ProjectU.Editor
             motor = input.GetComponent<PlayerMotor>();
             stamina = input.GetComponent<PlayerStamina>();
             owner = input.GetComponent<Combatant>();
-            SetField(input.GetComponent<PlayerController>(), "logInput", false);
             // This suite isolates immediate action locks. EnhancedInputValidation covers buffering.
             SetField(input.GetComponent<PlayerController>(), "maxInputBufferTime", 0f);
             stamina.RecoveryRate = 0f;

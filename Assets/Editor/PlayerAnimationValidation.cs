@@ -174,7 +174,6 @@ namespace ProjectU.Editor
                 PlayerActionValidationUtility.Set(primaryComponent.targetObject, "data", alignmentAttackData);
                 primaryComponent.ApplyModifiedPropertiesWithoutUndo();
                 var controller = new SerializedObject(input.GetComponent<PlayerController>());
-                controller.FindProperty("logInput").boolValue = false;
                 controller.FindProperty("maxInputBufferTime").floatValue = 0f;
                 controller.ApplyModifiedPropertiesWithoutUndo();
                 launcher.AttackExecuted += slot => { if (slot == PlayerActionSlot.PrimaryFire) ValidateShot(); };

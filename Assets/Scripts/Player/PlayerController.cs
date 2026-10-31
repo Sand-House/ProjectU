@@ -8,8 +8,6 @@ namespace ProjectU
     public sealed class PlayerController : MonoBehaviour
     {
         [SerializeField] private PlayerCamera playerCamera;
-        [SerializeField] private bool logInput = true;
-        [SerializeField, Min(0.1f)] private float heldLogInterval = 0.5f;
         [SerializeField, Min(0f), Tooltip("Maximum game seconds to keep one eligible pressed action. Zero disables buffering.")]
         private float maxInputBufferTime = 1f;
         private PlayerInputReader input;
@@ -18,7 +16,6 @@ namespace ProjectU
         private Combatant combatant;
         private PlayerActionSlot bufferedAction = PlayerActionSlot.None;
         private double bufferExpiresAt;
-        private readonly float[] nextHeldLog = new float[8];
 
         public PlayerActionSlot BufferedAction => bufferedAction;
         public float BufferRemaining => bufferedAction == PlayerActionSlot.None ? 0f :
@@ -56,15 +53,6 @@ namespace ProjectU
             }
             SelectAction();
             if (input.Jump.Pressed && motor.CanJump) motor.RequestJump();
-            if (logInput && motor.CanJump) Handle(input.Jump, "Jump (Space)", 0);
-            if (!logInput || !motor.CanPerformActions) return;
-            Handle(input.Ultimate, "Ultimate (Q)", 1);
-            Handle(input.Reload, "Reload (R)", 2);
-            Handle(input.Dash, "Dash (Shift)", 3);
-            Handle(input.Skill1, "Skill1 (E)", 4);
-            Handle(input.Skill2, "Skill2 (F)", 5);
-            Handle(input.PrimaryFire, "PrimaryFire (LMB)", 6);
-            Handle(input.SecondaryFire, "SecondaryFire (RMB)", 7);
         }
 
         private void SelectAction()
@@ -147,22 +135,6 @@ namespace ProjectU
         private void ClearActions() { ClearBuffer(); if (combat != null) combat.InterruptInput(); }
         private void OnDisable() => ClearActions();
         private void OnApplicationFocus(bool focused) { if (!focused) ClearActions(); }
-
-        private void Handle(ButtonInputState state, string label, int index)
-        {
-            if (state.Pressed)
-            {
-                Debug.Log($"[Player Input] {label}: Pressed", this);
-                nextHeldLog[index] = Time.unscaledTime + heldLogInterval;
-            }
-            if (state.Held && Time.unscaledTime >= nextHeldLog[index])
-            {
-                Debug.Log($"[Player Input] {label}: Held", this);
-                nextHeldLog[index] = Time.unscaledTime + heldLogInterval;
-            }
-            if (state.Released) Debug.Log($"[Player Input] {label}: Released", this);
-            if (!state.Held) nextHeldLog[index] = 0f;
-        }
 
         private void OnValidate() => maxInputBufferTime = AttackData.FiniteAtLeast(maxInputBufferTime, 0f);
     }

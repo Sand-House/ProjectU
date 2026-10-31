@@ -76,7 +76,6 @@ namespace ProjectU.Editor
                 foreach (Transform item in UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsSortMode.None))
                     Check(GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(item.gameObject) == 0, "Missing script: " + item.name);
                 var controller = new SerializedObject(input.GetComponent<PlayerController>());
-                controller.FindProperty("logInput").boolValue = false;
                 controller.FindProperty("maxInputBufferTime").floatValue = 0f;
                 controller.ApplyModifiedPropertiesWithoutUndo();
                 var actions = (UnityEngine.InputSystem.InputActionMap)typeof(PlayerInputReader)

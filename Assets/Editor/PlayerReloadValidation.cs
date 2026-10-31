@@ -96,7 +96,6 @@ namespace ProjectU.Editor
             stat = input.GetComponent<PlayerStat>();
             motor = input.GetComponent<PlayerMotor>();
             animator = input.GetComponentInChildren<Animator>();
-            SetField(input.GetComponent<PlayerController>(), "logInput", false);
             // Isolate reload mechanics from deferred input; the buffer suite tests delayed R.
             SetField(input.GetComponent<PlayerController>(), "maxInputBufferTime", 0f);
             Check(attacks.CurrentAmmo == 30 && attacks.MaxAmmo == stat.MaxMagazine && !attacks.IsReloading,

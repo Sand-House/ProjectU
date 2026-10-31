@@ -53,12 +53,13 @@ namespace ProjectU
         // Keep every consumer blocked on the last frame containing dash/recovery time.
         public bool IsDashActionLocked => DashAction != null && DashAction.Blocks(PlayerActionSlot.PrimaryFire);
         public bool CanPerformActions => combatant == null || !combatant.IsActionDelayLocked;
+        public bool CanMove => combatant == null || !combatant.IsMovementLocked;
         // Jump requests ignore attack/dash recovery locks. Grounding is checked when moving.
         public bool CanJump => isActiveAndEnabled && controller != null && controller.enabled &&
-            Time.timeScale > 0f && Time.deltaTime > 0f && !IsDashing;
+            Time.timeScale > 0f && Time.deltaTime > 0f && !IsDashing && CanMove;
         public bool CanDash => DashAction != null && DashAction.CanStart;
         internal bool CanDashIgnoringActionLock => isActiveAndEnabled && controller != null && controller.enabled &&
-            IsGrounded && Time.timeScale > 0f && Time.deltaTime > 0f && IsPositiveFinite(playerStat.DashDistance) &&
+            Time.timeScale > 0f && Time.deltaTime > 0f && IsPositiveFinite(playerStat.DashDistance) &&
             IsPositiveFinite(dashDuration) && IsPositiveFinite(playerStat.DashDistance / dashDuration);
 
         // Raised once after a dash has successfully entered its movement/action-lock state.
@@ -114,7 +115,7 @@ namespace ProjectU
         private void Update()
         {
             DashAction?.Process(PlayerActionStage.BeforeMotor);
-            Vector3 velocity = moveDirection * MoveSpeed;
+            Vector3 velocity = CanMove ? moveDirection * MoveSpeed : Vector3.zero;
             bool shouldJump = jumpRequested && CanJump;
             bool shouldRotate = hasMoveCommand;
             ClearCommands();

@@ -6,6 +6,13 @@ using UnityEngine;
 
 namespace ProjectU.Editor
 {
+    // Attack-slot regression fixtures stay independent of the Soldier demo skills.
+    public sealed class PlayerActionAttackProbe : PlayerAttackAction
+    {
+        public PlayerActionSlot ActionSlot { get; set; } = PlayerActionSlot.None;
+        public override PlayerActionSlot Slot => ActionSlot;
+    }
+
     // Fixture construction only: legacy test data copies identify timing presets for their actions.
     // These presets are never serialized into AttackData and are not used by runtime code.
     internal static class PlayerActionValidationUtility
@@ -36,11 +43,12 @@ namespace ProjectU.Editor
                     PlayerActionSlot.PrimaryFire => typeof(SoilderPrimaryFireAction),
                     PlayerActionSlot.SecondaryFire => typeof(SoilderSecondaryFireAction),
                     PlayerActionSlot.Skill1 => typeof(SoilderSkill1Action),
-                    PlayerActionSlot.Skill2 => typeof(SoilderSkill2Action),
-                    PlayerActionSlot.Ultimate => typeof(SoilderUltimateAction),
+                    PlayerActionSlot.Skill2 => typeof(PlayerActionAttackProbe),
+                    PlayerActionSlot.Ultimate => typeof(PlayerActionAttackProbe),
                     _ => throw new ArgumentOutOfRangeException(nameof(slot))
                 };
                 action = (PlayerAttackAction)attack.gameObject.AddComponent(type);
+                if (action is PlayerActionAttackProbe probe) probe.ActionSlot = slot;
             }
             SetDirect(action, "attack", attack);
             SetDirect(attack, "origin", origin);

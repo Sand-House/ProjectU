@@ -109,7 +109,6 @@ namespace ProjectU.Editor
             combat = input.GetComponent<PlayerCombat>();
             primary = (PlayerAttackAction)combat.GetAction(PlayerActionSlot.PrimaryFire);
             controller.enabled = false;
-            PlayerActionValidationUtility.Set(controller, "logInput", false);
             Check(combat.ActionBindings.Count == 7, "saved scene binds seven action slots");
             string[] names = { "SoilderPrimaryFireAction", "SoilderSecondaryFireAction", "SoilderSkill1Action",
                 "SoilderSkill2Action", "SoilderUltimateAction", "SoilderDashAction", "SoilderReloadAction" };
@@ -125,8 +124,10 @@ namespace ProjectU.Editor
             Check(typeof(Attack).GetMethod("TryAttack") == null && typeof(Attack).GetMethod("LateUpdate",
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) == null,
                 "attack has no public scheduling API or independent timer loop");
-            Check(!combat.CanBuffer(PlayerActionSlot.Skill2) && !combat.CanStart(PlayerActionSlot.Ultimate),
-                "undefined skills cannot claim execution");
+            Check(combat.GetAction(PlayerActionSlot.Skill2) is SoilderSkill2Action &&
+                combat.GetAction(PlayerActionSlot.Ultimate) is SoilderUltimateAction &&
+                combat.GetBinding(PlayerActionSlot.Skill2).Attack == null && combat.GetBinding(PlayerActionSlot.Ultimate).Attack == null,
+                "demo skills use actions without attack executors");
             Check(primary.RecoveryTime == 0.25f && primary.RepeatWhileHeld &&
                 combat.GetAction(PlayerActionSlot.Skill1).RecoveryTime == 1f && combat.GetAction(PlayerActionSlot.Skill1).Cooldown == 6f,
                 "saved action timing migrated exactly");

@@ -5,9 +5,7 @@ namespace ProjectU
     public sealed class SoilderDashAction : PlayerAction
     {
         [SerializeField, Min(0f)] private float staminaCost = 25f;
-        private PlayerMotor motor;
         private PlayerStamina stamina;
-        private PlayerMotor Motor => motor != null ? motor : (motor = GetComponent<PlayerMotor>());
         private PlayerStamina Stamina => stamina != null ? stamina : (stamina = GetComponent<PlayerStamina>());
 
         public override PlayerActionSlot Slot => PlayerActionSlot.Dash;

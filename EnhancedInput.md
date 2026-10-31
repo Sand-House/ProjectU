@@ -1,15 +1,15 @@
 # 플레이어 입력·선입력 설계
 
-기준 날짜: **2026-10-30, PlayerAction 리팩토링 반영**. 공통 부모 PlayerAction과 Soilder 접두사의 일곱 액션을 구현했다. 상세 필드·상속·저장값 이관은 [PlayerAction 설계](PlayerAction%20설계.md)를 참고한다. 아래 6~9절은 해당 작업 당시의 검증·변경 기록이며 이번 검증은 후속 절에 기록한다.
+기준 날짜: **2026-10-31, 공통 접지·이동 제한 반영**. PlayerAction.RequiresGrounded가 수신·시작·효과 실행 시의 접지를 검사하며 CanMove가 행동 중 일반 이동·점프 허용 여부를 정한다. 상세 필드·상속·이번 검증은 [PlayerAction 설계](PlayerAction%20설계.md) 11절을 참고한다. 아래 날짜별 검증은 해당 작업 당시의 기록이다.
 
 ## 1. 클래스의 역할과 책임
 
 | 클래스 | 책임 | 상태 원본 |
 |---|---|---|
 | ButtonInputState / PlayerInputReader | 프레임별 Pressed·Held·Released, 커서·포커스·입력 가능 여부 | 현재 입력 스냅샷 |
-| PlayerController | 카메라 기준 이동·점프 명령, 전투 선택·우선순위·한 개 예약·만료·반복·자동 장전 요청 | maxInputBufferTime·예약 슬롯·만료 시각·로그 |
+| PlayerController | 카메라 기준 이동·점프 명령, 전투 선택·우선순위·한 개 예약·만료·반복·자동 장전 요청 | maxInputBufferTime·예약 슬롯·만료 시각 |
 | PlayerCombat | 슬롯/액션 연결, 실행 가능 조회·한 프레임 명령·조준/배율·탄창·외부 이벤트 | 한 프레임 명령·탄창 |
-| PlayerAction / PlayerAttackAction | 공통 타이밍·단계·검증·취소 / 공격 실행 어댑터 | 액션별 선딜·유지·후딜·쿨타임·반복 |
+| PlayerAction / PlayerAttackAction | 공통 접지·이동 허용·타이밍·단계·검증·취소 / 공격 실행 어댑터 | 액션별 접지 필요·이동 허용·선딜·유지·후딜·쿨타임·반복 |
 | Soilder…Action | 기본·보조 발사·스킬·궁극기·대시·장전 구현 | 개별 조건·자원·효과와 장전 작업량 |
 | PlayerActionBinding | PlayerActionSlot과 PlayerAction 연결 | 씬/프리팹 참조 |
 | Attack / Combatant | 기본 Origin 보관·동기 공격 효과 / 같은 소유자의 액션 제한 집계·진영·생존 | 기본 Origin·공격 결과·공통 제한 조회 |
@@ -18,6 +18,8 @@
 | PlayerAim / PlayerCamera / PlayerAnimation | 시각 조준·시점·이벤트 기반 애니메이션 | 시각 자세·시점 |
 
 입력 선택과 예약은 Controller 한 곳에서 담당한다. 액션은 Reader를 직접 읽지 않는다. 별도 PlayerActionController와 두 번째 선입력 저장소는 없다. 기존 PlayerAction enum·AttackSlot은 PlayerActionSlot으로 통합했다.
+
+2026-10-31 로그 변경: Controller의 Pressed·Held·Released 출력을 모두 제거했다. logInput·heldLogInterval·전용 타이머·Handle 메서드와 씬의 해당 저장값, 검증기의 옛 로그 설정 접근도 제거했다. Skill2·Ultimate의 실행 성공 로그와 버튼 스냅샷·해제 전달·선입력·홀딩 반복 동작은 유지한다.
 
 ## 2. 선입력 규칙
 
@@ -29,7 +31,7 @@
 6. 일반 예약은 더 나중의 유효한 Pressed로 교체한다. 동일 프레임은 Dash → 비기본 공격 바인딩 순서 → Reload → PrimaryFire다.
 7. 예약을 시도한 프레임에는 다른 홀딩 행동을 추가 실행하지 않는다. 반복·자동 장전은 다음 프레임부터 다시 시도할 수 있다.
 
-CanBuffer는 현재 딜레이만 제외하고, CanStart는 현재 행동 제한도 포함한다. 장전 중 두 발사 금지는 두 검사에 모두 적용한다. 대시는 수신과 실행 시 모두 접지해야 하며 공중 입력은 예약하지 않는다.
+CanBuffer는 현재 딜레이만 제외하고, CanStart는 현재 행동 제한도 포함한다. 장전 중 두 발사 금지는 두 검사에 모두 적용한다. RequiresGrounded=true인 액션은 PlayerAction에서 수신·시작·선딜 완료 시 모두 접지를 검사한다. 현재 대시와 Skill2가 해당하며 공중 입력은 예약하지 않는다. 예약 후 공중이 되면 첫 실행 기회에 폐기하고, 선딜 중 공중이 되면 실행에 실패한다.
 
 예약에는 슬롯과 만료 시각만 둔다. 공격은 최신 Origin·조준점, 대시는 실행 프레임의 이동 방향 또는 카메라 Yaw 전방을 사용한다. 실제 대시 시작 이후 방향은 고정한다.
 
@@ -41,8 +43,8 @@ CanBuffer는 현재 딜레이만 제외하고, CanStart는 현재 행동 제한�
 
 | 대상 | 정책 |
 |---|---|
-| WASD·시점 | 현재 입력 사용. 예약하지 않음 |
-| Jump.Pressed | CanJump·접지로 즉시 판단. 공중·실제 대시 이동 중 입력은 예약하지 않음 |
+| WASD·시점 | 현재 입력 사용. 예약하지 않음. CanMove=false 액션 중 일반 이동은 막고 시점은 유지 |
+| Jump.Pressed | CanJump·접지로 즉시 판단. 공중·실제 대시 이동·CanMove=false 액션 중 입력은 예약하지 않음 |
 | 전투 Pressed | 유효한 입력만 한 개 예약하거나 즉시 한 번 시도 |
 | RepeatWhileHeld | PlayerAction의 설정. 예약 다음에 실행 가능한 현재 Held를 반복 요청 |
 | 유지형 액션 | 한 번 시작해 Active로 유지. 다른 행동 잠금 중에도 Release를 전달 |
@@ -52,6 +54,8 @@ CanBuffer는 현재 딜레이만 제외하고, CanStart는 현재 행동 제한�
 | 장전 중 대시·스킬 | 대시 시작 성공 / 스킬 수락 시 보충 없이 취소 |
 
 장전 진행은 SoilderReloadAction, 탄창은 PlayerCombat, 스태미나 소모 정책은 SoilderDashAction이 담당한다. RepeatWhileHeld를 자동 장전 조건이나 줌 유지 여부로 사용하지 않는다.
+
+SampleScene의 F는 지면 전용·이동 허용 Skill2, Q는 공중 사용 가능·이동 금지 Ultimate다. 두 액션은 선딜 0.5초 후 실행 로그와 ActionExecuted를 한 번 발생시키고 후딜 1초를 적용한다. AttackExecuted·피해·탄약 소모는 없으며 수락된 스킬의 장전 취소 규칙은 유지한다. 예약된 Ultimate는 실제 수락 전까지 이동을 제한하지 않는다.
 
 ## 5. 조작 중단과 실행 순서
 

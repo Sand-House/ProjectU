@@ -92,7 +92,6 @@ namespace ProjectU.Editor
             attacks = input.GetComponent<PlayerCombat>();
             motor = input.GetComponent<PlayerMotor>();
             stamina = input.GetComponent<PlayerStamina>();
-            SetField(controller, "logInput", false);
             Check((float)GetField(controller, "maxInputBufferTime") == 1f, "saved buffer limit is one game second");
             stamina.RecoveryRate = 0f;
             attacks.enabled = false;

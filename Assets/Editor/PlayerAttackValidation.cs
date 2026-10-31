@@ -112,8 +112,8 @@ namespace ProjectU.Editor
                 PlayerActionValidationUtility.For(primaryAttack).RepeatWhileHeld &&
                 PlayerActionValidationUtility.For(secondaryAttack).RepeatWhileHeld &&
                 !PlayerActionValidationUtility.For(grenadeAttack).RepeatWhileHeld &&
-                !launcher.CanStart(PlayerActionSlot.Skill2) && !launcher.CanStart(PlayerActionSlot.Ultimate),
-                "saved attack assets retain repeat policies and unused slots remain empty");
+                launcher.GetBinding(PlayerActionSlot.Skill2).Attack == null && launcher.GetBinding(PlayerActionSlot.Ultimate).Attack == null,
+                "saved attack assets retain repeat policies and demo skills have no attack executors");
             Check(primaryAttack.Data.name == "TempPrimaryFire" && primaryAttack.Data.Damage == 30f &&
                 secondaryAttack.Data.name == "TempSecondaryFire" && secondaryAttack.Data.Damage == 50f &&
                 grenadeAttack.Data.name == "TempGrenade" && grenadeAttack.Data.Damage == 100f,
@@ -315,7 +315,6 @@ namespace ProjectU.Editor
             var alternativeController = actor.AddComponent<PlayerController>();
             var alternativeCommands = new SerializedObject(alternativeController);
             alternativeCommands.FindProperty("playerCamera").objectReferenceValue = camera.GetComponent<PlayerCamera>();
-            alternativeCommands.FindProperty("logInput").boolValue = false;
             alternativeCommands.FindProperty("maxInputBufferTime").floatValue = 0f;
             alternativeCommands.ApplyModifiedPropertiesWithoutUndo();
             actor.GetComponent<PlayerMotor>().enabled = false;

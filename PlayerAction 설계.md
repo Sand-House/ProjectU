@@ -1,6 +1,6 @@
 # PlayerAction 구현 설계
 
-기준 날짜: **2026-10-30**. 사용자 지정 공통 부모는 `PlayerAction`, 캐릭터별 클래스 접두사는 **Soilder**다. 런타임·씬·데이터 이관을 구현했으며 이번 실행 검증의 최종 결과는 문서 끝과 `Logs/PlayerAction_20261030/`에 기록한다.
+기준 날짜: **2026-10-31**. 사용자 지정 공통 부모는 `PlayerAction`, 캐릭터별 클래스 접두사는 **Soilder**다. 공통 접지 조건·이동 허용 설정과 Skill2/Ultimate 검증용 액션을 추가했다. 이번 변경·검증은 11절, 앞선 리팩토링의 결과는 9절과 `Logs/PlayerAction_20261030/`에 기록한다.
 
 같은 날 후속 변경으로 기본 Origin의 저장 위치를 Attack으로 옮겼다. 현재 구조는 아래 본문에 반영했으며, 이번 Origin 이관의 직접 검증은 10절과 `Logs/AttackOrigin_20261030/`에 기록한다. 9절의 466개 검사는 앞선 PlayerAction 리팩토링 당시의 결과다.
 
@@ -11,7 +11,7 @@
 | PlayerInputReader | 현재 프레임 입력·조작 가능 여부 수집 |
 | PlayerController | 이동·점프 명령, 전투 입력 선택·우선순위·한 개 예약·만료·반복·빈 탄창 자동 장전 요청 |
 | PlayerCombat | 슬롯/액션 바인딩, 명령 전달·배율/조준 준비, 슬롯별 실행 가능 조회·탄창·외부 이벤트 |
-| PlayerAction | 행동 하나의 공통 설정과 생명주기. 자격·선딜·실행·유지·후딜·쿨타임·해제·취소 |
+| PlayerAction | 행동 하나의 공통 설정과 생명주기. 접지 자격·이동 허용·선딜·실행·유지·후딜·쿨타임·해제·취소 |
 | PlayerAttackAction | Attack을 사용하는 액션의 공통 어댑터. Attack 연결·기본 Origin 조회와 요청별 최신 공격 정보 전달 |
 | Soilder…Action | 행동별 슬롯·조건·자원·효과 실행과 유지 갱신 |
 | Attack 계열 | 기본 Origin Transform 보관과 호출받은 시점의 원점 보정·판정·피해·투사체 생성·결과 반환 |
@@ -27,16 +27,16 @@ PlayerAction
 ├─ PlayerAttackAction
 │  ├─ SoilderPrimaryFireAction
 │  ├─ SoilderSecondaryFireAction
-│  ├─ SoilderSkill1Action
-│  ├─ SoilderSkill2Action
-│  └─ SoilderUltimateAction
+│  └─ SoilderSkill1Action
+├─ SoilderSkill2Action
+├─ SoilderUltimateAction
 ├─ SoilderDashAction
 └─ SoilderReloadAction
 ```
 
 현재 세 공격의 중복 연결·실행 코드를 PlayerAttackAction에 모았다. 이후 공격 없는 스킬·줌은 PlayerAction을 직접 상속하거나 해당 슬롯의 액션 구현을 교체할 수 있다.
 
-SampleScene은 일곱 액션을 연결한다. Skill2·Ultimate는 Attack이 연결되지 않아 자격 검사가 false이며 입력·로그만 유지한다. 이 두 클래스가 존재하는 것과 실제 효과가 구현된 것은 구분한다.
+SampleScene은 일곱 액션을 연결한다. Skill2·Ultimate는 PlayerAction을 직접 상속하며 Attack 없이 선딜·후딜과 실행 로그를 사용한다. Skill2는 지면 전용·이동 허용, Ultimate는 공중 사용 가능·이동 금지로 설정했다. 실제 스킬 피해·효과·궁극기 자원과 애니메이션은 후속 작업이다.
 
 ## 2. 설정과 상태의 단일 원본
 
@@ -46,6 +46,7 @@ SampleScene은 일곱 액션을 연결한다. Skill2·Ultimate는 Attack이 연�
 | spreadAngle / spreadStartShot / spreadResetDelay / enemyPenetrationCount / maxDistance | HitscanAttackData 유지 |
 | 투사체·관통·크기·폭발 배율·발사각, 근접 범위·모양·오프셋 | 각 전용 AttackData 유지 |
 | windupTime / recoveryTime / cooldown / repeatWhileHeld | PlayerAction의 직렬화 필드 |
+| requiresGrounded / canMove | PlayerAction의 직렬화 필드. 기본 false / true |
 | pending / Active / 실행 시각 / 후딜·쿨타임 종료 시각 / 실행 프레임 잠금 | PlayerAction 인스턴스 |
 | 연속 발사 수·마지막 발사 시각 | HitscanAttack 인스턴스 |
 | 대시 소모량 staminaCost | SoilderDashAction |
@@ -78,6 +79,8 @@ PlayerActionBinding의 저장 필드는 `slot + action`이다. Attack 프로퍼�
 | 멤버 | 의미 |
 |---|---|
 | WindupTime / RecoveryTime / Cooldown / RepeatWhileHeld | 읽기 전용 설정 |
+| RequiresGrounded / CanMove | 읽기 전용 접지 필요·일반 이동/점프 허용 설정 |
+| BlocksMovement | 이동 금지 설정이며 선딜·Active·후딜 또는 실행 프레임 잠금이 남았는지 |
 | Phase | Ready / Windup / Active / Recovery |
 | CooldownRemaining / RecoveryRemaining | 게임 시간 기준 잔여 시간 |
 | CanBuffer | 현재 공격·대시 딜레이만 제외한 예약 자격. 상태 변경·소모 없음 |
@@ -85,13 +88,15 @@ PlayerActionBinding의 저장 필드는 `slot + action`이다. Attack 프로퍼�
 | TryStart() / TryStart(context) | 최종 검증 후 선딜 수락 |
 | Release() / Cancel(reason) | 유지 입력 해제 / 허용된 실행 중단과 정리 |
 | Blocks(slot) | 해당 슬롯의 새 시작을 막는지 |
-| CheckRequirements(context) | 파생 클래스의 구성·접지·탄약·장전·스태미나 등 검사 |
+| CheckRequirements(context) | 파생 클래스의 구성·탄약·장전·스태미나 등 검사. 공통 접지는 부모에서 검사 |
 | OnAccepted(context) | 수락 직후 처리. 현재 스킬의 장전 취소 |
 | ExecuteCore(context) | Failed / Completed / Running 반환 |
 | TickActive(deltaTime) / FinishActive() | 지속 동작 진행과 완료 |
 | OnExecutionSucceeded() / Cleanup(reason) | 성공 상태 확정 후 자원·외부 알림 / 중단 정리 |
 
 공통 검증·타이머·단계 전환은 부모가 담당한다. TryStart는 파생 클래스에서 재정의하지 않는다. PlayerActionContext는 필요할 때 Origin Transform·고정 월드 위치·조준점·이동 방향을 전달하는 값이다. 입력 버퍼에는 이 컨텍스트를 저장하지 않는다.
+
+RequiresGrounded가 true이면 부모가 Motor.IsGrounded를 CanBuffer·CanStart와 선딜 완료 시점에 검사한다. Motor는 접지 상태를 제공하며 대시의 접지 자격을 따로 결정하지 않는다. 이 조건은 행동 시작·효과 실행의 자격이고 이미 실행된 행동을 공중에서 계속 취소하는 규칙은 아니다.
 
 ```mermaid
 flowchart LR
@@ -121,6 +126,8 @@ Cooldown은 별도 Phase가 아니며 실행 성공부터 Active·Recovery와 �
 | 향후 줌 같은 유지형 행동 | 파생 클래스에서 비차단 또는 슬롯별 차단 지정 |
 
 비차단 유지형 액션은 RequiresHeldInput=true, UsesDelayLock=false, BlocksCore=false를 사용하고 ExecuteCore에서 Running을 반환한다. Release와 조작 중단은 Cleanup을 통해 자기 유지 효과를 정리한다. 같은 유지형 액션의 중복 시작은 CanStart에서 거절한다.
+
+CanMove=false인 액션은 선딜·Active·후딜 동안 일반 이동과 새 점프를 막는다. Combatant.IsMovementLocked가 바인딩 없는 액션까지 집계하고 Motor가 이동 속도를 0으로 처리하며 CanJump에서 같은 제한을 확인한다. 중력·시점 회전·충돌과 대시의 별도 이동은 기존 Motor 책임이다. 예약만 된 액션은 이동을 막지 않고, 동시에 실행 중인 액션 중 하나라도 이동을 막으면 제한을 유지한다. 비활성화·사망·취소·완료 후에는 살아 있는 다른 액션의 제한만 남는다.
 
 RepeatWhileHeld는 새로운 실행을 반복 요청하는 설정이다. 줌처럼 한 번 시작한 동작을 누르는 동안 유지하는 것과 구분한다. 버튼 해제는 다른 행동의 잠금 중에도 전달하며, 예약된 유지형 입력을 놓으면 실행 전에 버린다. 짧게 누른 발사·수류탄에는 이 해제 정책을 적용하지 않는다.
 
@@ -225,3 +232,35 @@ Skill2·Ultimate 효과와 발동 조건, 실제 줌·버프, 손 투척 지점�
 수치형 검사는 총 **250개**이며 네 회귀 검증은 모두 종료 코드 0이다. 공통 공격은 통과 로그를 확인했다. 런타임·에디터 .NET 빌드는 `DotnetBuild.Final.log`에서 경고 0·오류 0이다. 첫 빌드의 SDK 접근 제한과 누락된 로컬 빌드 자산은 권한 적용·복원 후 해결했다. `Integrity.json`은 씬 변경이 세 Origin 참조 이동과 미사용 필드 제거에 한정되고 meta 변경이 없음을 확인한다. `git diff --check`도 통과했다. 로그와 `Results.json`·`RegressionResults.json`은 `Logs/AttackOrigin_20261030/`에 있다.
 
 실제 키·마우스 수동 플레이·이미지 렌더링과 대시·새 액션·행동 제한·스태미나·Mortal·Projectile의 독립 검증은 이번에 다시 수행하지 않았다. Skill2·Ultimate 효과, 손 투척 지점·남은 애니메이션·적 AI·사망 행동·반복 전투 흐름은 후속 작업이다.
+
+## 11. 공통 접지·이동 조건과 검증용 스킬 — 2026-10-31
+
+PlayerAction에 `requiresGrounded`(기본 false)·`canMove`(기본 true)를 추가했다. Inspector의 Requires Grounded·Can Move로 조절하고 외부에서는 RequiresGrounded·CanMove·BlocksMovement로 읽는다. CanBuffer·CanStart와 선딜 완료의 공통 검사에서 접지 조건을 확인하므로 파생 클래스의 CheckRequirements 구현이 공통 조건을 빠뜨리지 않는다. PlayerMotor.CanDashIgnoringActionLock의 IsGrounded 검사는 제거하고 대시의 RequiresGrounded를 씬에 true로 저장했다. Motor는 접지 상태와 실제 이동을 제공한다.
+
+Combatant.IsMovementLocked는 바인딩 없는 액션까지 집계한다. Motor는 일반 이동 속도를 0으로 처리하고 CanJump도 제한하며 중력·충돌·회전은 유지한다. 선딜·Active·후딜·실행 프레임에서 제한하고, 예약 전용 상태·완료·취소·비활성화·사망에는 남아 있는 다른 액션의 잠금만 반영한다. 최종 스킬 효과를 구현할 때도 같은 bool 설정을 사용할 수 있다.
+
+| SampleScene 액션 | Requires Grounded | Can Move | 선딜 / 후딜 / 쿨타임 |
+|---|---|---|---|
+| Skill2 (F) | true | true | 0.5초 / 1초 / 0초 |
+| Ultimate (Q) | false | false | 0.5초 / 1초 / 0초 |
+| Dash (Shift) | true | true | 기존 0초 / 0.3초 / 0초 |
+| 기본·보조 발사 / Skill1 / Reload | false | true | 기존 값 유지 |
+
+Skill2·Ultimate는 PlayerAction을 직접 상속한다. 선딜이 끝나 실제 효과를 실행하면 각각 `[Player Action] Skill2 (F): Executed`, `[Player Action] Ultimate (Q): Executed`를 한 번 출력하고 ActionExecuted를 알린다. AttackExecuted·피해·탄약 소모는 없고, 수락 시 장전 취소는 유지한다. 실전 스킬 효과·궁극기 자원·전용 애니메이션은 후속 작업이다. 기존 다섯 공격 슬롯 회귀 검증에는 별도의 에디터 전용 PlayerActionAttackProbe를 사용해 검증용 스킬과 분리했다.
+
+이번 원본 프로젝트에서 Unity **6000.3.25f1**로 다음 검증을 직접 실행했다. 9·10절의 이전 결과와 별도다.
+
+| 검증 | 결과 |
+|---|---|
+| PlayerActionRestrictionValidation | 39개 통과. 공중 수신·직접 호출 거절, 대시 조건 이관, 선딜 중 접지 상실·예약 폐기, F/Q의 딜레이·실행 로그·이벤트, 일반 이동·점프 잠금/복귀, Active 집계·취소·비활성화·사망·중력·정지·장전 취소 |
+| PlayerActionValidation | 43개 통과 |
+| PlayerDashValidation | 70개 통과 |
+| EnhancedInputValidation | 85개 통과 |
+| PlayerActionDelayValidation | 110개 통과 |
+| PlayerReloadValidation | 40개 통과 |
+| PlayerAttackValidation | 50개 통과 |
+| PlayerAnimationValidation | 이동·점프·조준·양팔 IK·17발 사격·장전·투척·벽·정지 통과 |
+
+수치형 검사는 총 **437개**, 일곱 회귀 프로세스의 종료 코드는 모두 0이다. 런타임·에디터 .NET 빌드는 경고 0·오류 0이다. Integrity.json에서 씬 변경이 일곱 액션의 공통 설정·두 스킬의 시간·불필요한 빈 Attack 필드 제거에 한정되고 기존 meta·공격 데이터·투사체·애니메이션 에셋이 변경되지 않았음을 확인했다. 새 검증 meta GUID는 유일하며 git diff --check도 통과했다.
+
+로그·ValidationSummary.json·RegressionResults.json·Integrity.json은 `Logs/ActionRestrictions_20261031/`에 있다. 첫 샌드박스 Unity 실행은 사용자 라이선스 접근 문제로 종료 코드 198이었고 사용자 권한 실행으로 해결했다. 최초 .NET SDK 접근 제한과 로컬 빌드 자산 누락은 권한 적용·참조 복원 후 해결했으며 Initial 로그와 최종 통과 로그를 구분한다. 실제 키·마우스 수동 플레이·이미지 렌더링과 공통 Attack/Mortal/Projectile·스태미나 독립 검증은 이번에 다시 실행하지 않았다. 실제 스킬 효과·추가 애니메이션·적 AI·사망 행동·반복 전투 흐름은 남아 있다.

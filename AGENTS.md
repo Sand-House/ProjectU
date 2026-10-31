@@ -1,12 +1,18 @@
 # ProjectU 프로젝트 지침
 
+최신 입력 로그 기준: **2026-10-31, 홀딩 로그까지 제거**. PlayerController의 버튼 누름(Pressed)·홀딩(Held)·해제(Released) 로그를 모두 제거했다. logInput·heldLogInterval·전용 타이머·Handle 메서드와 씬의 저장값, 검증 코드의 옛 설정 접근도 제거했다. Skill2/Ultimate 실행 로그와 실제 입력 스냅샷·행동 선택·선입력·해제 전달·홀딩 반복은 유지한다. 이번에는 Unity 6000.3.25f1에서 PlayerActionRestrictionValidation **39개**를 직접 실행해 종료 코드 0으로 통과했고, 입력 로그 0건·두 스킬 실행 로그 각 1건을 확인했다. .NET 빌드 경고·오류 0, 런타임·씬·검증 코드의 옛 로그 참조 0건 및 git diff --check를 확인했다. 로그는 `Logs/HeldInputLogRemoval_20261031/`이며 앞선 누름·해제만 제거한 빌드는 `Logs/InputButtonLogs_20261031/`다. 아래 Unity 437개 검증은 앞선 공통 조건 작업의 결과이며 이번에 전체 회귀·수동 플레이·이미지 렌더링은 재실행하지 않았다. 남은 스킬 효과·애니메이션·적 AI·사망 행동·반복 전투 흐름은 유지한다.
+
+최신 공통 액션 조건 기준: **2026-10-31**. PlayerAction에 직렬화 설정 `requiresGrounded`(기본 false)·`canMove`(기본 true)와 읽기 전용 RequiresGrounded·CanMove를 추가했다. 접지 필요 액션은 부모가 수신 자격·시작·선딜 완료 시 Motor.IsGrounded를 검사하며 PlayerMotor의 대시 전용 접지 자격 검사는 제거했다. Combatant가 BlocksMovement를 집계하고 Motor가 CanMove=false 액션의 선딜·Active·후딜 동안 일반 이동·새 점프를 막는다. 중력·충돌·시점은 유지한다. SampleScene의 대시는 지면 전용을 유지하며 Skill2(F)는 지면 전용·이동 허용, Ultimate(Q)는 공중 사용 가능·이동 금지다. 두 스킬은 PlayerAction을 직접 상속해 Attack 없이 선딜 0.5초 후 실행 로그·ActionExecuted를 한 번 알리고 후딜 1초를 사용한다. 수락 시 장전을 취소하지만 피해·AttackExecuted·탄약 소모·최종 스킬 효과·전용 애니메이션은 추가하지 않았다. 상세 설정과 이번 직접 검증은 [PlayerAction 설계](PlayerAction%20설계.md) 11절과 `Logs/ActionRestrictions_20261031/`을 참고한다. 아래 2026-10-30의 미구성 Skill2·Ultimate 및 Motor 접지 검사 기록은 변경 전 상태다.
+
+공통 조건의 이번 직접 검증: Unity 6000.3.25f1에서 새 조건 39개·공통 액션 43개·대시 70개·선입력 85개·행동 제한 110개·장전 40개·플레이어 공격 50개, 총 **437개**와 애니메이션 17발·이동·점프·IK·장전·투척·벽·정지를 통과했다. .NET 빌드는 경고·오류 0이며 씬 변경 범위·기존 meta/공격/투사체/애니메이션 보존·새 GUID 유일성과 git diff --check를 확인했다. 로그는 `Logs/ActionRestrictions_20261031/`이다. 이전 날짜 결과와 별도이며 실제 키·마우스 수동 플레이·이미지 렌더링·공통 Attack/Mortal/Projectile·스태미나 독립 검증은 이번에 재실행하지 않았다. 실제 스킬 효과·애니메이션·적 AI·사망 행동·반복 전투 흐름은 후속 작업이다.
+
 최신 공격 Origin 책임 기준: **2026-10-30**. 기본 `origin` 직렬화 필드는 PlayerAttackAction에서 Attack으로 옮겼다. Inspector에서는 공격 액션에 Attack을, Attack 컴포넌트에 Origin을 연결한다. PlayerAttackAction.Origin과 PlayerActionBinding.Origin은 Attack.Origin을 조회하며 별도로 저장하지 않는다. SampleScene의 세 Attack은 기존 Muzzle을 그대로 참조한다. 요청별 Transform·고정 월드 위치 API와 선딜 완료 시 최신 위치 조회·총구 삭제 시 실행 실패·벽 보정 규칙은 유지한다. 이번 검증은 [PlayerAction 설계](PlayerAction%20설계.md)의 Origin 이관 기록을 참고한다.
 
 Origin 이관의 이번 직접 검증: Unity 6000.3.25f1에서 공통 공격 75개·플레이어 공격 50개·장전 40개·선입력 85개, 총 250개와 애니메이션 17발·이동·점프·IK·장전·투척·벽·정지를 통과했다. .NET 빌드 경고·오류 0, 씬 변경 범위·meta 보존과 git diff --check를 확인했다. 로그는 `Logs/AttackOrigin_20261030/`이며 아래의 앞선 PlayerAction 검증과 별도다. 수동 플레이·이미지 렌더링과 다른 독립 검증은 재실행하지 않았다. 남은 스킬 효과·손 투척 지점·추가 애니메이션·적 AI·사망 행동·반복 전투 흐름은 유지한다.
 
 최신 전투 액션 리팩토링 기준: **2026-10-30, 구현**. 공통 부모 `PlayerAction`과 사용자 지정 **Soilder** 접두사의 기본·보조 발사·Skill1·Skill2·Ultimate·Dash·Reload 액션을 구현했다. 기존 PlayerAction enum·AttackSlot은 PlayerActionSlot으로 통합했다. AttackData 계열에는 공격 속성만 두고 선딜·후딜·쿨타임·repeatWhileHeld와 실행 상태는 PlayerAction으로 이관했다. Attack은 액션이 호출하는 동기 효과 실행기이며 독립 타이머·TryAttack·LateUpdate는 제거했다. 현재 세 공격·피해·Muzzle·GUID와 선입력 규칙은 유지한다. Skill2·Ultimate 클래스는 미구성 상태여서 효과를 실행하지 않는다. 상세 책임·API·저장값·이번 검증은 [PlayerAction 설계](PlayerAction%20설계.md)를 참고한다.
 
-최신 대시 조건 기준: **2026-10-30**. 대시는 지면에 접지 중일 때만 시작한다. PlayerMotor.CanDash가 IsGrounded를 확인하며 Controller는 수신 자격을 확인하고 SoilderDashAction이 실행 직전 접지·자원을 다시 검사한다. 공중의 Dash.Pressed는 공격·대시 딜레이 중에도 예약하지 않으며 직접 TryDash 호출도 거절한다. 공격·대시 딜레이 중 예약된 대시는 첫 실행 기회에 접지를 다시 검사하고 공중이면 소비·폐기하며 착지를 기다리지 않는다. 이전 날짜 기록의 공중 대시 허용은 당시 상태다.
+최신 대시 조건 기준: **2026-10-31, 검사 책임 이관**. 대시는 지면에 접지 중일 때만 시작한다. 대시 액션의 RequiresGrounded=true 설정을 PlayerAction이 검사하며 Controller는 수신 자격을 확인하고 실제 실행 직전에도 부모의 접지 검사와 SoilderDashAction의 자원 검사를 거친다. 공중의 Dash.Pressed는 공격·대시 딜레이 중에도 예약하지 않으며 직접 TryDash 호출도 거절한다. 공격·대시 딜레이 중 예약된 대시는 첫 실행 기회에 접지를 다시 검사하고 공중이면 소비·폐기하며 착지를 기다리지 않는다. 이전 날짜 기록의 공중 대시 허용은 당시 상태다.
 
 최신 클래스명 변경 기준: **2026-10-30**. PlayerAimController → PlayerAim, PlayerAnimationController → PlayerAnimation, PlayerAttackController → PlayerCombat, PlayerCameraController → PlayerCamera로 클래스·파일·참조를 변경했다. PlayerController 이름은 유지한다. 네 스크립트의 meta GUID와 직렬화 필드명·씬 참조·실행 순서·기능은 유지한다. 과거 날짜 기록의 이전 이름은 당시 이름이다.
 
@@ -82,8 +88,8 @@ Origin 이관의 이번 직접 검증: Unity 6000.3.25f1에서 공통 공격 75�
 | Space | 점프 | 지상 점프와 Jump Up/Loop/Down 애니메이션 구현; 공격 선딜·후딜·대시 후딜에도 허용, 대시 이동 중 거절 |
 | 왼쪽·오른쪽 Shift | 스태미나를 소모하는 대시, 쿨타임 없음 | 접지 중에만 이동 입력 방향 또는 무입력 시 전방으로 대시, 5m/0.2초·후딜레이 0.3초, 스태미나 25; 대시 이동 중 일반 이동·점프 차단, 후딜 중 이동·점프 허용; 두 구간에서 공격·장전·재대시 금지 |
 | E | Skill1: 수류탄 투척 | TempGrenade의 기존 Grenade, 2.5초 후 기본 폭발 피해 100, 누름당 한 번 |
-| F | Skill2: 효과 미정 | `Skill2` 입력 상태와 로그만 구현 |
-| Q | 궁극기 | `Ultimate` 입력 상태와 로그만 구현 |
+| F | Skill2: 효과 미정 | 지면 전용·이동 허용 검증용 액션; 선딜 0.5초 뒤 실행 로그·후딜 1초 |
+| Q | 궁극기 | 공중 사용 가능·이동 금지 검증용 액션; 선딜 0.5초 뒤 실행 로그·후딜 1초 |
 | Esc / 커서 해제 후 좌클릭 | 커서 해제 / 조작 재개 | 구현; 재잠금 클릭은 사격에서 제외 |
 
 ### 적·보스와 강화
@@ -121,7 +127,7 @@ Origin 이관의 이번 직접 검증: Unity 6000.3.25f1에서 공통 공격 75�
 | 소총·탄약·재장전 | 기본 발사 탄창·실제 장전 구현 | PrimaryFire 성공당 1발 차감, MaxMagazine까지 장전. R 수동·0발 지속 자동 시도, 장전 중 기본·보조 발사 차단, 대시·스킬로 취소. 무제한 예비 탄약이며 HUD는 후속 작업 |
 | 플레이어 능력치 | 구현·일부 연결 | 이동속도·대시 거리→Motor, 최대 스태미나→PlayerStamina, 공격력·공격속도→PlayerAttackAction, 최대 탄창·장전 시간/속도→PlayerCombat를 연결했다. 최대 체력의 Mortal 동기화는 후속 작업 |
 | 대시·스태미나 | 이동·행동 제한·씬 연결 | PlayerStamina의 소모·지연 자동 회복 유지. Shift.Pressed에서 접지·실행 가능한 상태를 확인 후 25 소모, Motor가 입력 방향 또는 전방으로 대시한다. 거리/실제 이동/액션 후딜은 각 Inspector 설정이며 현재 5m/0.2초/0.3초. 대시·후딜 중 공격·장전·재대시 금지, 후딜 중 이동·점프 허용, 대기 공격·재장전 취소. 홀딩 반복·별도 쿨타임·무적·전용 애니메이션 없음 |
-| 정밀 조준·Skill2·궁극기 | 미구현 | F의 Skill2와 Q의 Ultimate는 입력·로그만 구현; 우클릭 정밀 조준 연결과 스킬 효과 구현 필요 |
+| 정밀 조준·Skill2·궁극기 | 스킬 조건 검증용 액션 구현 | F는 지면 전용·이동 허용, Q는 공중 사용 가능·이동 금지. 각각 선딜 0.5초·후딜 1초와 실행 로그·장전 취소를 연결; 실제 정밀 조준·스킬 효과·궁극기 자원은 미구현 |
 | 체력·피해·사망 | 플레이어·공격 연결 | Player의 Mortal HP 100·Combatant와 실제 공격 피해 전달을 연결했다. 사망 시 Attack 요청·대기 실행 중단. 사망 시 이동 중단·연출·부활과 적 AI·씬 연결은 미구현 |
 | 적 AI·적 공격 | 미구현 | Striker·Gunner의 추적, 거리 유지, 공격 예고, 공격·사망 처리 필요 |
 | 웨이브·강화 선택 | 미구현 | 적 생성, 클리어 판정, 전투 정지, 강화 제시·적용 필요 |
@@ -137,8 +143,8 @@ Origin 이관의 이번 직접 검증: Unity 6000.3.25f1에서 공통 공격 75�
 |---|---|---|
 | Dash | 좌·우 Shift | 스태미나·실제 대시 이동·후딜레이·행동 제한 구현; 전용 애니메이션·무적은 후속 작업 |
 | Skill1 | E | Toss Grenade 상체 애니메이션 연결 완료. 실제 투척 시점·Muzzle Origin·오프셋·발사각은 기존 값 유지; 손 투척 지점은 후속 작업 |
-| Skill2 | F | 애니메이션 추가 예정; 입력·로그만 구현, 효과 설계·실행 기능 필요 |
-| Ultimate | Q | 애니메이션 추가 예정; 입력·로그만 구현, 효과·발동 조건 설계·실행 기능 필요 |
+| Skill2 | F | 애니메이션 추가 예정; 지면 전용 검증용 액션·딜레이·실행 로그 구현, 실제 효과 설계·실행 기능 필요 |
+| Ultimate | Q | 애니메이션 추가 예정; 이동 금지 검증용 액션·딜레이·실행 로그 구현, 실제 효과·자원·발동 조건 설계 필요 |
 
 ### 코드와 에셋의 위치
 
@@ -163,8 +169,9 @@ Origin 이관의 이번 직접 검증: Unity 6000.3.25f1에서 공통 공격 75�
 | `Assets/Scripts/Player/PlayerCamera.cs` | 시점 회전, 플레이어 추적, 카메라 장애물 검사 |
 | `Assets/Scripts/Player/PlayerActionBinding.cs` | PlayerActionSlot·PlayerAction 연결. 공격 참조는 공격 액션에서 조회 |
 | `Assets/Scripts/Player/PlayerAction.cs`, `PlayerAttackAction.cs` | 행동의 공통 생명주기·시간·조건·제한·취소 / Attack 실행 어댑터 |
-| `Assets/Scripts/Player/Actions/Soilder…Action.cs` | 일곱 캐릭터별 전투 액션. Skill2·Ultimate 효과는 미구성 |
+| `Assets/Scripts/Player/Actions/Soilder…Action.cs` | 일곱 캐릭터별 전투 액션. Skill2·Ultimate는 조건 검증용 딜레이·실행 로그, 실제 효과는 미구현 |
 | `Assets/Editor/PlayerActionValidation.cs` | 새 부모·일곱 연결·공격 없는 유지형 행동·사격 공존·해제·슬롯별 제한·대시 확정/정리 검증 |
+| `Assets/Editor/PlayerActionRestrictionValidation.cs` | 공통 접지 수신/실행 재검사·예약 폐기·두 스킬 딜레이/로그·이동/점프 제한·중력·정지·해제·집계·장전 취소 검증 |
 | `Assets/Scripts/Player/PlayerCombat.cs` | Controller의 한 프레임 명령 소비·최종 검사, 바인딩별 최신 조준·능력치·공격 요청·실행 이벤트, 기본 발사 탄창·장전·취소·시작/완료 이벤트. 버튼·선입력 직접 관리 없음. 장전 상태/작업은 SoilderReloadAction에 위임 |
 | `Assets/Scripts/Projectiles/Projectile.cs` | 추상 기반 클래스; Rigidbody 초기화, 수명, 충돌 전달, 발사자 충돌 제외·복구, 반환 |
 | `Assets/Scripts/Projectiles/ProjectileBullet.cs` | 중력 없는 직선 물리 총알; 충돌 시 반환 |
@@ -196,7 +203,7 @@ Origin 이관의 이번 직접 검증: Unity 6000.3.25f1에서 공통 공격 75�
 - PlayerAction.Blocks(slot)와 Combatant의 액션 집계가 같은 소유자의 전투 제한을 판단한다. 바인딩 없는 직접 액션 요청도 동일한 자격 검사를 받는다. Controller는 선택한 슬롯을 실제로 막는 딜레이만 기다리므로 비차단 유지형 행동과 슬롯별 제한을 확장할 수 있다. Motor.CanJump는 기존 규칙을 유지하고 CanPerformActions는 액션 딜레이를 조회한다. 액션 실행 프레임 잠금은 효과 호출 전에 확정해 0초 설정·이벤트 재진입을 막는다.
 - OnReloadStarted·OnReloadCompleted는 상태 갱신 후 각각 한 번 발생한다. 취소는 보충·완료 이벤트를 발생시키지 않는다. Animation은 장전 입력이나 독립 타이머 대신 시작 이벤트를 구독하며 ReloadSpeedMultiplier float를 Reloading 상태에만 적용한다. 진행 중 배율 강화는 남은 기본 작업량과 애니메이션에 함께 반영하고 일시정지 시 둘 다 멈춘다. 장전 중에는 사격 홀딩 여부와 관계없이 Aim 보정을 푼다.
 - 입력은 코드에서 만든 액션 맵을 사용한다. 템플릿 `Assets/InputSystem_Actions.inputactions`는 현재 플레이어 조작에 사용하지 않는다.
-- Dash=좌·우 Shift, Skill1=E, Skill2=F, Ultimate=Q, Reload=R을 유지한다. Controller는 입력·예약·반복·자동 장전을 선택하고 PlayerCombat/PlayerAction이 실행 조건을 최종 검사한다. 대시는 수신·실행 모두 접지해야 하며 일반 이동·점프는 예약하지 않는다. Skill2·Ultimate는 미구성 액션으로 성공·자원 소모·타이밍을 만들지 않는다. 버튼 해제와 조작 중단은 다른 행동 잠금 중에도 유지형 액션을 정리한다.
+- Dash=좌·우 Shift, Skill1=E, Skill2=F, Ultimate=Q, Reload=R을 유지한다. Controller는 입력·예약·반복·자동 장전을 선택하고 PlayerCombat/PlayerAction이 실행 조건을 최종 검사한다. 대시·Skill2는 RequiresGrounded=true이며 수신·시작·효과 실행에 접지가 필요하다. 일반 이동·점프는 예약하지 않는다. Skill2·Ultimate는 검증용 딜레이와 실행 로그·ActionExecuted를 사용하며 실제 피해·자원 효과는 없다. CanMove=false 액션은 선딜·Active·후딜 동안 일반 이동·점프를 막고 예약 중에는 막지 않는다. 버튼 해제와 조작 중단은 다른 행동 잠금 중에도 유지형 액션을 정리한다.
 - 액션·공개 멤버·로그 상태명은 PascalCase, 비공개 필드·지역 변수는 camelCase를 따른다. Inspector 설정은 `[SerializeField]` 필드로 관리한다.
 - `Mortal.isDead`는 사용자가 요청한 공개 이름을 그대로 유지하는 예외다. `HP`와 `isDead`는 읽기 전용, `IsInvincible`은 읽기·쓰기가 가능하다. `TakeDamage(int damage, GameObject attacker)`는 실제 HP 감소량과 공격자를 `OnDamaged`에 전달하고, 치명 피해에서는 이후 `Dead(attacker)`로 `OnDead`를 한 번 발생시킨다. 파생 클래스는 재정의 시 기본 구현을 호출한다.
 - 투사체 이동은 Rigidbody가 담당한다. `ProjectilePool.Spawn()`이 `Launch()`까지 호출하며 반환은 `Despawn()`을 사용한다. 외부의 직접 비활성화·삭제는 풀의 대여 상태를 어긋나게 할 수 있다.

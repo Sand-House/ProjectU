@@ -46,6 +46,17 @@ namespace ProjectU
             }
         }
 
+        public bool IsMovementLocked
+        {
+            get
+            {
+                GetComponents(actions);
+                foreach (PlayerAction action in actions)
+                    if (action.BlocksMovement) return true;
+                return false;
+            }
+        }
+
         internal bool BlocksAction(PlayerActionSlot slot, bool ignoreDelay, PlayerAction except = null)
         {
             GetComponents(actions);
