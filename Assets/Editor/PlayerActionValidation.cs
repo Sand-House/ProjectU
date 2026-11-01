@@ -47,13 +47,13 @@ namespace ProjectU.Editor
         protected override bool BlocksCore(PlayerActionSlot slot) => false;
         public int Starts { get; private set; }
         public int Cleanups { get; private set; }
-        protected override bool CheckRequirements(in PlayerActionContext request) => true;
-        protected override PlayerActionResult ExecuteCore(in PlayerActionContext request)
+        protected override bool CheckRequirements(in ActionContext request) => true;
+        protected override ActionResult ExecuteCore(in ActionContext request)
         {
             Starts++;
-            return PlayerActionResult.Running;
+            return ActionResult.Running;
         }
-        protected override void Cleanup(PlayerActionCancelReason reason) => Cleanups++;
+        protected override void Cleanup(ActionCancelReason reason) => Cleanups++;
     }
 
     // Selective blocking must not turn every action into an exclusive current action.
@@ -61,8 +61,8 @@ namespace ProjectU.Editor
     {
         public override PlayerActionSlot Slot => PlayerActionSlot.Ultimate;
         protected override bool BlocksCore(PlayerActionSlot slot) => slot == PlayerActionSlot.Skill1;
-        protected override bool CheckRequirements(in PlayerActionContext request) => true;
-        protected override PlayerActionResult ExecuteCore(in PlayerActionContext request) => PlayerActionResult.Running;
+        protected override bool CheckRequirements(in ActionContext request) => true;
+        protected override ActionResult ExecuteCore(in ActionContext request) => ActionResult.Running;
     }
 
     [DefaultExecutionOrder(-150)]
@@ -81,6 +81,7 @@ namespace ProjectU.Editor
 
         private IEnumerator Start()
         {
+            EnemyValidationIsolation.DisableDemoEnemies();
             IEnumerator validation = Validate();
             while (true)
             {
@@ -118,8 +119,9 @@ namespace ProjectU.Editor
             {
                 Check(typeof(AttackData).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic) == null,
                     field + " removed from attack data");
-                Check(typeof(PlayerAction).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic) != null,
-                    field + " belongs to PlayerAction");
+                Type fieldOwner = field == "repeatWhileHeld" ? typeof(PlayerAction) : typeof(ActionBase);
+                Check(fieldOwner.GetField(field, BindingFlags.Instance | BindingFlags.NonPublic) != null,
+                    field + " belongs to " + fieldOwner.Name);
             }
             Check(typeof(Attack).GetMethod("TryAttack") == null && typeof(Attack).GetMethod("LateUpdate",
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) == null,
@@ -137,14 +139,14 @@ namespace ProjectU.Editor
             hold = input.gameObject.AddComponent<PlayerActionHoldProbe>();
             Check(hold.TryStart(), "attack-free held action accepts direct request");
             yield return null;
-            Check(hold.Phase == PlayerActionPhase.Active && combat.CanStart(PlayerActionSlot.PrimaryFire),
+            Check(hold.Phase == ActionPhase.Active && combat.CanStart(PlayerActionSlot.PrimaryFire),
                 "held action remains active and permits firing");
             Check(combat.TryStartAction(PlayerActionSlot.PrimaryFire), "fire starts alongside held effect");
             yield return null;
-            Check(shots == 1 && hold.Phase == PlayerActionPhase.Active, "shot and held effect execute independently");
+            Check(shots == 1 && hold.Phase == ActionPhase.Active, "shot and held effect execute independently");
             Check(!combat.CanStart(PlayerActionSlot.PrimaryFire), "shot recovery still blocks a second shot");
             hold.Release();
-            Check(hold.Phase == PlayerActionPhase.Ready && hold.Cleanups == 1,
+            Check(hold.Phase == ActionPhase.Ready && hold.Cleanups == 1,
                 "release cleans held effect while attack recovery is locked");
             yield return new WaitForSeconds(0.25f);
 
@@ -160,16 +162,16 @@ namespace ProjectU.Editor
             holdHeld = holdPress = true;
             yield return null;
             yield return null;
-            Check(hold.Phase == PlayerActionPhase.Active, "controller starts an action with no Attack reference");
+            Check(hold.Phase == ActionPhase.Active, "controller starts an action with no Attack reference");
             primaryPress = true;
             yield return null;
             yield return null;
-            Check(shots == 2 && hold.Phase == PlayerActionPhase.Active, "controller permits held effect and fire together");
+            Check(shots == 2 && hold.Phase == ActionPhase.Active, "controller permits held effect and fire together");
             holdHeld = false;
             holdRelease = true;
             yield return null;
             yield return null;
-            Check(hold.Phase == PlayerActionPhase.Ready && hold.Cleanups == 2,
+            Check(hold.Phase == ActionPhase.Ready && hold.Cleanups == 2,
                 "controller delivers release during another action's recovery");
             yield return new WaitForSeconds(0.25f);
 
@@ -202,11 +204,11 @@ namespace ProjectU.Editor
             holdHeld = holdPress = true;
             yield return null;
             yield return null;
-            Check(hold.Phase == PlayerActionPhase.Active, "new held press starts after discarded reservation");
+            Check(hold.Phase == ActionPhase.Active, "new held press starts after discarded reservation");
             gameplay = false;
             yield return null;
             yield return null;
-            Check(hold.Phase == PlayerActionPhase.Ready && controller.BufferedAction == PlayerActionSlot.None,
+            Check(hold.Phase == ActionPhase.Ready && controller.BufferedAction == PlayerActionSlot.None,
                 "input interruption cleans held state without requiring Released");
             holdHeld = false;
             gameplay = true;
@@ -225,7 +227,7 @@ namespace ProjectU.Editor
             stamina.OnChanged += (current, max) =>
             {
                 if (current == prior - 25f)
-                    committedState = motor.IsDashing && combat.GetAction(PlayerActionSlot.Dash).Phase == PlayerActionPhase.Active;
+                    committedState = motor.IsDashing && combat.GetAction(PlayerActionSlot.Dash).Phase == ActionPhase.Active;
             };
             Check(motor.TryDash(Vector3.forward), "public motor dash passes through the action");
             Check(committedState && dashes == 1 && stamina.Current == prior - 25f,

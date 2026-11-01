@@ -64,6 +64,7 @@ namespace ProjectU.Editor
 
         private IEnumerator Start()
         {
+            EnemyValidationIsolation.DisableDemoEnemies();
             IEnumerator validation = Validate();
             while (true)
             {
@@ -172,7 +173,7 @@ namespace ProjectU.Editor
             heldMask = 0;
             pressMask = 3;
             yield return new WaitForSeconds(0.1f);
-            Check(attacks.CurrentAmmo == 0 && !attacks.IsReloading && PlayerActionValidationUtility.For(primary).Phase == PlayerActionPhase.Recovery && starts == 1,
+            Check(attacks.CurrentAmmo == 0 && !attacks.IsReloading && PlayerActionValidationUtility.For(primary).Phase == ActionPhase.Recovery && starts == 1,
                 "last primary recovery blocks secondary fire and defers automatic reload");
             while (starts < 2) yield return null;
             Check(primaryShots == previousPrimary + 30 && attacks.CurrentAmmo == 0 && attacks.IsReloading,
@@ -196,10 +197,10 @@ namespace ProjectU.Editor
             SetField(grenade, "data", grenadeData);
             pressMask = 4;
             yield return new WaitForSeconds(0.05f);
-            Check(!attacks.IsReloading && PlayerActionValidationUtility.For(grenade).Phase == PlayerActionPhase.Windup && attacks.CurrentAmmo == 0,
+            Check(!attacks.IsReloading && PlayerActionValidationUtility.For(grenade).Phase == ActionPhase.Windup && attacks.CurrentAmmo == 0,
                 "accepted skill cancels reload immediately at windup start");
             yield return new WaitForSeconds(0.2f);
-            Check(!attacks.IsReloading && skills == 1 && PlayerActionValidationUtility.For(grenade).Phase == PlayerActionPhase.Recovery,
+            Check(!attacks.IsReloading && skills == 1 && PlayerActionValidationUtility.For(grenade).Phase == ActionPhase.Recovery,
                 "skill recovery blocks empty auto reload");
             while (!attacks.IsReloading) yield return null;
             Check(starts == 4 && PlayerActionValidationUtility.For(grenade).CooldownRemaining > 0f && attacks.CurrentAmmo == 0,
@@ -279,10 +280,10 @@ namespace ProjectU.Editor
             SetField(primaryData, "windupTime", 0.2f);
             pressMask = 1;
             yield return new WaitForSeconds(0.05f);
-            Check(PlayerActionValidationUtility.For(primary).Phase == PlayerActionPhase.Windup && attacks.CurrentAmmo == 5, "primary reserves no ammo before execution");
+            Check(PlayerActionValidationUtility.For(primary).Phase == ActionPhase.Windup && attacks.CurrentAmmo == 5, "primary reserves no ammo before execution");
             pressMask = 8;
             yield return new WaitForSeconds(0.1f);
-            Check(PlayerActionValidationUtility.For(primary).Phase == PlayerActionPhase.Windup && !attacks.IsReloading && attacks.CurrentAmmo == 5,
+            Check(PlayerActionValidationUtility.For(primary).Phase == ActionPhase.Windup && !attacks.IsReloading && attacks.CurrentAmmo == 5,
                 "manual reload is rejected during primary windup without cancelling it");
             Check(PlayerActionValidationUtility.For(primary).Cancel() && attacks.CurrentAmmo == 5,
                 "explicit primary cancellation does not consume ammo");

@@ -19,7 +19,7 @@ namespace ProjectU
         public event Action OnExecuted;
 
         // Action timing and authorization precede this synchronous effect call.
-        internal bool TryExecute(PlayerAction action, Vector3 position, Vector3 worldAimPoint, float damageMultiplier)
+        internal bool TryExecute(ActionBase action, Vector3 position, Vector3 worldAimPoint, float damageMultiplier)
         {
             if (action == null || !action.IsExecuting || action.Owner != Owner ||
                 !IsConfiguredForExecution || Time.timeScale <= 0f ||

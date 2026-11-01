@@ -12,7 +12,7 @@ namespace ProjectU
     {
         [SerializeField] private Faction faction = Faction.Enemy;
         private Mortal mortal;
-        private readonly List<PlayerAction> actions = new List<PlayerAction>();
+        private readonly List<ActionBase> actions = new List<ActionBase>();
 
         public Faction Faction { get => faction; set => faction = value; }
         public Mortal Mortal
@@ -29,7 +29,7 @@ namespace ProjectU
             get
             {
                 GetComponents(actions);
-                foreach (PlayerAction action in actions)
+                foreach (ActionBase action in actions)
                     if (action.IsAttackAction && action.IsDelayLocked) return true;
                 return false;
             }
@@ -40,7 +40,7 @@ namespace ProjectU
             get
             {
                 GetComponents(actions);
-                foreach (PlayerAction action in actions)
+                foreach (ActionBase action in actions)
                     if (action.IsDelayLocked) return true;
                 return false;
             }
@@ -51,7 +51,7 @@ namespace ProjectU
             get
             {
                 GetComponents(actions);
-                foreach (PlayerAction action in actions)
+                foreach (ActionBase action in actions)
                     if (action.BlocksMovement) return true;
                 return false;
             }
@@ -60,16 +60,25 @@ namespace ProjectU
         internal bool BlocksAction(PlayerActionSlot slot, bool ignoreDelay, PlayerAction except = null)
         {
             GetComponents(actions);
-            foreach (PlayerAction action in actions)
-                if (action != except && !(ignoreDelay && action.IsDelayLocked) && action.Blocks(slot)) return true;
+            foreach (ActionBase action in actions)
+                if (action != except && !(ignoreDelay && action.IsDelayLocked) &&
+                    (action is PlayerAction player ? player.Blocks(slot) : action.IsDelayLocked)) return true;
+            return false;
+        }
+
+        internal bool BlocksAction(ActionBase requested, bool ignoreDelay, ActionBase except = null)
+        {
+            GetComponents(actions);
+            foreach (ActionBase action in actions)
+                if (action != except && !(ignoreDelay && action.IsDelayLocked) && action.Blocks(requested)) return true;
             return false;
         }
 
         internal bool IsDelayBlocking(PlayerActionSlot slot)
         {
             GetComponents(actions);
-            foreach (PlayerAction action in actions)
-                if (action.IsDelayLocked && action.Blocks(slot)) return true;
+            foreach (ActionBase action in actions)
+                if (action.IsDelayLocked && (action is PlayerAction player ? player.Blocks(slot) : true)) return true;
             return false;
         }
 

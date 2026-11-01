@@ -1,5 +1,11 @@
 # ProjectU 프로젝트 지침
 
+최신 적·공통 액션 기준: **2026-11-01**. `ActionBase`를 공통 부모로 추가하고 PlayerAction·EnemyAction이 직접 상속한다. 공통 타이밍·조건·제한·취소·이벤트는 ActionBase, 슬롯·홀딩·선입력 자격은 PlayerAction이 담당한다. 공통 타입은 ActionContext·ActionPhase·ActionResult·ActionCancelReason이며 PlayerActionSlot·PlayerActionStage는 유지한다. Attack.TryExecute는 ActionBase를 받고 Combatant는 모든 ActionBase를 집계한다. 모든 MeleeAttack은 원/부채꼴·플레이어/적 구분 없이 월드 벽 가림을 검사한다.
+
+`TempEnemy.prefab`과 SampleScene의 연결된 인스턴스 **5기**, 베이크된 NavMesh를 추가했다. 적은 EnemyStateBase를 상속하는 Idle·Chase·Combat·Dead 네 상태, Inspector에서 편집하는 EnemySensor의 시야각·거리·눈 위치·간격·장애물 마스크, 피격 인식, NavMesh 추격, EnemyAttackAction의 근접 공격을 사용한다. 초기 HP 100, 피해 15, 선딜 0.5초·후딜 0.8초·쿨타임 1.2초다. Mortal.OnDead에서 Dead 정리 후 Destroy한다. 적 메시·애니메이션·지연 비활성화·스테이지 일괄 제거·Gunner 거리 유지·보스·웨이브 흐름은 후속 작업이다. 상세 구조와 새 적 생성 방법은 [Enemy.md](Enemy.md), 이번 검증 로그는 `Logs/Enemy_20261101/`을 참고한다. 아래 이전 날짜의 적 AI 미구현·PlayerAction 공통 부모 기록은 당시 상태다.
+
+적·ActionBase의 이번 직접 검증: **2026-11-01**, Unity 6000.3.25f1에서 적 70개·공통 조건 39개·플레이어 액션 43개·공통 공격 75개·플레이어 공격 50개·대시 70개·장전 40개·행동 제한 110개·선입력 85개, 총 **582개**와 애니메이션 17발·이동·점프·IK·장전·투척·벽·정지, 스태미나·Mortal·Projectile까지 **13종 모두 종료 코드 0**을 확인했다. .NET 빌드 경고·오류 0, 기존 meta/공격 데이터/투사체/애니메이션 변경 0, 기존 씬 블록 115개 보존, 새 GUID 유일성과 git diff --check를 확인했다. 씬 전체·캡슐 근접 렌더 2장을 열어 확인했으며 실제 키·마우스 수동 플레이는 수행하지 않았다. 상세 결과는 Enemy.md 11절과 `Logs/Enemy_20261101/`에 있다. 이전 검증 기록과 구분한다.
+
 최신 입력 로그 기준: **2026-10-31, 홀딩 로그까지 제거**. PlayerController의 버튼 누름(Pressed)·홀딩(Held)·해제(Released) 로그를 모두 제거했다. logInput·heldLogInterval·전용 타이머·Handle 메서드와 씬의 저장값, 검증 코드의 옛 설정 접근도 제거했다. Skill2/Ultimate 실행 로그와 실제 입력 스냅샷·행동 선택·선입력·해제 전달·홀딩 반복은 유지한다. 이번에는 Unity 6000.3.25f1에서 PlayerActionRestrictionValidation **39개**를 직접 실행해 종료 코드 0으로 통과했고, 입력 로그 0건·두 스킬 실행 로그 각 1건을 확인했다. .NET 빌드 경고·오류 0, 런타임·씬·검증 코드의 옛 로그 참조 0건 및 git diff --check를 확인했다. 로그는 `Logs/HeldInputLogRemoval_20261031/`이며 앞선 누름·해제만 제거한 빌드는 `Logs/InputButtonLogs_20261031/`다. 아래 Unity 437개 검증은 앞선 공통 조건 작업의 결과이며 이번에 전체 회귀·수동 플레이·이미지 렌더링은 재실행하지 않았다. 남은 스킬 효과·애니메이션·적 AI·사망 행동·반복 전투 흐름은 유지한다.
 
 최신 공통 액션 조건 기준: **2026-10-31**. PlayerAction에 직렬화 설정 `requiresGrounded`(기본 false)·`canMove`(기본 true)와 읽기 전용 RequiresGrounded·CanMove를 추가했다. 접지 필요 액션은 부모가 수신 자격·시작·선딜 완료 시 Motor.IsGrounded를 검사하며 PlayerMotor의 대시 전용 접지 자격 검사는 제거했다. Combatant가 BlocksMovement를 집계하고 Motor가 CanMove=false 액션의 선딜·Active·후딜 동안 일반 이동·새 점프를 막는다. 중력·충돌·시점은 유지한다. SampleScene의 대시는 지면 전용을 유지하며 Skill2(F)는 지면 전용·이동 허용, Ultimate(Q)는 공중 사용 가능·이동 금지다. 두 스킬은 PlayerAction을 직접 상속해 Attack 없이 선딜 0.5초 후 실행 로그·ActionExecuted를 한 번 알리고 후딜 1초를 사용한다. 수락 시 장전을 취소하지만 피해·AttackExecuted·탄약 소모·최종 스킬 효과·전용 애니메이션은 추가하지 않았다. 상세 설정과 이번 직접 검증은 [PlayerAction 설계](PlayerAction%20설계.md) 11절과 `Logs/ActionRestrictions_20261031/`을 참고한다. 아래 2026-10-30의 미구성 Skill2·Ultimate 및 Motor 접지 검사 기록은 변경 전 상태다.
@@ -37,6 +43,7 @@ Origin 이관의 이번 직접 검증: Unity 6000.3.25f1에서 공통 공격 75�
 - [공격 구현 가이드](공격%20구현%20가이드.md): 공격 데이터·입력·실행·진영·피해와 투사체 생명주기·풀·프리팹·검증을 합친 통합 문서.
 - [EnhancedInput.md](EnhancedInput.md): 클래스별 입력·실행 책임, 한 개 선입력·최대 유지 시간·대시 우선순위·실행 실패와 조작 중단 규칙.
 - [PlayerAction 설계](PlayerAction%20설계.md): 구현된 전투 액션의 책임·타이밍·상속·바인딩·저장값 이관과 이번 검증.
+- [Enemy.md](Enemy.md): 적 FSM·감지·이동·액션·공격·사망, TempEnemy 구성과 새로운 적 생성 방법.
 
 ## 2. 프로젝트 설명
 
@@ -111,7 +118,7 @@ Origin 이관의 이번 직접 검증: Unity 6000.3.25f1에서 공통 공격 75�
 
 ## 4. 현재 구현 현황
 
-**현재는 플레이어 조작 및 물리 투사체 프로토타입 단계다. 조작 기반은 갖춰졌으며, 최소 전투와 한 판의 반복 흐름은 아직 구현하지 않았다.**
+**현재는 플레이어와 캡슐 근접 적이 서로 피해를 주는 전투 프로토타입 단계다. 적의 감지·추격·공격·사망 제거를 연결했으며, 웨이브·강화·보스·결과를 잇는 한 판의 반복 흐름은 아직 구현하지 않았다.**
 
 | 시스템 | 상태 | 실제 구현과 남은 범위 |
 |---|---|---|
@@ -122,14 +129,14 @@ Origin 이관의 이번 직접 검증: Unity 6000.3.25f1에서 공통 공격 75�
 | TPS 카메라 | 구현 | 어깨 뒤 추적, Yaw·pitch, 수직 각도 제한, SphereCast 장애물 회피 |
 | 발사·조준 | 프로토타입 구현 | 화면 중앙 조준점과 소총 자식 Muzzle을 상체·총구·실제 공격이 공유. 카메라 LateUpdate 이후 상체·총구 정렬 후 발사. 선딜이 끝나는 프레임의 총구 위치를 읽고 캐릭터~총구의 벽 검사·원점 보정·방향 재계산을 실행. 가까운 조준점의 총 후퇴와 수류탄 발사각 보정 유지 |
 | 투사체·풀 | 구현 | 공통 생명주기, Bullet, Grenade, 프리팹별 사전 생성·확장·대여·반환·용량 제한 |
-| 공통 공격 | 구현·플레이어 입력 연결 | 공통 진영·부위·타이밍·피해와 3종 실행을 구현. Player에 히트스캔 1개·투사체 공격 2개와 Temp 에셋을 연결했다. 같은 캐릭터의 공격 선딜·후딜 중 다른 공격·대시·장전을 차단하며 이동·지상 점프·시점을 유지한다. 적 AI는 후속 작업 |
+| 공통 공격 | 플레이어·근접 적 연결 | ActionBase 기반의 공통 타이밍·조건·제한과 3종 Attack을 사용. Player의 기존 세 공격을 유지하고 TempEnemy에 MeleeAttack을 연결. 모든 근접 공격에 벽 가림 적용 |
 | 수류탄 스킬 | 임시 기능 연결 | E에서 TempGrenade 투척, 기존 물리 튕김·2.5초 지연 폭발·기본 범위 피해 100·연출·풀 반환. AttackExecuted(Skill1) 성공으로 상체 투척 애니메이션 재생. 실제 발사 시점·Origin·오프셋·발사각은 유지. 현재 저장값은 후딜 1초·쿨타임 6초이며 최종 밸런스·엄폐물·넉백은 후속 작업 |
 | 소총·탄약·재장전 | 기본 발사 탄창·실제 장전 구현 | PrimaryFire 성공당 1발 차감, MaxMagazine까지 장전. R 수동·0발 지속 자동 시도, 장전 중 기본·보조 발사 차단, 대시·스킬로 취소. 무제한 예비 탄약이며 HUD는 후속 작업 |
 | 플레이어 능력치 | 구현·일부 연결 | 이동속도·대시 거리→Motor, 최대 스태미나→PlayerStamina, 공격력·공격속도→PlayerAttackAction, 최대 탄창·장전 시간/속도→PlayerCombat를 연결했다. 최대 체력의 Mortal 동기화는 후속 작업 |
 | 대시·스태미나 | 이동·행동 제한·씬 연결 | PlayerStamina의 소모·지연 자동 회복 유지. Shift.Pressed에서 접지·실행 가능한 상태를 확인 후 25 소모, Motor가 입력 방향 또는 전방으로 대시한다. 거리/실제 이동/액션 후딜은 각 Inspector 설정이며 현재 5m/0.2초/0.3초. 대시·후딜 중 공격·장전·재대시 금지, 후딜 중 이동·점프 허용, 대기 공격·재장전 취소. 홀딩 반복·별도 쿨타임·무적·전용 애니메이션 없음 |
 | 정밀 조준·Skill2·궁극기 | 스킬 조건 검증용 액션 구현 | F는 지면 전용·이동 허용, Q는 공중 사용 가능·이동 금지. 각각 선딜 0.5초·후딜 1초와 실행 로그·장전 취소를 연결; 실제 정밀 조준·스킬 효과·궁극기 자원은 미구현 |
-| 체력·피해·사망 | 플레이어·공격 연결 | Player의 Mortal HP 100·Combatant와 실제 공격 피해 전달을 연결했다. 사망 시 Attack 요청·대기 실행 중단. 사망 시 이동 중단·연출·부활과 적 AI·씬 연결은 미구현 |
-| 적 AI·적 공격 | 미구현 | Striker·Gunner의 추적, 거리 유지, 공격 예고, 공격·사망 처리 필요 |
+| 체력·피해·사망 | 플레이어·적 피해 연결 | Player·TempEnemy 모두 Mortal HP 100. 적은 OnDead에서 액션·이동·충돌 정리 후 Destroy. 플레이어 사망 이동 중단·연출·복귀와 적 지연 제거는 후속 작업 |
+| 적 AI·적 공격 | 근접형 TempEnemy 구현 | EnemyStateBase의 Idle·Chase·Combat·Dead, 시야/피격 인식, NavMesh 추격, 실제 근접 피해, 캡슐 프리팹 5기 배치. 공격 예고 시각 연출·애니메이션·Gunner 거리 유지·추가 패턴은 후속 작업 |
 | 웨이브·강화 선택 | 미구현 | 적 생성, 클리어 판정, 전투 정지, 강화 제시·적용 필요 |
 | 보스·결과·재시작 | 미구현 | 10웨이브 보스, 성공·실패, 한 판 상태 초기화 필요 |
 | 게임 UI·사운드·완성도 | 시각 프로토타입, 나머지 미구현 | X Bot 이동·점프·상체 동작, 임시 소총과 폭발 구체 제공; HUD·보상·결과 UI, 사운드·파티클·추가 애니메이션·밸런스·성능 개선 필요 |
@@ -168,7 +175,11 @@ Origin 이관의 이번 직접 검증: Unity 6000.3.25f1에서 공통 공격 75�
 | `Assets/Scripts/Player/PlayerAim.cs` | 카메라 갱신 후 척추·가슴 회전, 소총·총구 조준, 양팔 IK·가까운 조준점에서 소총 후퇴 |
 | `Assets/Scripts/Player/PlayerCamera.cs` | 시점 회전, 플레이어 추적, 카메라 장애물 검사 |
 | `Assets/Scripts/Player/PlayerActionBinding.cs` | PlayerActionSlot·PlayerAction 연결. 공격 참조는 공격 액션에서 조회 |
-| `Assets/Scripts/Player/PlayerAction.cs`, `PlayerAttackAction.cs` | 행동의 공통 생명주기·시간·조건·제한·취소 / Attack 실행 어댑터 |
+| `Assets/Scripts/Combat/ActionBase.cs`, `ActionTypes.cs` | 플레이어·적 공통 행동 생명주기·시간·조건·제한·취소·실행 정보 |
+| `Assets/Scripts/Player/PlayerAction.cs`, `PlayerAttackAction.cs` | 플레이어 슬롯·홀딩·선입력 자격·실행 단계 / Attack 실행 어댑터 |
+| `Assets/Scripts/Enemy/`, `States/` | 적 AI·감지·NavMesh 이동·액션 선택·실행과 EnemyStateBase를 상속하는 네 상태 |
+| `Assets/Prefabs/Enemies/`, `Assets/Scenes/Navigation/` | TempEnemy 캡슐 프리팹·머티리얼과 저장된 NavMesh |
+| `Assets/Editor/EnemyValidation.cs`, `TempEnemySetup.cs` | 적 자동 플레이 검증 / 데모 프리팹·이동 영역·씬 배치 도구 |
 | `Assets/Scripts/Player/Actions/Soilder…Action.cs` | 일곱 캐릭터별 전투 액션. Skill2·Ultimate는 조건 검증용 딜레이·실행 로그, 실제 효과는 미구현 |
 | `Assets/Editor/PlayerActionValidation.cs` | 새 부모·일곱 연결·공격 없는 유지형 행동·사격 공존·해제·슬롯별 제한·대시 확정/정리 검증 |
 | `Assets/Editor/PlayerActionRestrictionValidation.cs` | 공통 접지 수신/실행 재검사·예약 폐기·두 스킬 딜레이/로그·이동/점프 제한·중력·정지·해제·집계·장전 취소 검증 |
@@ -200,7 +211,7 @@ Origin 이관의 이번 직접 검증: Unity 6000.3.25f1에서 공통 공격 75�
 - Reader는 입력 수집, Controller는 행동 명령, Motor는 실제 이동을 담당한다. Motor는 입력과 카메라를 참조하지 않으며 이동·점프 명령은 한 업데이트에 소비한다.
 - SoilderDashAction이 접지·이동 구성·스태미나·슬롯 제한을 검사하고 이동·자원 상태를 확정한 뒤 Motor.OnDashExecuted를 한 번 알린다. 공개 Motor.TryDash도 이 액션을 거친다. 실제 이동 시간은 Motor, 후딜은 액션의 recoveryTime, 거리는 PlayerStat이 관리한다. Motor/대시 액션 비활성화는 이동·후딜 잠금을 정리하고 별도 쿨타임·전용 클립·무적은 추가하지 않았다.
 - 탄창의 원본은 PlayerCombat, 장전 상태·작업의 원본은 SoilderReloadAction이다. 기존 CurrentAmmo·MaxAmmo·IsReloading·ReloadRemaining·CanReload·TryReload/CancelReload API는 액션에 위임한다. 기본 발사 성공만 1발 소모한다. 장전 중 두 발사는 거절하고 대시 성공·스킬 수락은 보충 없이 취소한다. 공격 선딜·후딜 중 R·대시는 공격을 취소하지 못한다. 현재 수류탄 후딜 1초·쿨타임 6초와 애니메이션 비권위 규칙을 유지한다.
-- PlayerAction.Blocks(slot)와 Combatant의 액션 집계가 같은 소유자의 전투 제한을 판단한다. 바인딩 없는 직접 액션 요청도 동일한 자격 검사를 받는다. Controller는 선택한 슬롯을 실제로 막는 딜레이만 기다리므로 비차단 유지형 행동과 슬롯별 제한을 확장할 수 있다. Motor.CanJump는 기존 규칙을 유지하고 CanPerformActions는 액션 딜레이를 조회한다. 액션 실행 프레임 잠금은 효과 호출 전에 확정해 0초 설정·이벤트 재진입을 막는다.
+- ActionBase.Blocks(action)와 Combatant의 전체 액션 집계가 같은 소유자의 전투 제한을 판단한다. PlayerAction.Blocks(slot)은 플레이어 슬롯별 정책을 유지한다. 바인딩 없는 직접 액션 요청도 동일한 자격 검사를 받는다. Controller는 선택한 슬롯을 실제로 막는 딜레이만 기다린다. 실행 프레임 잠금은 효과 호출 전에 확정해 0초 설정·이벤트 재진입을 막는다. EnemyCombat에는 별도 타이머를 두지 않는다.
 - OnReloadStarted·OnReloadCompleted는 상태 갱신 후 각각 한 번 발생한다. 취소는 보충·완료 이벤트를 발생시키지 않는다. Animation은 장전 입력이나 독립 타이머 대신 시작 이벤트를 구독하며 ReloadSpeedMultiplier float를 Reloading 상태에만 적용한다. 진행 중 배율 강화는 남은 기본 작업량과 애니메이션에 함께 반영하고 일시정지 시 둘 다 멈춘다. 장전 중에는 사격 홀딩 여부와 관계없이 Aim 보정을 푼다.
 - 입력은 코드에서 만든 액션 맵을 사용한다. 템플릿 `Assets/InputSystem_Actions.inputactions`는 현재 플레이어 조작에 사용하지 않는다.
 - Dash=좌·우 Shift, Skill1=E, Skill2=F, Ultimate=Q, Reload=R을 유지한다. Controller는 입력·예약·반복·자동 장전을 선택하고 PlayerCombat/PlayerAction이 실행 조건을 최종 검사한다. 대시·Skill2는 RequiresGrounded=true이며 수신·시작·효과 실행에 접지가 필요하다. 일반 이동·점프는 예약하지 않는다. Skill2·Ultimate는 검증용 딜레이와 실행 로그·ActionExecuted를 사용하며 실제 피해·자원 효과는 없다. CanMove=false 액션은 선딜·Active·후딜 동안 일반 이동·점프를 막고 예약 중에는 막지 않는다. 버튼 해제와 조작 중단은 다른 행동 잠금 중에도 유지형 액션을 정리한다.

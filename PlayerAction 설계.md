@@ -1,6 +1,8 @@
-# PlayerAction 구현 설계
+# PlayerAction 및 공통 ActionBase 구현 설계
 
-기준 날짜: **2026-10-31**. 사용자 지정 공통 부모는 `PlayerAction`, 캐릭터별 클래스 접두사는 **Soilder**다. 공통 접지 조건·이동 허용 설정과 Skill2/Ultimate 검증용 액션을 추가했다. 이번 변경·검증은 11절, 앞선 리팩토링의 결과는 9절과 `Logs/PlayerAction_20261030/`에 기록한다.
+최신 공통화 기준: **2026-11-01**. PlayerAction의 타이밍·접지/이동 조건·생명주기·이벤트를 새 `ActionBase`로 이관했다. PlayerAction과 EnemyAction은 ActionBase를 직접 상속하며, 슬롯·홀딩·선입력 자격·플레이어 실행 단계는 PlayerAction에 남는다. 공통 타입은 `ActionContext / ActionPhase / ActionResult / ActionCancelReason`이고 `PlayerActionSlot / PlayerActionStage`는 유지한다. Attack.TryExecute는 ActionBase를 받으며 Combatant는 모든 ActionBase의 제한을 집계한다. 상세한 적 계열·확장 방법은 [Enemy.md](Enemy.md)를 참고한다. 이번 로그는 `Logs/Enemy_20261101/`이다. 아래 2026-10-30~31의 검증과 이관 기록은 해당 날짜의 결과다.
+
+기준 날짜: **2026-11-01**. 공통 부모는 `ActionBase`, 플레이어 전용 부모는 `PlayerAction`, 캐릭터별 클래스 접두사는 **Soilder**다. 공통 접지 조건·이동 허용과 Skill2/Ultimate 검증용 동작은 유지한다. 2026-10-31의 결과는 11절, 앞선 리팩토링은 9절, 이번 적·공통화 결과는 12절과 `Logs/Enemy_20261101/`에 기록한다.
 
 같은 날 후속 변경으로 기본 Origin의 저장 위치를 Attack으로 옮겼다. 현재 구조는 아래 본문에 반영했으며, 이번 Origin 이관의 직접 검증은 10절과 `Logs/AttackOrigin_20261030/`에 기록한다. 9절의 466개 검사는 앞선 PlayerAction 리팩토링 당시의 결과다.
 
@@ -11,7 +13,8 @@
 | PlayerInputReader | 현재 프레임 입력·조작 가능 여부 수집 |
 | PlayerController | 이동·점프 명령, 전투 입력 선택·우선순위·한 개 예약·만료·반복·빈 탄창 자동 장전 요청 |
 | PlayerCombat | 슬롯/액션 바인딩, 명령 전달·배율/조준 준비, 슬롯별 실행 가능 조회·탄창·외부 이벤트 |
-| PlayerAction | 행동 하나의 공통 설정과 생명주기. 접지 자격·이동 허용·선딜·실행·유지·후딜·쿨타임·해제·취소 |
+| ActionBase | 공통 설정과 생명주기. 접지 자격·이동 허용·선딜·실행·유지·후딜·쿨타임·취소 |
+| PlayerAction | 플레이어 슬롯·홀딩·해제·선입력 자격·실행 단계와 Motor/Combat 연결 |
 | PlayerAttackAction | Attack을 사용하는 액션의 공통 어댑터. Attack 연결·기본 Origin 조회와 요청별 최신 공격 정보 전달 |
 | Soilder…Action | 행동별 슬롯·조건·자원·효과 실행과 유지 갱신 |
 | Attack 계열 | 기본 Origin Transform 보관과 호출받은 시점의 원점 보정·판정·피해·투사체 생성·결과 반환 |
@@ -20,7 +23,7 @@
 | PlayerStamina / PlayerStat | 자원·능력치 원본 |
 | PlayerAim / PlayerCamera / PlayerAnimation | 조준·시점·시각 자세·이벤트 기반 애니메이션 |
 
-부모·컨텍스트·슬롯/단계 enum은 `Assets/Scripts/Player/PlayerAction.cs`, 공격 어댑터는 `PlayerAttackAction.cs`, 직렬화 연결은 `PlayerActionBinding.cs`에 있다. 캐릭터별 일곱 클래스는 `Assets/Scripts/Player/Actions/`에 있다. 별도 PlayerActionController와 두 번째 입력 버퍼는 없다.
+공통 부모·컨텍스트·생명주기 타입은 `Assets/Scripts/Combat/ActionBase.cs`와 `ActionTypes.cs`, 플레이어 슬롯·실행 단계는 `Assets/Scripts/Player/PlayerAction.cs`, 공격 어댑터는 `PlayerAttackAction.cs`, 직렬화 연결은 `PlayerActionBinding.cs`에 있다. 캐릭터별 일곱 클래스는 `Assets/Scripts/Player/Actions/`에 있다. 별도 PlayerActionController와 두 번째 입력 버퍼는 없다.
 
 ```text
 PlayerAction
@@ -45,9 +48,10 @@ SampleScene은 일곱 액션을 연결한다. Skill2·Ultimate는 PlayerAction�
 | damage / canCritical / criticalMultiplier / targetRule / hitMask | AttackData 유지 |
 | spreadAngle / spreadStartShot / spreadResetDelay / enemyPenetrationCount / maxDistance | HitscanAttackData 유지 |
 | 투사체·관통·크기·폭발 배율·발사각, 근접 범위·모양·오프셋 | 각 전용 AttackData 유지 |
-| windupTime / recoveryTime / cooldown / repeatWhileHeld | PlayerAction의 직렬화 필드 |
-| requiresGrounded / canMove | PlayerAction의 직렬화 필드. 기본 false / true |
-| pending / Active / 실행 시각 / 후딜·쿨타임 종료 시각 / 실행 프레임 잠금 | PlayerAction 인스턴스 |
+| windupTime / recoveryTime / cooldown | ActionBase의 직렬화 필드 |
+| repeatWhileHeld | PlayerAction의 직렬화 필드 |
+| requiresGrounded / canMove | ActionBase의 직렬화 필드. 기본 false / true |
+| pending / Active / 실행 시각 / 후딜·쿨타임 종료 시각 / 실행 프레임 잠금 | ActionBase 인스턴스 |
 | 연속 발사 수·마지막 발사 시각 | HitscanAttack 인스턴스 |
 | 대시 소모량 staminaCost | SoilderDashAction |
 | 대시 거리 / 실제 이동 시간·남은 이동량 | PlayerStat / PlayerMotor |
@@ -264,3 +268,15 @@ Skill2·Ultimate는 PlayerAction을 직접 상속한다. 선딜이 끝나 실제
 수치형 검사는 총 **437개**, 일곱 회귀 프로세스의 종료 코드는 모두 0이다. 런타임·에디터 .NET 빌드는 경고 0·오류 0이다. Integrity.json에서 씬 변경이 일곱 액션의 공통 설정·두 스킬의 시간·불필요한 빈 Attack 필드 제거에 한정되고 기존 meta·공격 데이터·투사체·애니메이션 에셋이 변경되지 않았음을 확인했다. 새 검증 meta GUID는 유일하며 git diff --check도 통과했다.
 
 로그·ValidationSummary.json·RegressionResults.json·Integrity.json은 `Logs/ActionRestrictions_20261031/`에 있다. 첫 샌드박스 Unity 실행은 사용자 라이선스 접근 문제로 종료 코드 198이었고 사용자 권한 실행으로 해결했다. 최초 .NET SDK 접근 제한과 로컬 빌드 자산 누락은 권한 적용·참조 복원 후 해결했으며 Initial 로그와 최종 통과 로그를 구분한다. 실제 키·마우스 수동 플레이·이미지 렌더링과 공통 Attack/Mortal/Projectile·스태미나 독립 검증은 이번에 다시 실행하지 않았다. 실제 스킬 효과·추가 애니메이션·적 AI·사망 행동·반복 전투 흐름은 남아 있다.
+
+## 12. 2026-11-01 공통 ActionBase와 적 액션
+
+공통 시간·생명주기·접지 자격·이동 제한·취소·이벤트를 ActionBase로 옮겼다. PlayerAction과 EnemyAction은 공통 부모를 직접 상속한다. 기존 직렬화 필드명과 플레이어 스크립트 GUID·씬 바인딩을 보존하고, repeatWhileHeld는 PlayerAction에 유지했다. 선입력 저장소·PlayerActionSlot·PlayerActionStage와 조준 이후 실행 순서는 플레이어 계열의 책임이다.
+
+공통 타입 이름은 ActionContext·ActionPhase·ActionResult·ActionCancelReason으로 정리했다. Combatant는 ActionBase 목록으로 잠금을 집계하고 PlayerAction의 슬롯별 허용 정책을 연결한다. Attack.TryExecute는 ActionBase의 소유자와 효과 실행 중 여부를 검사한다. 적 액션에도 플레이어 컴포넌트나 슬롯을 요구하지 않는다.
+
+EnemyCombat은 액션을 선택하고 요청하며 타이머를 복제하지 않는다. EnemyAttackAction은 Melee/Hitscan/ProjectileAttack을 참조하는 공통 어댑터다. 공격 없는 지속 행동도 EnemyAction에서 Running·TickActive·FinishActive·Cleanup을 사용한다. 현재 TempEnemy와 상태·NavMesh·사망 수명 및 새 적 작성 방법은 [Enemy.md](Enemy.md)를 참고한다.
+
+이번 직접 실행 결과는 `Logs/Enemy_20261101/RegressionResults.json`과 각 검증 로그에 기록하며, 이전 절의 날짜별 결과와 구분한다. 기존 플레이어 검증은 데모 적만 실행 중 비활성화하고, 적과 실제 플레이어의 상호 피해·사망은 EnemyValidation에서 검증한다.
+
+2026-11-01 Unity 6000.3.25f1에서 적 70개를 포함한 정량 검사 582개와 애니메이션·스태미나·Mortal·Projectile까지 13종이 모두 종료 코드 0으로 통과했다. .NET 빌드는 경고 0·오류 0이다. 기존 meta·공격 데이터·투사체·애니메이션과 기존 씬 블록 115개를 보존했다. 렌더 2장 확인과 git diff --check를 완료했으며 실제 키·마우스 수동 플레이는 수행하지 않았다. 전체 표와 초기/최종 로그 구분은 Enemy.md 11절을 참고한다.

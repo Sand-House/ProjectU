@@ -140,6 +140,7 @@ namespace ProjectU.Editor
 
         private void Start()
         {
+            EnemyValidationIsolation.DisableDemoEnemies();
             try
             {
                 input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();

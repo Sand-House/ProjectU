@@ -13,24 +13,24 @@ namespace ProjectU
         protected override bool WaitForRecoveryTick => true;
         public float StaminaCost => AttackData.FiniteAtLeast(staminaCost, 0f);
 
-        protected override bool CheckRequirements(in PlayerActionContext request)
+        protected override bool CheckRequirements(in ActionContext request)
             => Motor != null && Motor.CanDashIgnoringActionLock &&
                 (!request.HasDirection || (AttackData.IsFinite(request.Direction) &&
                     new Vector2(request.Direction.x, request.Direction.z).sqrMagnitude > 0.0001f)) &&
                 (StaminaCost == 0f || (Stamina != null && Stamina.isActiveAndEnabled && Stamina.CanConsume(StaminaCost)));
 
-        protected override PlayerActionResult ExecuteCore(in PlayerActionContext request)
+        protected override ActionResult ExecuteCore(in ActionContext request)
         {
             Vector3 direction = request.HasDirection ? request.Direction :
                 Combat != null ? Combat.DashDirection : transform.forward;
             // No callbacks occur until both movement and resource changes are committed.
-            if (!Motor.BeginDashMovement(this, direction)) return PlayerActionResult.Failed;
+            if (!Motor.BeginDashMovement(this, direction)) return ActionResult.Failed;
             if (StaminaCost > 0f && !Stamina.TryConsumeWithoutNotification(StaminaCost))
             {
                 Motor.StopDashMovement();
-                return PlayerActionResult.Failed;
+                return ActionResult.Failed;
             }
-            return PlayerActionResult.Running;
+            return ActionResult.Running;
         }
 
         protected override void OnExecutionSucceeded()
@@ -40,7 +40,7 @@ namespace ProjectU
             if (StaminaCost > 0f) Stamina.PublishChanged();
         }
 
-        protected override void Cleanup(PlayerActionCancelReason reason) => Motor?.StopDashMovement();
+        protected override void Cleanup(ActionCancelReason reason) => Motor?.StopDashMovement();
         protected override void OnDisable()
         {
             base.OnDisable();

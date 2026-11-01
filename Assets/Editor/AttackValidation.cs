@@ -46,6 +46,7 @@ namespace ProjectU.Editor
 
         private IEnumerator Start()
         {
+            EnemyValidationIsolation.DisableDemoEnemies();
             originalTimeScale = Time.timeScale;
             Time.timeScale = 1f;
             root = new GameObject("Isolated Attack Validation");
@@ -101,14 +102,14 @@ namespace ProjectU.Editor
             HitscanAttack attack = Attack<HitscanAttack>(source, rifle);
             Physics.SyncTransforms();
             Check(PlayerActionValidationUtility.For(attack).TryStart(source.transform.position + Vector3.forward * 20f) && !PlayerActionValidationUtility.For(attack).TryStart(), "request accepted once");
-            Check(near.Mortal.HP == 100 && PlayerActionValidationUtility.For(attack).Phase == PlayerActionPhase.Windup, "windup has no immediate damage");
+            Check(near.Mortal.HP == 100 && PlayerActionValidationUtility.For(attack).Phase == ActionPhase.Windup, "windup has no immediate damage");
             yield return new WaitForSeconds(0.04f);
             Check(near.Mortal.HP == 100, "windup waits in game time");
             yield return new WaitForSeconds(0.08f);
             Check(near.Mortal.HP == 90 && far.Mortal.HP == 100 && friendly.Mortal.HP == 100, "hostile-only hitscan and zero penetration");
             Check(Vector3.Distance(attack.LastShotEndPoint, near.transform.position - Vector3.forward * 0.25f) < 0.001f,
                 "debug line skips ally and stops at first target surface with zero penetration");
-            Check(PlayerActionValidationUtility.For(attack).CooldownRemaining > 0f && !PlayerActionValidationUtility.For(attack).CanStart && PlayerActionValidationUtility.For(attack).Phase == PlayerActionPhase.Recovery,
+            Check(PlayerActionValidationUtility.For(attack).CooldownRemaining > 0f && !PlayerActionValidationUtility.For(attack).CanStart && PlayerActionValidationUtility.For(attack).Phase == ActionPhase.Recovery,
                 "execution starts cooldown and recovery together");
             PlayerActionValidationUtility.For(attack).enabled = false;
             PlayerActionValidationUtility.For(attack).enabled = true;
@@ -309,7 +310,7 @@ namespace ProjectU.Editor
             PlayerActionValidationUtility.For(cancel).TryStart();
             Time.timeScale = 0f;
             yield return new WaitForSecondsRealtime(0.14f);
-            Check(executed == 0 && PlayerActionValidationUtility.For(cancel).Phase == PlayerActionPhase.Windup, "pause freezes windup");
+            Check(executed == 0 && PlayerActionValidationUtility.For(cancel).Phase == ActionPhase.Windup, "pause freezes windup");
             Time.timeScale = 1f;
             cancelSource.Mortal.Dead();
             yield return null;

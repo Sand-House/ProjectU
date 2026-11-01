@@ -49,7 +49,7 @@ namespace ProjectU
         public float MoveSpeed => playerStat.MoveSpeed;
         public Vector3 HorizontalVelocity { get; private set; }
         public bool IsDashing => dashRemaining > 0f;
-        public bool IsDashPostDelay => DashAction != null && DashAction.Phase == PlayerActionPhase.Recovery;
+        public bool IsDashPostDelay => DashAction != null && DashAction.Phase == ActionPhase.Recovery;
         // Keep every consumer blocked on the last frame containing dash/recovery time.
         public bool IsDashActionLocked => DashAction != null && DashAction.Blocks(PlayerActionSlot.PrimaryFire);
         public bool CanPerformActions => combatant == null || !combatant.IsActionDelayLocked;
@@ -92,7 +92,7 @@ namespace ProjectU
         // The caller checks action/resource availability before requesting movement.
         // Direction and settings are captured once; looking or steering cannot bend a dash.
         public bool TryDash(Vector3 worldDirection)
-            => DashAction != null && DashAction.TryStart(PlayerActionContext.Move(worldDirection));
+            => DashAction != null && DashAction.TryStart(ActionContext.Move(worldDirection));
 
         internal bool BeginDashMovement(PlayerAction action, Vector3 worldDirection)
         {

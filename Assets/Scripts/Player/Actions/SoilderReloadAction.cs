@@ -10,19 +10,19 @@ namespace ProjectU
         public override PlayerActionSlot Slot => PlayerActionSlot.Reload;
         public override PlayerActionStage Stage => PlayerActionStage.CombatLateUpdate;
         protected override bool UsesDelayLock => false;
-        public bool IsReloading => Phase == PlayerActionPhase.Active;
+        public bool IsReloading => Phase == ActionPhase.Active;
         public float ReloadRemaining => IsReloading ? workRemaining / Stat.ReloadSpeedMultiplier : 0f;
 
         protected override bool BlocksCore(PlayerActionSlot slot)
             => slot == PlayerActionSlot.PrimaryFire || slot == PlayerActionSlot.SecondaryFire || slot == PlayerActionSlot.Reload;
 
-        protected override bool CheckRequirements(in PlayerActionContext request)
+        protected override bool CheckRequirements(in ActionContext request)
             => Combat != null && Combat.isActiveAndEnabled && Stat != null && Combat.CurrentAmmo < Combat.MaxAmmo;
 
-        protected override PlayerActionResult ExecuteCore(in PlayerActionContext request)
+        protected override ActionResult ExecuteCore(in ActionContext request)
         {
             workRemaining = Stat.ReloadDuration;
-            return PlayerActionResult.Running;
+            return ActionResult.Running;
         }
 
         protected override void OnExecutionSucceeded() => Combat.NotifyReloadStarted();
@@ -40,6 +40,6 @@ namespace ProjectU
             Combat.CompleteReload();
         }
 
-        protected override void Cleanup(PlayerActionCancelReason reason) => workRemaining = 0f;
+        protected override void Cleanup(ActionCancelReason reason) => workRemaining = 0f;
     }
 }

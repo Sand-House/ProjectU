@@ -44,8 +44,8 @@ namespace ProjectU.Editor
         public override PlayerActionSlot Slot => PlayerActionSlot.Skill2;
         protected override bool UsesDelayLock => false;
         protected override bool BlocksCore(PlayerActionSlot slot) => false;
-        protected override bool CheckRequirements(in PlayerActionContext request) => true;
-        protected override PlayerActionResult ExecuteCore(in PlayerActionContext request) => PlayerActionResult.Running;
+        protected override bool CheckRequirements(in ActionContext request) => true;
+        protected override ActionResult ExecuteCore(in ActionContext request) => ActionResult.Running;
     }
 
     [DefaultExecutionOrder(-150)]
@@ -64,6 +64,7 @@ namespace ProjectU.Editor
 
         private IEnumerator Start()
         {
+            EnemyValidationIsolation.DisableDemoEnemies();
             IEnumerator validation = Validate();
             while (true)
             {
@@ -137,7 +138,7 @@ namespace ProjectU.Editor
             Check(skill.TryStart(), "grounded Skill2 enters windup");
             Position(10f);
             yield return new WaitForSeconds(0.55f);
-            Check(failures == 1 && skillExecutions == 0 && skillLogs == 0 && skill.Phase == PlayerActionPhase.Ready &&
+            Check(failures == 1 && skillExecutions == 0 && skillLogs == 0 && skill.Phase == ActionPhase.Ready &&
                 skill.CooldownRemaining == 0f, "leaving ground during windup fails execution without log recovery or cooldown");
 
             // Exercise receipt and consumption through the real Controller buffer.
@@ -166,7 +167,7 @@ namespace ProjectU.Editor
                 "buffered ground-only skill is consumed and discarded when execution is airborne");
             Position(1.05f);
             yield return new WaitForSeconds(0.1f);
-            Check(skillExecutions == 0 && skill.Phase == PlayerActionPhase.Ready, "discarded skill does not execute on landing");
+            Check(skillExecutions == 0 && skill.Phase == ActionPhase.Ready, "discarded skill does not execute on landing");
 
             int attacksBefore = attackExecutions;
             movement = Vector2.right;
@@ -174,15 +175,15 @@ namespace ProjectU.Editor
             pressed = 1;
             yield return null;
             yield return null;
-            Check(skill.Phase == PlayerActionPhase.Windup && skillLogs == 0, "F enters windup without an early execution log");
+            Check(skill.Phase == ActionPhase.Windup && skillLogs == 0, "F enters windup without an early execution log");
             yield return new WaitForSeconds(0.2f);
             Check(HorizontalDistance(position) > 0.2f && motor.CanMove && motor.CanJump, "movable Skill2 permits movement and jump during windup");
             Time.timeScale = 0f;
             for (int index = 0; index < 5; index++) yield return null;
-            Check(skill.Phase == PlayerActionPhase.Windup && skillLogs == 0, "pause freezes demo skill windup");
+            Check(skill.Phase == ActionPhase.Windup && skillLogs == 0, "pause freezes demo skill windup");
             Time.timeScale = 1f;
             yield return new WaitForSeconds(0.35f);
-            Check(skillExecutions == 1 && skillLogs == 1 && skill.Phase == PlayerActionPhase.Recovery && attackExecutions == attacksBefore,
+            Check(skillExecutions == 1 && skillLogs == 1 && skill.Phase == ActionPhase.Recovery && attackExecutions == attacksBefore,
                 "Skill2 logs and reports one action success after windup without an attack event");
             position = input.transform.position;
             yield return new WaitForSeconds(0.15f);
@@ -199,7 +200,7 @@ namespace ProjectU.Editor
             yield return null;
             yield return null;
             Check(controller.BufferedAction == PlayerActionSlot.Ultimate && motor.CanMove, "queued Ultimate does not lock movement");
-            while (ultimate.Phase == PlayerActionPhase.Ready) yield return null;
+            while (ultimate.Phase == ActionPhase.Ready) yield return null;
             position = input.transform.position;
             Check(!motor.CanMove && !motor.CanJump && ultimate.BlocksMovement, "accepted Ultimate locks movement and jump during windup");
             pressed = 4;
@@ -211,7 +212,7 @@ namespace ProjectU.Editor
             Check(!motor.CanMove && ultimateExecutions == 0, "pause preserves movement lock without executing Ultimate");
             Time.timeScale = 1f;
             yield return new WaitForSeconds(0.35f);
-            Check(ultimateExecutions == 1 && ultimateLogs == 1 && ultimate.Phase == PlayerActionPhase.Recovery &&
+            Check(ultimateExecutions == 1 && ultimateLogs == 1 && ultimate.Phase == ActionPhase.Recovery &&
                 !motor.CanMove && !motor.CanJump && HorizontalDistance(position) < 0.001f,
                 "Ultimate logs once after windup and keeps movement locked through recovery");
             yield return new WaitForSeconds(1.1f);
@@ -235,7 +236,7 @@ namespace ProjectU.Editor
             Check(first.TryStart() && second.TryStart(), "unbound nonblocking actions accept concurrent requests");
             yield return null;
             yield return null;
-            Check(first.Phase == PlayerActionPhase.Active && second.Phase == PlayerActionPhase.Active && !motor.CanMove,
+            Check(first.Phase == ActionPhase.Active && second.Phase == ActionPhase.Active && !motor.CanMove,
                 "movement restriction also covers Active actions without a delay lock or binding");
             first.Cancel();
             Check(!motor.CanMove, "cancelling one of two immobile actions preserves the other lock");

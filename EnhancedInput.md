@@ -1,5 +1,7 @@
 # 플레이어 입력·선입력 설계
 
+2026-11-01 공통 액션 갱신: PlayerAction은 ActionBase를 상속한다. 선입력·홀딩·슬롯·PlayerActionStage는 플레이어 전용으로 유지하고 공통 타이밍·조건·이벤트는 ActionBase로 옮겼다. 공통 실행 타입 이름은 ActionContext·ActionPhase·ActionResult·ActionCancelReason이다. 적의 EnemyAction은 키 입력과 선입력을 사용하지 않으며 EnemyCombat이 요청한다. 기존 입력 규칙은 유지하고 이번 회귀 로그는 `Logs/Enemy_20261101/`에 기록한다. 적 설계는 [Enemy.md](Enemy.md)를 참고한다.
+
 기준 날짜: **2026-10-31, 공통 접지·이동 제한 반영**. PlayerAction.RequiresGrounded가 수신·시작·효과 실행 시의 접지를 검사하며 CanMove가 행동 중 일반 이동·점프 허용 여부를 정한다. 상세 필드·상속·이번 검증은 [PlayerAction 설계](PlayerAction%20설계.md) 11절을 참고한다. 아래 날짜별 검증은 해당 작업 당시의 기록이다.
 
 ## 1. 클래스의 역할과 책임

@@ -24,11 +24,11 @@ namespace ProjectU
             set => damageMultiplier = AttackData.FiniteAtLeast(value, 0f);
         }
 
-        public bool TryStart(Transform anchor, Vector3 point) => TryStart(PlayerActionContext.Aim(anchor, point));
-        public bool TryStart(Vector3 position, Vector3 point) => TryStart(PlayerActionContext.Aim(position, point));
+        public bool TryStart(Transform anchor, Vector3 point) => TryStart(ActionContext.Aim(anchor, point));
+        public bool TryStart(Vector3 position, Vector3 point) => TryStart(ActionContext.Aim(position, point));
         public bool TryStart(Vector3 point) => TryStart(transform, point);
 
-        protected override bool CheckRequirements(in PlayerActionContext request)
+        protected override bool CheckRequirements(in ActionContext request)
         {
             if (attack == null || attack.gameObject != gameObject || !attack.IsConfiguredForExecution) return false;
             if (request.HasAimPoint && !AttackData.IsFinite(request.AimPoint)) return false;
@@ -47,7 +47,7 @@ namespace ProjectU
             return Slot != PlayerActionSlot.PrimaryFire || Combat.CurrentAmmo > 0;
         }
 
-        protected override void OnAccepted(in PlayerActionContext request)
+        protected override void OnAccepted(in ActionContext request)
         {
             pendingOrigin = request.HasOrigin ? request.Origin : Origin;
             fixedPosition = request.HasPosition;
@@ -58,14 +58,14 @@ namespace ProjectU
                 Combat?.CancelReload();
         }
 
-        protected override PlayerActionResult ExecuteCore(in PlayerActionContext request)
+        protected override ActionResult ExecuteCore(in ActionContext request)
         {
-            if (!fixedPosition && pendingOrigin == null) return PlayerActionResult.Failed;
+            if (!fixedPosition && pendingOrigin == null) return ActionResult.Failed;
             Vector3 position = fixedPosition ? pendingPosition : pendingOrigin.position;
             Vector3 point = Combat != null ? Combat.GetAimPoint() :
                 hasRequestedAim ? requestedAimPoint : position + transform.forward;
             return attack.TryExecute(this, position, point, DamageMultiplier)
-                ? PlayerActionResult.Completed : PlayerActionResult.Failed;
+                ? ActionResult.Completed : ActionResult.Failed;
         }
 
         protected override void OnExecutionSucceeded()

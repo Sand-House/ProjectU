@@ -59,6 +59,7 @@ namespace ProjectU.Editor
 
         private IEnumerator Start()
         {
+            EnemyValidationIsolation.DisableDemoEnemies();
             IEnumerator validation = Validate();
             while (true)
             {
@@ -137,19 +138,19 @@ namespace ProjectU.Editor
                 otherActions = true;
                 pressMask = 31;
                 yield return new WaitForSeconds(0.08f);
-                Check(PlayerActionValidationUtility.For(attack).Phase == PlayerActionPhase.Windup && executions == baseline && !attacks.IsReloading &&
+                Check(PlayerActionValidationUtility.For(attack).Phase == ActionPhase.Windup && executions == baseline && !attacks.IsReloading &&
                     !motor.IsDashing && stamina.Current == 100f && motor.VerticalSpeed > 0f && motor.CanJump,
                     binding.Slot + " windup permits jump and rejects attack dash reload without cancelling or consuming stamina");
                 Check(Vector3.ProjectOnPlane(input.transform.position - before, Vector3.up).magnitude > 0.2f,
                     binding.Slot + " windup permits horizontal movement during jump");
                 yield return new WaitForSeconds(0.15f);
-                Check(PlayerActionValidationUtility.For(attack).Phase == PlayerActionPhase.Recovery && executions == baseline + 1 && !motor.CanPerformActions,
+                Check(PlayerActionValidationUtility.For(attack).Phase == ActionPhase.Recovery && executions == baseline + 1 && !motor.CanPerformActions,
                     binding.Slot + " executes once and keeps the shared lock during recovery");
                 // Land independently so a second jump proves recovery permits new input too.
                 otherActions = false;
                 ResetPosition();
                 while (!motor.IsGrounded) yield return null;
-                Check(PlayerActionValidationUtility.For(attack).Phase == PlayerActionPhase.Recovery && !motor.CanPerformActions && motor.CanJump,
+                Check(PlayerActionValidationUtility.For(attack).Phase == ActionPhase.Recovery && !motor.CanPerformActions && motor.CanJump,
                     binding.Slot + " recovery permits a new jump request while the action lock remains");
                 before = input.transform.position;
                 otherActions = true;
@@ -212,12 +213,12 @@ namespace ProjectU.Editor
             int pauseBaseline = executions;
             Time.timeScale = 0f;
             for (int i = 0; i < 5; i++) yield return null;
-            Check(PlayerActionValidationUtility.For(primary).Phase == PlayerActionPhase.Windup && owner.IsPerformingAttack && executions == pauseBaseline,
+            Check(PlayerActionValidationUtility.For(primary).Phase == ActionPhase.Windup && owner.IsPerformingAttack && executions == pauseBaseline,
                 "pause freezes windup and preserves action lock");
             Check(!motor.CanJump, "paused windup rejects jump requests");
             Time.timeScale = 1f;
             yield return new WaitForSeconds(0.12f);
-            Check(PlayerActionValidationUtility.For(primary).Phase == PlayerActionPhase.Recovery && executions == pauseBaseline + 1, "attack speed scales windup and execution");
+            Check(PlayerActionValidationUtility.For(primary).Phase == ActionPhase.Recovery && executions == pauseBaseline + 1, "attack speed scales windup and execution");
             float remaining = PlayerActionValidationUtility.For(primary).RecoveryRemaining;
             Time.timeScale = 0f;
             for (int i = 0; i < 5; i++) yield return null;

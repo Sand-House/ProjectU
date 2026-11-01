@@ -68,6 +68,7 @@ namespace ProjectU.Editor
 
         private IEnumerator Start()
         {
+            EnemyValidationIsolation.DisableDemoEnemies();
             IEnumerator validation = Validate();
             while (true)
             {
@@ -205,14 +206,14 @@ namespace ProjectU.Editor
             SetField(windupData, "windupTime", 0.1f);
             SetField(primary, "data", windupData);
             Check(!PlayerActionValidationUtility.For(primary).TryStart(attacks.GetBinding(PlayerActionSlot.PrimaryFire).Origin,
-                attacks.GetAimPoint()) && PlayerActionValidationUtility.For(primary).Phase != PlayerActionPhase.Windup,
+                attacks.GetAimPoint()) && PlayerActionValidationUtility.For(primary).Phase != ActionPhase.Windup,
                 "reload rejects a direct primary action before accepting windup");
             int baseline = executed;
             int eventBaseline = dashExecutions;
             dashPress = dashHeld = otherActions = true;
             yield return null;
             yield return null;
-            Check(!animationController.IsReloading && PlayerActionValidationUtility.For(primary).Phase != PlayerActionPhase.Windup && cancelled == 0,
+            Check(!animationController.IsReloading && PlayerActionValidationUtility.For(primary).Phase != ActionPhase.Windup && cancelled == 0,
                 "dash cancels reload after its primary guard rejected pending fire");
             Check(motor.VerticalSpeed <= 0f && stamina.Current == 75f && executed == baseline,
                 "dash wins over simultaneous jump, fire, grenade, reload and repeated Shift");
@@ -249,13 +250,13 @@ namespace ProjectU.Editor
             stamina.Recover(100f);
             while (!PlayerActionValidationUtility.For(primary).CanStart) yield return null;
             Check(PlayerActionValidationUtility.For(primary).TryStart(attacks.GetBinding(PlayerActionSlot.PrimaryFire).Origin, attacks.GetAimPoint()) &&
-                PlayerActionValidationUtility.For(primary).Phase == PlayerActionPhase.Windup, "primary windup is accepted after reload cancellation");
+                PlayerActionValidationUtility.For(primary).Phase == ActionPhase.Windup, "primary windup is accepted after reload cancellation");
             int cancellationsBeforeDash = cancelled;
             dashPress = true;
             yield return null;
             Check(!motor.IsDashing && stamina.Current == 100f, "attack windup rejects a dash without spending stamina");
             yield return null;
-            Check(PlayerActionValidationUtility.For(primary).Phase == PlayerActionPhase.Windup && cancelled == cancellationsBeforeDash,
+            Check(PlayerActionValidationUtility.For(primary).Phase == ActionPhase.Windup && cancelled == cancellationsBeforeDash,
                 "rejected dash preserves the accepted primary windup");
             while (!motor.CanPerformActions) yield return null;
             dashPress = true;

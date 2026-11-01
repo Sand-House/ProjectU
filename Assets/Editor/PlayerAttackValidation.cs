@@ -68,6 +68,7 @@ namespace ProjectU.Editor
 
         private IEnumerator Start()
         {
+            EnemyValidationIsolation.DisableDemoEnemies();
             IEnumerator validation = Validate();
             while (true)
             {
@@ -263,7 +264,7 @@ namespace ProjectU.Editor
             Check(RespectsTiming(primaryTimes, timedPrimary) && RespectsTiming(secondaryTimes, timedSecondary),
                 "held shots respect windup recovery and cooldown");
             // A cooldown-only gap now correctly permits reload; probe actual secondary recovery.
-            while (PlayerActionValidationUtility.For(secondaryAttack).Phase != PlayerActionPhase.Recovery) yield return null;
+            while (PlayerActionValidationUtility.For(secondaryAttack).Phase != ActionPhase.Recovery) yield return null;
             pressMask = 8;
             yield return new WaitForSeconds(0.02f);
             Check(!animationController.IsReloading, "active secondary fire prevents manual reload");
@@ -400,12 +401,12 @@ namespace ProjectU.Editor
             yield return new WaitForSeconds(0.15f);
             Check(executedSlots.Count == beforeReenableShot + 1 && meleeTarget.Mortal.HP == 160,
                 "reenabling subscribes once and retains configured attacks");
-            Check(PlayerActionValidationUtility.For(ranged).TryStart(handOrigin, alternativeLauncher.GetAimPoint()) && PlayerActionValidationUtility.For(ranged).Phase == PlayerActionPhase.Windup,
+            Check(PlayerActionValidationUtility.For(ranged).TryStart(handOrigin, alternativeLauncher.GetAimPoint()) && PlayerActionValidationUtility.For(ranged).Phase == ActionPhase.Windup,
                 "bound attack accepts a pending windup before disable");
             alternativeLauncher.enabled = false;
             int beforeCancellation = executedSlots.Count;
             yield return new WaitForSeconds(0.1f);
-            Check(executedSlots.Count == beforeCancellation && PlayerActionValidationUtility.For(ranged).Phase != PlayerActionPhase.Windup,
+            Check(executedSlots.Count == beforeCancellation && PlayerActionValidationUtility.For(ranged).Phase != ActionPhase.Windup,
                 "disabling cancels pending bound attacks and removes event handlers");
             alternativeInput = null;
             actor.SetActive(false);

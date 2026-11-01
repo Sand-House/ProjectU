@@ -145,7 +145,7 @@ namespace ProjectU
             currentAmmo = CurrentAmmo;
             if (owner != null && !owner.IsAlive)
             {
-                foreach (PlayerActionBinding binding in actionBindings) binding.Action.Cancel(PlayerActionCancelReason.Death);
+                foreach (PlayerActionBinding binding in actionBindings) binding.Action.Cancel(ActionCancelReason.Death);
                 return;
             }
             if (Time.timeScale <= 0f || Time.deltaTime <= 0f) return;
@@ -203,7 +203,7 @@ namespace ProjectU
         {
             ClearRequests();
             foreach (PlayerActionBinding binding in actionBindings)
-                if (binding?.Action != null) binding.Action.Cancel(PlayerActionCancelReason.Disabled);
+                if (binding?.Action != null) binding.Action.Cancel(ActionCancelReason.Disabled);
             foreach (KeyValuePair<PlayerAction, Action> handler in executionHandlers)
                 if (handler.Key != null) handler.Key.OnExecuted -= handler.Value;
             executionHandlers.Clear();
