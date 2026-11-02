@@ -10,6 +10,7 @@ namespace ProjectU
         private int hp = 100;
         [SerializeField]
         private bool isInvincible;
+        private bool healthInitialized;
 
         public int HP => hp;
         public bool isDead { get; private set; }
@@ -23,12 +24,24 @@ namespace ProjectU
         public event Action<int, GameObject> OnDamaged;
         public event Action<GameObject> OnDead;
 
+        // Spawn initialization only: repeated activation must not heal or revive a unit.
+        public bool TryInitializeHealth(int maxHealth)
+        {
+            if (healthInitialized || isDead)
+                return false;
+
+            hp = Mathf.Max(1, maxHealth);
+            healthInitialized = true;
+            return true;
+        }
+
         public virtual void TakeDamage(int damage, GameObject attacker)
         {
             if (isDead || IsInvincible || damage <= 0 || hp <= 0)
                 return;
 
             int appliedDamage = Mathf.Min(hp, damage);
+            healthInitialized = true;
             hp -= appliedDamage;
 
             try
@@ -48,6 +61,7 @@ namespace ProjectU
             if (isDead)
                 return;
 
+            healthInitialized = true;
             hp = 0;
             isDead = true;
             OnDead?.Invoke(attacker);

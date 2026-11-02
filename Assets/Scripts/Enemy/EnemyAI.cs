@@ -5,7 +5,7 @@ namespace ProjectU
 {
     [DefaultExecutionOrder(80), DisallowMultipleComponent]
     [RequireComponent(typeof(Combatant), typeof(EnemySensor), typeof(EnemyMotor))]
-    [RequireComponent(typeof(EnemyCombat))]
+    [RequireComponent(typeof(EnemyCombat), typeof(EnemyStat))]
     public sealed class EnemyAI : MonoBehaviour
     {
         private Combatant owner;
@@ -29,6 +29,11 @@ namespace ProjectU
         }
         private void OnEnable()
         {
+            if (!GetComponent<EnemyStat>().IsInitialized)
+            {
+                enabled = false;
+                return;
+            }
             owner.Mortal.OnDamaged += HandleDamaged;
             if (owner.Mortal.isDead) { HandleDeath(null); return; }
             Target = null;

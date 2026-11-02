@@ -29,7 +29,10 @@ namespace ProjectU.Editor
             EnemyAI[] saved = UnityEngine.Object.FindObjectsByType<EnemyAI>(FindObjectsSortMode.None);
             if (saved.Length != 5 || saved.Any(enemy => PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(enemy.gameObject) != TempEnemySetup.PrefabPath))
                 throw new InvalidOperationException("The saved scene must contain five linked TempEnemy prefab instances.");
-            Debug.Log("ENEMY EDIT VALIDATION PASSED: five linked prefab instances.");
+            EnemyStatData stats = AssetDatabase.LoadAssetAtPath<EnemyStatData>(TempEnemySetup.StatPath);
+            if (stats == null || saved.Any(enemy => enemy.GetComponent<EnemyStat>() == null || enemy.GetComponent<EnemyStat>().Data != stats))
+                throw new InvalidOperationException("All five enemies must reference TempEnemyStat through the prefab.");
+            Debug.Log("ENEMY EDIT VALIDATION PASSED: five linked prefab instances and shared stat data.");
             SessionState.SetBool(Running, true);
             EditorApplication.EnterPlaymode();
         }
@@ -96,6 +99,9 @@ namespace ProjectU.Editor
                 Check(enemy.GetComponent<CapsuleCollider>() != null && enemy.GetComponentInChildren<MeshRenderer>() != null,
                     enemy.name + " has capsule collision and mesh");
                 Check(enemy.GetComponent<Mortal>().HP == 100 && enemy.GetComponent<Combatant>().Faction == Faction.Enemy, enemy.name + " health and faction");
+                EnemyStat stat = enemy.GetComponent<EnemyStat>();
+                Check(stat.IsInitialized && stat.MaxHealth == 100 && Mathf.Approximately(stat.MoveSpeed, 3.5f) &&
+                    Mathf.Approximately(enemy.GetComponent<NavMeshAgent>().speed, stat.MoveSpeed), enemy.name + " initialized data and navigation speed");
                 Check(enemy.GetComponent<EnemyAttackAction>().Attack is MeleeAttack && enemy.GetComponent<EnemyAttackAction>().RequiresGrounded &&
                     !enemy.GetComponent<EnemyAttackAction>().CanMove, enemy.name + " saved melee action configuration");
             }
@@ -290,6 +296,107 @@ namespace ProjectU.Editor
                 yield return null; yield return null;
             }
             Check(victimUnit == null, "player attacks destroy TempEnemy even when its AI is disabled");
+
+            IEnumerator statTests = ValidateStats(prefab);
+            while (statTests.MoveNext()) yield return statTests.Current;
+        }
+
+        private IEnumerator ValidateStats(GameObject prefab)
+        {
+            EnemyStatData saved = AssetDatabase.LoadAssetAtPath<EnemyStatData>(TempEnemySetup.StatPath);
+            Check(saved.MaxHealth == 100 && Mathf.Approximately(saved.MoveSpeed, 3.5f) &&
+                saved.AttackMultiplier == 1f && saved.AttackSpeed == 1f, "saved stat asset preserves demo balance");
+            EnemyStatData data = Instantiate(saved); dataCopies.Add(data);
+            Set(data, "maxHealth", -10); Set(data, "moveSpeed", -1f);
+            Set(data, "attackMultiplier", float.NaN); Set(data, "attackSpeed", float.PositiveInfinity);
+            Check(data.MaxHealth == 1 && data.MoveSpeed == 0f && data.AttackMultiplier == 0f && data.AttackSpeed == 0.01f,
+                "stat data clamps negative and nonfinite values");
+            Set(data, "moveSpeed", float.NaN); Set(data, "attackMultiplier", float.PositiveInfinity); Set(data, "attackSpeed", 0f);
+            Check(data.MoveSpeed == 0f && data.AttackMultiplier == 0f && data.AttackSpeed == 0.01f,
+                "stat data rejects nonfinite speed and zero attack speed");
+            Set(data, "maxHealth", 240); Set(data, "moveSpeed", 2f);
+            Set(data, "attackMultiplier", 2f); Set(data, "attackSpeed", 2f);
+
+            var group = new GameObject("Stat Initialization Fixtures"); fixtures.Add(group); group.SetActive(false);
+            GameObject first = Instantiate(prefab, new Vector3(106f, 0f, 94f), Quaternion.identity, group.transform);
+            GameObject second = Instantiate(prefab, new Vector3(110f, 0f, 94f), Quaternion.identity, group.transform);
+            foreach (GameObject unit in new[] { first, second })
+            {
+                Set(unit.GetComponent<EnemyStat>(), "data", data);
+                unit.GetComponent<EnemySensor>().enabled = false;
+                // Conflicting component values prove the asset is authoritative on activation.
+                Set(unit.GetComponent<Mortal>(), "hp", 17);
+                unit.GetComponent<NavMeshAgent>().speed = 9f;
+            }
+            group.SetActive(true);
+            EnemyStat stat = first.GetComponent<EnemyStat>();
+            Mortal health = first.GetComponent<Mortal>();
+            EnemyAI brain = first.GetComponent<EnemyAI>();
+            EnemyAttackAction action = first.GetComponent<EnemyAttackAction>();
+            NavMeshAgent agent = first.GetComponent<NavMeshAgent>();
+            Check(stat.IsInitialized && brain.enabled && stat.MaxHealth == 240 && health.HP == 240,
+                "custom health data overrides Mortal before AI activation");
+            Check(agent.speed == 2f && action.SpeedMultiplier == 2f && stat.AttackMultiplier == 2f,
+                "custom data configures movement and attack multipliers before first request");
+            health.TakeDamage(30, null);
+            Check(health.HP == 210 && second.GetComponent<Mortal>().HP == 240 && data.MaxHealth == 240,
+                "shared data keeps current HP independent per enemy");
+            group.SetActive(false); group.SetActive(true);
+            stat.enabled = false; stat.enabled = true;
+            Check(health.HP == 210 && stat.MaxHealth == 240 && second.GetComponent<Mortal>().HP == 240,
+                "object and stat reactivation do not refill health");
+            Set(data, "maxHealth", 480); Set(data, "moveSpeed", 1f);
+            Set(data, "attackMultiplier", 3f); Set(data, "attackSpeed", 4f);
+            Check(stat.MaxHealth == 240 && stat.MoveSpeed == 2f && stat.AttackMultiplier == 2f && stat.AttackSpeed == 2f,
+                "live units keep their spawn snapshot when shared data changes");
+            var laterGroup = new GameObject("Later Stat Fixture"); fixtures.Add(laterGroup); laterGroup.SetActive(false);
+            GameObject later = Instantiate(prefab, new Vector3(110f, 0f, 98f), Quaternion.identity, laterGroup.transform);
+            Set(later.GetComponent<EnemyStat>(), "data", data);
+            later.GetComponent<EnemySensor>().enabled = false;
+            laterGroup.SetActive(true);
+            Check(later.GetComponent<Mortal>().HP == 480 && later.GetComponent<NavMeshAgent>().speed == 1f &&
+                later.GetComponent<EnemyAttackAction>().SpeedMultiplier == 4f, "later spawns use the changed data");
+
+            yield return null;
+            Vector3 start = first.transform.position;
+            brain.Motor.Chase(start + Vector3.forward * 5f);
+            float maximumVelocity = 0f;
+            for (int frame = 0; frame < 60; frame++)
+            {
+                yield return null;
+                maximumVelocity = Mathf.Max(maximumVelocity, agent.velocity.magnitude);
+            }
+            Check(Vector3.Distance(start, first.transform.position) > 0.5f && maximumVelocity > 1f && maximumVelocity <= 2.05f,
+                "NavMesh actually moves within the data speed limit");
+            brain.Motor.Stop();
+            first.transform.rotation = Quaternion.identity;
+            Combatant target = Target(first.transform.position + new Vector3(0f, 1f, 1.5f));
+            Physics.SyncTransforms();
+            Set(action, "damageMultiplier", 1.5f);
+            int before = target.Mortal.HP;
+            double acceptedAt = Time.timeAsDouble;
+            Check(action.TryStartFor(target), "custom stat attack starts");
+            while (Time.timeAsDouble - acceptedAt < 0.15d) yield return null;
+            Check(target.Mortal.HP == before && action.Phase == ActionPhase.Windup, "scaled windup still delays damage");
+            for (int frame = 0; frame < 60 && target.Mortal.HP == before; frame++) yield return null;
+            double elapsed = Time.timeAsDouble - acceptedAt;
+            Check(target.Mortal.HP == before - 45, "damage combines AttackData 15, stat 2 and action 1.5 multipliers");
+            Check(elapsed >= 0.24d && elapsed < 0.35d, "attack speed halves 0.5 second windup");
+            Check(action.Phase == ActionPhase.Recovery && action.RecoveryRemaining > 0.3f && action.RecoveryRemaining <= 0.401f,
+                "attack speed halves 0.8 second recovery");
+            Check(action.CooldownRemaining > 0.5f && action.CooldownRemaining <= 0.601f,
+                "attack speed halves 1.2 second cooldown");
+            yield return new WaitForSeconds(0.65f);
+            Check(target.Mortal.HP == before - 45 && action.Phase == ActionPhase.Ready,
+                "scaled recovery completes without duplicate damage");
+            int deaths = 0; health.OnDead += source => deaths++;
+            health.TakeDamage(999, null);
+            Check(health.HP == 0 && health.isDead && deaths == 1 && brain.State == EnemyState.Dead,
+                "data initialized health retains death state and event behavior");
+            yield return null;
+            Check(first == null && second.GetComponent<Mortal>().HP == 240, "one shared-data enemy dies without changing another");
+            Check(saved.MaxHealth == 100 && saved.MoveSpeed == 3.5f && saved.AttackMultiplier == 1f && saved.AttackSpeed == 1f,
+                "stat tests never mutate the saved data asset");
         }
 
         private GameObject Box(string name, Vector3 position, Vector3 scale)

@@ -13,7 +13,7 @@ namespace ProjectU.Editor
             try
             {
                 Validate();
-                Debug.Log("MORTAL VALIDATION PASSED: damage, attacker, invincibility, lethal damage, event order, duplicate death, null attacker, reentrancy, listener failure.");
+                Debug.Log("MORTAL VALIDATION PASSED: damage, attacker, invincibility, lethal damage, event order, duplicate death, null attacker, reentrancy, listener failure, one-time stat initialization.");
                 if (Application.isBatchMode)
                     EditorApplication.Exit(0);
             }
@@ -119,6 +119,30 @@ namespace ProjectU.Editor
                     exceptionPropagated = true;
                 }
                 Check(exceptionPropagated && failingTarget.HP == 0 && failingTarget.isDead && failingDeathCount == 1, "Listener failure must not prevent lethal death processing.");
+
+                Mortal initializedTarget = CreateUnit(root.transform, "Stat Initialization Target");
+                int initializationEvents = 0;
+                initializedTarget.OnDamaged += (damage, source) => initializationEvents++;
+                initializedTarget.OnDead += source => initializationEvents++;
+                initializedTarget.IsInvincible = true;
+                Check(initializedTarget.TryInitializeHealth(250) && initializedTarget.HP == 250 &&
+                    initializedTarget.IsInvincible && initializationEvents == 0, "Initialization sets HP without damage/death events or immunity changes.");
+                Check(!initializedTarget.TryInitializeHealth(500) && initializedTarget.HP == 250, "Initialization is one-time.");
+                initializedTarget.IsInvincible = false;
+                initializedTarget.TakeDamage(50, attacker);
+                Check(!initializedTarget.TryInitializeHealth(500) && initializedTarget.HP == 200, "Initialization cannot heal damaged units.");
+                initializedTarget.Dead();
+                Check(!initializedTarget.TryInitializeHealth(500) && initializedTarget.HP == 0 && initializedTarget.isDead,
+                    "Initialization cannot revive dead units.");
+                Mortal damagedBeforeInit = CreateUnit(root.transform, "Damage Before Initialization");
+                damagedBeforeInit.TakeDamage(1, attacker);
+                Check(!damagedBeforeInit.TryInitializeHealth(250) && damagedBeforeInit.HP == 99,
+                    "First damage closes initialization even without a stat component.");
+                Mortal deadBeforeInit = CreateUnit(root.transform, "Death Before Initialization");
+                deadBeforeInit.Dead();
+                Check(!deadBeforeInit.TryInitializeHealth(250) && deadBeforeInit.HP == 0, "Forced death closes initialization.");
+                Mortal minimumTarget = CreateUnit(root.transform, "Minimum Initial Health");
+                Check(minimumTarget.TryInitializeHealth(-1) && minimumTarget.HP == 1, "Initial health clamps to one.");
             }
             finally
             {

@@ -12,6 +12,7 @@ namespace ProjectU.Editor
     {
         public const string PrefabPath = "Assets/Prefabs/Enemies/TempEnemy.prefab";
         public const string NavPath = "Assets/Scenes/Navigation/SampleSceneNavMesh.asset";
+        public const string StatPath = "Assets/Data/Enemies/TempEnemyStat.asset";
 
         [MenuItem("ProjectU/Setup/Create TempEnemy Demo")]
         public static void Run()
@@ -20,7 +21,14 @@ namespace ProjectU.Editor
             EditorSceneManager.OpenScene("Assets/Scenes/SampleScene.unity");
             Directory.CreateDirectory("Assets/Prefabs/Enemies");
             Directory.CreateDirectory("Assets/Scenes/Navigation");
+            Directory.CreateDirectory("Assets/Data/Enemies");
             AssetDatabase.Refresh();
+            EnemyStatData statData = AssetDatabase.LoadAssetAtPath<EnemyStatData>(StatPath);
+            if (statData == null)
+            {
+                statData = ScriptableObject.CreateInstance<EnemyStatData>();
+                AssetDatabase.CreateAsset(statData, StatPath);
+            }
             string materialPath = "Assets/Prefabs/Enemies/TempEnemy.mat";
             Material material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
             if (material == null)
@@ -46,8 +54,10 @@ namespace ProjectU.Editor
             owner.Faction = Faction.Enemy;
             NavMeshAgent agent = root.AddComponent<NavMeshAgent>();
             agent.radius = 0.45f; agent.height = 2f; agent.baseOffset = 0f;
-            agent.speed = 3.5f; agent.acceleration = 16f; agent.angularSpeed = 540f;
+            agent.speed = statData.MoveSpeed; agent.acceleration = 16f; agent.angularSpeed = 540f;
             agent.stoppingDistance = 1.6f; agent.updateRotation = false;
+            EnemyStat stat = root.AddComponent<EnemyStat>();
+            SetReference(stat, "data", statData);
             root.AddComponent<EnemyMotor>();
             root.AddComponent<EnemySensor>();
             MeleeAttack attack = root.AddComponent<MeleeAttack>();

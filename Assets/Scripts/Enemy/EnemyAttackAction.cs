@@ -12,8 +12,16 @@ namespace ProjectU
         [SerializeField, Range(0f, 180f)] private float facingTolerance = 30f;
         [SerializeField] private LayerMask obstructionMask = ~0;
         private Vector3 committedDirection;
+        private EnemyStat stat;
         public Attack Attack => attack;
         public override bool IsAttackAction => true;
+
+        protected virtual void Awake()
+        {
+            stat = GetComponent<EnemyStat>();
+            if (stat != null && stat.IsInitialized)
+                SpeedMultiplier = stat.AttackSpeed;
+        }
 
         public override bool IsInPosition(Combatant candidate)
         {
@@ -41,7 +49,8 @@ namespace ProjectU
         {
             Vector3 origin = attack.Origin.position;
             Vector3 aim = attack is MeleeAttack ? origin + committedDirection : EnemySensor.TargetPoint(request.Target);
-            return attack.TryExecute(this, origin, aim, damageMultiplier) ? ActionResult.Completed : ActionResult.Failed;
+            float multiplier = damageMultiplier * (stat != null && stat.IsInitialized ? stat.AttackMultiplier : 1f);
+            return attack.TryExecute(this, origin, aim, multiplier) ? ActionResult.Completed : ActionResult.Failed;
         }
         protected override void OnValidate()
         {

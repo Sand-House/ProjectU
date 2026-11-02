@@ -36,6 +36,7 @@ namespace ProjectU.Editor
         {
             SessionState.SetBool(Running, false);
             Time.timeScale = 1f;
+            Time.captureDeltaTime = 0f;
             if (Application.isBatchMode) EditorApplication.Exit(code);
             else EditorApplication.ExitPlaymode();
         }
@@ -68,6 +69,7 @@ namespace ProjectU.Editor
 
         private IEnumerator Start()
         {
+            Time.captureDeltaTime = 1f / 60f;
             EnemyValidationIsolation.DisableDemoEnemies();
             IEnumerator validation = Validate();
             while (true)
@@ -106,6 +108,8 @@ namespace ProjectU.Editor
             pool = UnityEngine.Object.FindFirstObjectByType<ProjectilePool>();
             Check(launcher.enabled && input.GetComponent<Combatant>().Faction == Faction.Player && input.GetComponent<Mortal>().HP == 100,
                 "saved player combat identity and HP");
+            Check(input.GetComponent<Mortal>().HP == stat.MaxHealth, "saved player starts at PlayerStat MaxHealth");
+            ValidateHealthInitialization();
             Check(primaryAttack != null && secondaryAttack != null && grenadeAttack != null &&
                 secondaryAttack != grenadeAttack && input.GetComponents<Attack>().Length == 3,
                 "three distinct saved attack components");
@@ -263,8 +267,9 @@ namespace ProjectU.Editor
             Check(!animationController.IsReloading, "both weapons fire after reload cancellation");
             Check(RespectsTiming(primaryTimes, timedPrimary) && RespectsTiming(secondaryTimes, timedSecondary),
                 "held shots respect windup recovery and cooldown");
-            // A cooldown-only gap now correctly permits reload; probe actual secondary recovery.
-            while (PlayerActionValidationUtility.For(secondaryAttack).Phase != ActionPhase.Recovery) yield return null;
+            // Leave a full input frame inside recovery; a cooldown-only gap legitimately permits reload.
+            PlayerAction secondaryAction = PlayerActionValidationUtility.For(secondaryAttack);
+            while (secondaryAction.Phase != ActionPhase.Recovery || secondaryAction.RecoveryRemaining < 0.03f) yield return null;
             pressMask = 8;
             yield return new WaitForSeconds(0.02f);
             Check(!animationController.IsReloading, "active secondary fire prevents manual reload");
@@ -477,6 +482,41 @@ namespace ProjectU.Editor
             serialized.FindProperty("hp").intValue = 200;
             serialized.ApplyModifiedPropertiesWithoutUndo();
             return combatant;
+        }
+
+        private void ValidateHealthInitialization()
+        {
+            var unit = new GameObject("Player Health Initialization Validation");
+            unit.SetActive(false);
+            try
+            {
+                PlayerStat healthStat = unit.AddComponent<PlayerStat>();
+                Mortal health = unit.GetComponent<Mortal>();
+                Check(health != null, "PlayerStat requires Mortal");
+                healthStat.MaxHealth = 250;
+                PlayerActionValidationUtility.Set(health, "hp", 17);
+                health.IsInvincible = true;
+                int damaged = 0, dead = 0;
+                health.OnDamaged += (amount, source) => damaged++;
+                health.OnDead += source => dead++;
+                unit.SetActive(true);
+                Check(health.HP == 250 && health.IsInvincible && damaged == 0 && dead == 0,
+                    "PlayerStat overrides starting HP without damage events or changing invincibility");
+                health.IsInvincible = false;
+                health.TakeDamage(40, null);
+                Check(health.HP == 210 && healthStat.MaxHealth == 250 && damaged == 1,
+                    "player damage changes current HP without changing MaxHealth");
+                unit.SetActive(false); unit.SetActive(true);
+                Check(health.HP == 210 && damaged == 1 && dead == 0, "player object reactivation does not heal");
+                healthStat.enabled = false; healthStat.enabled = true;
+                Check(health.HP == 210, "PlayerStat reactivation does not heal");
+                healthStat.MaxHealth = 500;
+                Check(health.HP == 210, "runtime MaxHealth changes do not implicitly refill current HP");
+                health.Dead();
+                unit.SetActive(false); unit.SetActive(true);
+                Check(health.HP == 0 && health.isDead && dead == 1, "player reactivation does not revive or repeat death");
+            }
+            finally { Destroy(unit); }
         }
 
         private void SetInput(string name, object value) => typeof(PlayerInputReader).GetProperty(name).SetValue(input, value);

@@ -1,10 +1,11 @@
 # Enemy 구현 가이드
 
-기준 날짜: **2026-11-01**. 이 문서는 현재 실행 코드·프리팹·SampleScene을 기준으로 적의 상태, 행동, 이동, 공격, 사망과 새 적 추가 방법을 설명한다. 검증 결과는 마지막 절에 별도로 기록한다.
+기준 날짜: **2026-11-02**. 이 문서는 현재 실행 코드·프리팹·SampleScene을 기준으로 적의 능력치, 상태, 행동, 이동, 공격, 사망과 새 적 추가 방법을 설명한다. 검증 결과는 11절에 날짜별로 기록한다.
 
 ## 1. 현재 구현 범위
 
 - `TempEnemy.prefab`은 빨간 캡슐 메시와 CapsuleCollider를 사용하는 근접형 적이다. SampleScene에 연결된 프리팹 인스턴스 5기가 있다.
+- 최대 HP·이동속도·공격력 배율·공격속도 배율은 `EnemyStatData` ScriptableObject에서 설정한다. `EnemyStat`이 생성 시 값을 복사해 적용하며 현재 HP는 적마다 Mortal이 관리한다.
 - 시각 감지 또는 실제 피격으로 플레이어를 인식하고, NavMesh로 추격한 뒤 근접 피해를 준다.
 - `Mortal`의 HP가 소진되면 `OnDead`에서 Dead 상태로 전환하고 `Destroy(gameObject)`를 호출한다. 실제 제거는 Unity의 프레임 종료 시점에 일어난다.
 - 플레이어·적은 `ActionBase`의 행동 생명주기를 공유한다. 공격 종류는 `Attack` 컴포넌트로 지정한다.
@@ -16,6 +17,9 @@
 
 | 파일 | 책임 |
 |---|---|
+| `Assets/Scripts/Enemy/EnemyStatData.cs` | 공유하는 기본 능력치 ScriptableObject, 읽기 전용 속성과 값 검증 |
+| `Assets/Scripts/Enemy/EnemyStat.cs` | 데이터 참조, 생성 시 능력치 복사·Mortal HP 초기화·NavMeshAgent 속도 적용 |
+| `Assets/Data/Enemies/TempEnemyStat.asset` | TempEnemy 5기가 공유하는 최대 HP 100·이동속도 3.5·공격 배율 1·공격속도 1 설정 |
 | `Assets/Scripts/Enemy/EnemyAI.cs` | 대상과 FSM 소유, 감지·피격·사망 연결, 현재 상태 알림 |
 | `Assets/Scripts/Enemy/EnemySensor.cs` | 시야 거리·수평 시야각·장애물 검사, 플레이어 후보 참조 |
 | `Assets/Scripts/Enemy/EnemyMotor.cs` | NavMeshAgent의 목적지·정지·회전, 접지와 경로 조회 |
@@ -29,11 +33,28 @@
 | `Assets/Scripts/Combat/Combatant.cs` | 진영·생존과 같은 유닛의 ActionBase 제한 집계 |
 | `Assets/Scripts/Combat/WorldObstruction.cs` | 시야·근접 공격의 고체 월드 장애물 검사 |
 | `Assets/Scripts/Combat/MeleeAttack.cs` | 근접 범위·높이·각도·벽 가림 판정과 실제 피해 |
-| `Assets/Scripts/Mortal.cs` | HP·무적·피해·사망 이벤트 |
+| `Assets/Scripts/Mortal.cs` | 현재 HP·무적·피해·사망 이벤트, 생성 시 한 번의 HP 초기화 |
 | `Assets/Prefabs/Enemies/TempEnemy.prefab`, `TempEnemy.mat` | 재사용 가능한 적 프리팹과 임시 URP 머티리얼 |
 | `Assets/Scenes/Navigation/SampleSceneNavMesh.asset` | 씬의 베이크된 이동 영역 |
 | `Assets/Editor/TempEnemySetup.cs` | 프리팹·NavMesh·5기 배치를 만드는 에디터 도구 |
 | `Assets/Editor/EnemyValidation.cs` | 저장된 씬과 격리된 검증 아레나를 사용하는 자동 플레이 검증 |
+
+### 적 능력치 에셋 사용법
+
+Project 창에서 `Create > ProjectU > Enemy > Stat Data`로 에셋을 만들고 적 프리팹 루트의 `EnemyStat > Data`에 연결한다. 기본 적은 `Assets/Data/Enemies/TempEnemyStat.asset`을 편집하면 된다. 종류별로 다른 값을 사용하려면 에셋을 복제해 해당 프리팹에 연결한다.
+
+| Inspector 필드 | 기본값 | 적용 대상 |
+|---|---|---|
+| Max Health | 100 | 생성 시 Mortal의 시작·현재 HP |
+| Move Speed | 3.5m/s | NavMeshAgent.speed |
+| Attack Multiplier | 1 | 각 EnemyAttackAction의 피해 배율에 추가로 곱함 |
+| Attack Speed | 1 | 각 EnemyAttackAction의 선딜·후딜·쿨타임을 나누는 배율 |
+
+최대 HP는 최소 1, 이동속도·공격력 배율은 최소 0, 공격속도 배율은 최소 0.01이다. 음수와 NaN·Infinity는 각 최소값으로 보정한다. 에셋에는 현재 HP·대상·쿨타임 등의 실행 상태를 저장하지 않는다. 공격의 기본 피해·범위·투사체 설정은 AttackData, 기본 타이밍은 액션, 가속도·반경·정지 거리는 NavMeshAgent, 회전 속도는 EnemyMotor, 시야 설정은 EnemySensor에서 관리한다.
+
+`EnemyStat.Awake`는 실행 순서 -150으로 AI·공격 액션보다 먼저 데이터를 각 인스턴스의 읽기 전용 속성에 복사한다. 에셋 또는 Data 참조를 실행 중 바꿔도 이미 생성한 적에는 재적용하지 않는다. 이후 생성한 적부터 변경값을 사용한다. 오브젝트나 컴포넌트를 껐다 켜도 현재 HP를 회복하거나 사망 상태를 되돌리지 않는다. 런타임 강화·감속·웨이브 배율과 풀 재생성 API는 후속 작업이다.
+
+데이터가 없거나 피해·사망 이후 초기화를 시도하면 오류를 기록하고 EnemyAI를 비활성화한다. 프리팹 Mortal의 `hp`와 NavMeshAgent의 `Speed` 저장값은 시작 시 데이터로 덮어쓰므로, 적의 HP·속도 밸런스는 연결된 에셋에서 편집한다. 플레이어는 같은 날짜의 후속 작업으로 PlayerStat.Awake에서 MaxHealth를 Mortal 시작 HP에 적용한다.
 
 ## 3. 상태 구조와 전이
 
@@ -85,7 +106,8 @@ NavMeshAgent가 실제 이동을 담당하며 EnemyMotor가 목적지와 정지�
 
 | 설정 위치 | TempEnemy 기본값 |
 |---|---|
-| NavMeshAgent | Speed 3.5m/s, Acceleration 16, Radius 0.45m, Height 2m, Stopping Distance 1.6m |
+| EnemyStatData | Move Speed 3.5m/s → 생성 시 NavMeshAgent.speed에 적용 |
+| NavMeshAgent | Acceleration 16, Radius 0.45m, Height 2m, Stopping Distance 1.6m |
 | EnemyMotor | Repath Interval 0.2초, Sample Distance 2m, Turn Speed 540도/초 |
 
 EnemyMotor는 목적지 주변의 NavMesh를 찾아 경로를 갱신한다. 목적지를 샘플링할 수 없으면 이동을 멈추며, 경로가 불완전하면 도달 가능한 부분까지만 이동할 수 있다. NavMesh 도착 여부만으로 공격하지 않는다. 실제 공격 위치·높이·방향·벽 조건을 EnemyAttackAction이 확인한다. 점프 중인 플레이어의 지상 근처로 이동할 수 있어도 실제 근접 범위 높이를 벗어나면 피해를 주지 못한다.
@@ -129,6 +151,8 @@ EnemyAction은 `ActionBase`를 직접 상속하며 `CanStartFor(target) / TrySta
 
 EnemyAttackAction의 Attack 필드에는 세 공격 종류를 모두 연결할 수 있다.
 
+EnemyStat이 있는 적은 `AttackData.Damage × EnemyStat.AttackMultiplier × EnemyAttackAction.damageMultiplier`를 피해 계산에 전달한다. 치명타와 정수 반올림은 기존 DamageResolver 규칙을 따른다. `EnemyStat.AttackSpeed`는 공격 액션의 `SpeedMultiplier`에 적용한다. 예를 들어 2이면 기본 선딜 0.5초·후딜 0.8초·쿨타임 1.2초가 각각 0.25초·0.4초·0.6초가 된다. 공격 없는 EnemyAction에는 공격속도를 적용하지 않는다. EnemyStat 없이 단독 사용하는 공격 어댑터는 기존 배율 1을 사용한다.
+
 | 연결한 공격 | 시작 위치 판정 | 실행 |
 |---|---|---|
 | MeleeAttack | 실제 근접 범위·높이·각도·벽 검사 | 수락 시 전방을 고정하고 선딜 완료 시 현재 Origin에서 타격 |
@@ -151,7 +175,9 @@ MeleeAttack은 플레이어·적과 Circle·Sector 모두 벽 검사를 적용�
 
 ## 9. 체력과 사망 수명
 
-TempEnemy는 일반 Mortal을 그대로 사용하고 시작 HP는 100이다. 별도 적 전용 체력 저장소는 없다. 적대 공격에 피해를 받으며 무적·실제 HP 감소량·공격자 전달·사망 이벤트는 Mortal이 처리한다.
+TempEnemy는 일반 Mortal을 사용하며 `EnemyStatData.MaxHealth`를 시작 HP로 적용한다. 기본 에셋은 100이다. 최대 HP는 EnemyStat의 생성 시 복사값, 현재 HP는 Mortal.HP가 담당한다. 같은 에셋을 공유해도 한 적의 피해가 다른 적이나 에셋을 변경하지 않는다. 무적·실제 HP 감소량·공격자 전달·사망 이벤트는 Mortal이 처리한다.
+
+`Mortal.TryInitializeHealth(int maxHealth)`는 첫 초기화에만 성공하고, 최초 실제 피해 또는 사망 이후에는 초기화를 거절한다. 최소 HP는 1이며 초기화로 피해·사망 이벤트를 발생시키거나 무적 설정을 변경하지 않는다. EnemyStat과 PlayerStat은 각각 Awake에서 이 API를 한 번 호출한다. 두 Stat을 사용하지 않는 일반 Mortal은 기존 직렬화된 시작 HP를 유지한다.
 
 현재 수명 흐름은 다음과 같다.
 
@@ -172,9 +198,9 @@ EnemyAI는 Awake에서 OnDead를 구독하고 OnDestroy에서 해제한다. AI �
 ### A. 같은 근접 행동을 사용하는 적
 
 1. `Assets/Prefabs/Enemies/TempEnemy.prefab`을 복제하거나 Prefab Variant를 만든다.
-2. 루트의 Mortal·Combatant·NavMeshAgent·EnemyMotor·EnemySensor·EnemyCombat·EnemyAI·EnemyAttackAction·MeleeAttack과 Collider 연결을 유지한다.
+2. 루트의 EnemyStat·Mortal·Combatant·NavMeshAgent·EnemyMotor·EnemySensor·EnemyCombat·EnemyAI·EnemyAttackAction·MeleeAttack과 Collider 연결을 유지한다.
 3. `Capsule Visual` 자식을 새 메시로 교체한다. 적 루트는 발밑 기준이고 이동 Collider는 루트에서 관리한다. 모델 애니메이션의 루트 이동과 NavMeshAgent 이동을 동시에 적용하지 않는다.
-4. Mortal의 HP, Agent의 속도·반경·정지 거리, Sensor의 시야·거리·눈 위치를 편집한다.
+4. `Create > ProjectU > Enemy > Stat Data`로 능력치 에셋을 만들고 EnemyStat.Data에 연결한다. 최대 HP·이동속도·공격력/공격속도 배율은 이 에셋에서, Agent의 가속도·반경·정지 거리와 Sensor의 시야·거리·눈 위치는 해당 컴포넌트에서 편집한다.
 5. 개별 밸런스가 필요하면 `Create > ProjectU > Combat > Melee Attack`으로 데이터를 만들거나 기존 에셋을 복제한다. Damage·Range·Height·SectorAngle·OriginOffset·마스크를 설정하고 MeleeAttack.Data에 연결한다.
 6. Attack.Origin을 루트 또는 공격 기준 Transform에 연결한다. 이미 가슴 높이 Origin을 사용한다면 OriginOffset.y를 다시 더하지 않도록 조정한다.
 7. EnemyAttackAction.Attack과 EnemyCombat.Actions를 연결하고 선딜·후딜·쿨타임·RequiresGrounded·CanMove를 설정한다.
@@ -201,12 +227,33 @@ EnemyAI는 Awake에서 OnDead를 구독하고 OnDestroy에서 해제한다. AI �
 
 ## 11. 씬 도구와 검증
 
-- `ProjectU > Setup > Create TempEnemy Demo`: SampleScene을 열어 TempEnemy 에셋, Enemy Navigation, Temp Enemies 그룹과 5기 배치를 구성한다. 해당 데모 프리팹·그룹을 다시 구성하므로 개별 적을 편집할 때 반복 실행하지 않는다.
+- `ProjectU > Setup > Create TempEnemy Demo`: SampleScene을 열어 TempEnemy 프리팹, 능력치 에셋, Enemy Navigation, Temp Enemies 그룹과 5기 배치를 구성한다. 능력치 에셋이 이미 있으면 해당 값을 유지해 연결한다. 해당 데모 프리팹·그룹을 다시 구성하므로 개별 적을 편집할 때 반복 실행하지 않는다.
 - `ProjectU > Validation > Validate Enemies`: 씬의 프리팹 연결은 Edit 모드에서, 실제 동작은 Play 모드에서 검사한다. 검증은 씬·프리팹을 저장하지 않는다.
 - `ProjectU > Validation > Capture Enemy Scene Preview`: 그래픽 장치가 있는 에디터에서 씬 전체와 캡슐 근접 이미지를 렌더링한다. 씬은 저장하지 않는다.
 - 기존 플레이어 검증은 `EnemyValidationIsolation.DisableDemoEnemies()`로 데모 적만 실행 중 비활성화한다. 실제 적 상호작용은 EnemyValidation이 별도로 검증한다.
 
-**이번 직접 검증: 2026-11-01, Unity 6000.3.25f1.** 다음 13종이 모두 종료 코드 0으로 통과했다. 정량 검사 합계는 **582개**이며 애니메이션·스태미나·Mortal·Projectile의 별도 시나리오 통과도 함께 확인했다.
+### 2026-11-02 능력치 ScriptableObject 직접 검증
+
+Unity **6000.3.25f1**에서 다음 네 검증이 모두 종료 코드 0으로 통과했다. 정량 검사 **220개**와 Mortal 시나리오 검증 결과이며 아래 2026-11-01 전체 회귀 기록과 구분한다.
+
+| 검증 | 결과 | 로그 (`Logs/EnemyStats_20261102/`) |
+|---|---|---|
+| EnemyValidation | 95개 + Edit 모드 프리팹 5기·데이터 참조 | `EnemyValidation.log` |
+| MortalValidation | 기존 피해·사망 + 초기화·재초기화 거절·최소 HP·이벤트·무적 유지 | `MortalValidation.log` |
+| AttackValidation | 75개 | `AttackValidation.log` |
+| PlayerAttackValidation | 50개 | `PlayerAttackValidation.Final.log` |
+
+적 검증에는 저장된 기본 능력치, 잘못된 숫자 보정, HP 240·속도 2·공격/공격속도 2의 별도 데이터 적용, 같은 에셋을 공유하는 두 적의 HP 독립, 재활성화 시 현재 HP 유지, 생성 후 에셋 변경과 이후 생성 개체의 차이, 실제 NavMesh 이동속도 제한, 기본 피해 15 × 캐릭터 2 × 액션 1.5 = 45 피해, 선딜/후딜/쿨타임 0.25/0.4/0.6초, 실제 사망 이벤트·제거를 추가했다. 원본 데이터는 검증 중 변경하지 않았다.
+
+최초 PlayerAttackValidation에서는 0.05초 후딜을 확인한 다음 입력 프레임까지 시간이 지나 장전이 정상 허용될 수 있는 검사 타이밍 문제가 발생했다. 검증에 고정 60Hz 게임 시간을 사용하고 입력 전달까지 후딜이 남는 시점에 검사하도록 보완한 뒤 50개를 통과했다. 실패 로그 `PlayerAttackValidation.log`와 최종 로그를 구분한다. 플레이어 런타임 코드의 행동 제한은 변경하지 않았다.
+
+최종 .NET 런타임·에디터 빌드는 경고 0·오류 0(`DotnetBuild.Final.log`)이다. 씬·NavMesh, 기존 공격 데이터·투사체·애니메이션, 기존 meta 변경 0과 전체 meta GUID 중복 0, `git diff --check`를 확인했다. `Results.json`은 최종 종료 코드, `Results.Initial.json`은 중간 실행 결과, `Integrity.json`은 에셋 무결성 결과다. 초기 샌드박스 Unity 라이선스 접근 실패(`EnemyValidation.Initial.log`)와 .NET SDK 접근/복원 메타데이터 부족은 최종 성공 결과와 구분한다.
+
+이번에는 합성 입력 자동 플레이를 수행했으며 실제 키·마우스 수동 플레이, 이미지 렌더링, 다른 독립 검증은 재실행하지 않았다. 런타임 능력치 변경·웨이브 배율·적 풀 재생성, 아래 적 연출·반복 전투 흐름은 후속 작업이다.
+
+### 2026-11-01 적·공통 액션 검증 기록
+
+**이전 직접 검증: 2026-11-01, Unity 6000.3.25f1.** 다음 13종이 모두 종료 코드 0으로 통과했다. 정량 검사 합계는 **582개**이며 애니메이션·스태미나·Mortal·Projectile의 별도 시나리오 통과도 함께 확인했다. 아래 표는 능력치 데이터 추가 전 결과다.
 
 | 검증 | 이번 결과 |
 |---|---|
@@ -234,6 +281,7 @@ EnemyValidation은 씬에서 실제 플레이어 피해, 시야 거리·각도·
 
 ## 12. 남은 작업
 
+- 런타임 능력치 변경·버프/감속·웨이브 배율, 풀 재생성 시 상태 초기화.
 - 적 메시·피격·공격 예고·공격·사망 애니메이션과 사운드.
 - Dead 연출 → 일정 시간 후 비활성화 → 스테이지 종료 시 일괄 Destroy.
 - Gunner의 거리 유지, 돌진형 적, 보스 패턴과 단계 전환.

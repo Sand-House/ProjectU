@@ -1,5 +1,13 @@
 # ProjectU 프로젝트 지침
 
+최신 플레이어 시작 HP 기준: **2026-11-02, 적 능력치 작업 후속**. PlayerStat은 Mortal을 필수 컴포넌트로 요구하고 Awake(-150)에서 `Mortal.TryInitializeHealth(MaxHealth)`를 한 번 호출한다. 시작 HP 설정은 PlayerStat.MaxHealth, 현재 HP·피해·사망은 Mortal이 담당한다. Edit 모드에서 Max Health를 편집하면 다음 생성 시 적용하며 SampleScene 기본값은 100이다. 재활성화·실행 중 MaxHealth 변경은 현재 HP를 회복하거나 부활시키지 않는다. 런타임 최대 HP 변경 시 현재 HP 보정·회복·부활 정책은 후속 작업이다. 아래 이전 기록의 플레이어 최대 체력 미연결은 변경 전 상태다.
+
+플레이어 시작 HP의 이번 직접 검증: **2026-11-02**, Unity 6000.3.25f1에서 PlayerAttackValidation **58개**(기존 50개 + HP 연결 8개), PlayerStaminaValidation, MortalValidation을 직접 실행해 세 종류 모두 종료 코드 0을 확인했다. Mortal 자동 요구, 서로 다른 저장값에서 MaxHealth 250 우선 적용, 피해/무적/이벤트 유지, 개체·컴포넌트 재활성화 시 회복 방지, 실행 중 MaxHealth 변경 시 HP 유지, 사망 후 부활·중복 사망 방지를 검사했다. .NET 런타임·에디터 빌드 경고·오류 0과 git diff --check를 확인했다. 로그는 `Logs/PlayerHealth_20261102/`이며 앞선 적 능력치의 220개 검증과 별도다. 실제 키·마우스 수동 플레이·이미지 렌더링과 다른 독립 검증은 재실행하지 않았다.
+
+최신 적 능력치 기준: **2026-11-02**. `EnemyStatData` ScriptableObject에 최대 HP·이동속도·공격력 배율·공격속도 배율을 정의하고 `EnemyStat` 컴포넌트의 Data에 연결한다. `Assets/Data/Enemies/TempEnemyStat.asset`을 TempEnemy 프리팹과 SampleScene의 연결된 5기가 공유한다. 기본값은 HP 100·3.5m/s·공격 배율 1·공격속도 1이다. EnemyStat은 Awake(-150)에서 데이터를 인스턴스에 복사하고 Mortal.TryInitializeHealth로 현재 HP를 한 번 초기화하며 NavMeshAgent.speed에 속도를 적용한다. EnemyAttackAction은 캐릭터 공격 배율과 액션 피해 배율을 곱하고 공격속도로 선딜·후딜·쿨타임을 나눈다. 공유 에셋에 현재 HP를 저장하지 않으며 재활성화 시 회복·부활이나 실행 중 데이터 재적용은 없다. PlayerStat·플레이어 HP는 기존 상태를 유지한다. 적의 HP·이동속도 편집 위치는 이제 능력치 에셋이며 자세한 사용법은 [Enemy.md](Enemy.md) 2절을 참고한다. 런타임 능력치 변경·웨이브 배율·풀 재생성은 후속 작업이다.
+
+적 능력치의 이번 직접 검증: **2026-11-02**, Unity 6000.3.25f1에서 EnemyValidation 95개·AttackValidation 75개·PlayerAttackValidation 50개, 총 **220개**와 MortalValidation을 실행해 네 종류 모두 종료 코드 0을 확인했다. 별도 에셋의 HP·실제 이동속도·피해/타이밍 배율 적용, 공유 에셋과 개체별 HP 분리, 재활성화 HP 유지, 생성 시 복사·후속 생성 반영, 기존 사망·공격을 검증했다. 기존 플레이어 검증의 짧은 후딜/다음 입력 프레임 경계 문제는 고정 시간·후딜 초반 검사로 보완했다. 최종 .NET 빌드 경고·오류 0, 씬·NavMesh·기존 공격 데이터/투사체/애니메이션/meta 변경 0, GUID 중복 0과 git diff --check를 확인했다. 로그는 `Logs/EnemyStats_20261102/`이며 초기 실패와 최종 결과는 Enemy.md 11절에 구분했다. 실제 키·마우스 수동 플레이·이미지 렌더링과 다른 독립 검증은 이번에 재실행하지 않았다.
+
 최신 적·공통 액션 기준: **2026-11-01**. `ActionBase`를 공통 부모로 추가하고 PlayerAction·EnemyAction이 직접 상속한다. 공통 타이밍·조건·제한·취소·이벤트는 ActionBase, 슬롯·홀딩·선입력 자격은 PlayerAction이 담당한다. 공통 타입은 ActionContext·ActionPhase·ActionResult·ActionCancelReason이며 PlayerActionSlot·PlayerActionStage는 유지한다. Attack.TryExecute는 ActionBase를 받고 Combatant는 모든 ActionBase를 집계한다. 모든 MeleeAttack은 원/부채꼴·플레이어/적 구분 없이 월드 벽 가림을 검사한다.
 
 `TempEnemy.prefab`과 SampleScene의 연결된 인스턴스 **5기**, 베이크된 NavMesh를 추가했다. 적은 EnemyStateBase를 상속하는 Idle·Chase·Combat·Dead 네 상태, Inspector에서 편집하는 EnemySensor의 시야각·거리·눈 위치·간격·장애물 마스크, 피격 인식, NavMesh 추격, EnemyAttackAction의 근접 공격을 사용한다. 초기 HP 100, 피해 15, 선딜 0.5초·후딜 0.8초·쿨타임 1.2초다. Mortal.OnDead에서 Dead 정리 후 Destroy한다. 적 메시·애니메이션·지연 비활성화·스테이지 일괄 제거·Gunner 거리 유지·보스·웨이브 흐름은 후속 작업이다. 상세 구조와 새 적 생성 방법은 [Enemy.md](Enemy.md), 이번 검증 로그는 `Logs/Enemy_20261101/`을 참고한다. 아래 이전 날짜의 적 AI 미구현·PlayerAction 공통 부모 기록은 당시 상태다.
@@ -132,10 +140,11 @@ Origin 이관의 이번 직접 검증: Unity 6000.3.25f1에서 공통 공격 75�
 | 공통 공격 | 플레이어·근접 적 연결 | ActionBase 기반의 공통 타이밍·조건·제한과 3종 Attack을 사용. Player의 기존 세 공격을 유지하고 TempEnemy에 MeleeAttack을 연결. 모든 근접 공격에 벽 가림 적용 |
 | 수류탄 스킬 | 임시 기능 연결 | E에서 TempGrenade 투척, 기존 물리 튕김·2.5초 지연 폭발·기본 범위 피해 100·연출·풀 반환. AttackExecuted(Skill1) 성공으로 상체 투척 애니메이션 재생. 실제 발사 시점·Origin·오프셋·발사각은 유지. 현재 저장값은 후딜 1초·쿨타임 6초이며 최종 밸런스·엄폐물·넉백은 후속 작업 |
 | 소총·탄약·재장전 | 기본 발사 탄창·실제 장전 구현 | PrimaryFire 성공당 1발 차감, MaxMagazine까지 장전. R 수동·0발 지속 자동 시도, 장전 중 기본·보조 발사 차단, 대시·스킬로 취소. 무제한 예비 탄약이며 HUD는 후속 작업 |
-| 플레이어 능력치 | 구현·일부 연결 | 이동속도·대시 거리→Motor, 최대 스태미나→PlayerStamina, 공격력·공격속도→PlayerAttackAction, 최대 탄창·장전 시간/속도→PlayerCombat를 연결했다. 최대 체력의 Mortal 동기화는 후속 작업 |
+| 플레이어 능력치 | 기본 능력치 연결 | 이동속도·대시 거리→Motor, 최대 스태미나→PlayerStamina, 공격력·공격속도→PlayerAttackAction, 최대 탄창·장전 시간/속도→PlayerCombat, 최대 체력→생성 시 Mortal 초기화를 연결했다. 런타임 최대 HP 변경에 따른 현재 HP 보정은 후속 작업 |
 | 대시·스태미나 | 이동·행동 제한·씬 연결 | PlayerStamina의 소모·지연 자동 회복 유지. Shift.Pressed에서 접지·실행 가능한 상태를 확인 후 25 소모, Motor가 입력 방향 또는 전방으로 대시한다. 거리/실제 이동/액션 후딜은 각 Inspector 설정이며 현재 5m/0.2초/0.3초. 대시·후딜 중 공격·장전·재대시 금지, 후딜 중 이동·점프 허용, 대기 공격·재장전 취소. 홀딩 반복·별도 쿨타임·무적·전용 애니메이션 없음 |
 | 정밀 조준·Skill2·궁극기 | 스킬 조건 검증용 액션 구현 | F는 지면 전용·이동 허용, Q는 공중 사용 가능·이동 금지. 각각 선딜 0.5초·후딜 1초와 실행 로그·장전 취소를 연결; 실제 정밀 조준·스킬 효과·궁극기 자원은 미구현 |
-| 체력·피해·사망 | 플레이어·적 피해 연결 | Player·TempEnemy 모두 Mortal HP 100. 적은 OnDead에서 액션·이동·충돌 정리 후 Destroy. 플레이어 사망 이동 중단·연출·복귀와 적 지연 제거는 후속 작업 |
+| 적 능력치 | ScriptableObject·프리팹 연결 | EnemyStatData의 최대 HP·이동속도·공격력/공격속도 배율을 EnemyStat이 생성 시 복사해 실제 체력·이동·공격에 적용. TempEnemyStat 공유; 런타임 강화·웨이브 배율은 후속 작업 |
+| 체력·피해·사망 | 플레이어·적 피해 연결 | 현재 HP는 Mortal, 시작 HP는 PlayerStat.MaxHealth / EnemyStatData.MaxHealth에서 공급. Player·TempEnemy 기본 HP 100. 적은 OnDead에서 액션·이동·충돌 정리 후 Destroy. 플레이어 사망 이동 중단·연출·복귀와 적 지연 제거는 후속 작업 |
 | 적 AI·적 공격 | 근접형 TempEnemy 구현 | EnemyStateBase의 Idle·Chase·Combat·Dead, 시야/피격 인식, NavMesh 추격, 실제 근접 피해, 캡슐 프리팹 5기 배치. 공격 예고 시각 연출·애니메이션·Gunner 거리 유지·추가 패턴은 후속 작업 |
 | 웨이브·강화 선택 | 미구현 | 적 생성, 클리어 판정, 전투 정지, 강화 제시·적용 필요 |
 | 보스·결과·재시작 | 미구현 | 10웨이브 보스, 성공·실패, 한 판 상태 초기화 필요 |
@@ -167,7 +176,7 @@ Origin 이관의 이번 직접 검증: Unity 6000.3.25f1에서 공통 공격 75�
 | `Assets/Editor/PlayerAttackValidation.cs` | 저장된 씬의 세 입력·에셋·실제 피해 30/50/100·이벤트·배율·정지·사망 검증 |
 | `Assets/Scripts/Player/ButtonInputState.cs` | 읽어도 소비되지 않는 버튼별 프레임 입력 스냅샷 |
 | `Assets/Scripts/Player/PlayerInputReader.cs` | 독립 `PlayerControls` InputActionMap 생성, 상태 수집, 커서 관리 |
-| `Assets/Scripts/Player/PlayerStat.cs` | 9개 능력치의 Inspector 설정; 이동속도·대시 거리·탄창·장전 시간/속도·최대 스태미나 원본. ReloadDuration은 외부 읽기 전용 |
+| `Assets/Scripts/Player/PlayerStat.cs` | 9개 능력치의 Inspector 설정; Awake(-150)에서 Mortal 시작 HP 초기화, 이동속도·대시 거리·탄창·장전 시간/속도·최대 스태미나 원본. ReloadDuration은 외부 읽기 전용 |
 | `Assets/Scripts/Player/PlayerStamina.cs` | 현재 스태미나, 소모 검증·차감·회복, 지연 자동 회복과 값 변경 이벤트 |
 | `Assets/Scripts/Player/PlayerController.cs` | 이동·점프 명령, 선입력 한 개·만료·교체·대시 우선순위, 전투 액션 선택·요청, 공격/장전 한 프레임 명령과 홀딩/빈 탄창 재시도·로그 |
 | `Assets/Scripts/Player/PlayerMotor.cs` | 한 프레임 명령을 소비해 이동·회전·중력·점프·충돌, 대시 이동·후딜·행동 가능 상태 처리 |
@@ -178,6 +187,8 @@ Origin 이관의 이번 직접 검증: Unity 6000.3.25f1에서 공통 공격 75�
 | `Assets/Scripts/Combat/ActionBase.cs`, `ActionTypes.cs` | 플레이어·적 공통 행동 생명주기·시간·조건·제한·취소·실행 정보 |
 | `Assets/Scripts/Player/PlayerAction.cs`, `PlayerAttackAction.cs` | 플레이어 슬롯·홀딩·선입력 자격·실행 단계 / Attack 실행 어댑터 |
 | `Assets/Scripts/Enemy/`, `States/` | 적 AI·감지·NavMesh 이동·액션 선택·실행과 EnemyStateBase를 상속하는 네 상태 |
+| `Assets/Scripts/Enemy/EnemyStatData.cs`, `EnemyStat.cs` | 적 기본 능력치 ScriptableObject / 생성 시 복사·현재 HP 초기화·Agent 속도 적용 |
+| `Assets/Data/Enemies/TempEnemyStat.asset` | TempEnemy 공통 최대 HP·이동속도·공격력/공격속도 배율 에셋 |
 | `Assets/Prefabs/Enemies/`, `Assets/Scenes/Navigation/` | TempEnemy 캡슐 프리팹·머티리얼과 저장된 NavMesh |
 | `Assets/Editor/EnemyValidation.cs`, `TempEnemySetup.cs` | 적 자동 플레이 검증 / 데모 프리팹·이동 영역·씬 배치 도구 |
 | `Assets/Scripts/Player/Actions/Soilder…Action.cs` | 일곱 캐릭터별 전투 액션. Skill2·Ultimate는 조건 검증용 딜레이·실행 로그, 실제 효과는 미구현 |
@@ -247,7 +258,7 @@ Origin 이관의 이번 직접 검증: Unity 6000.3.25f1에서 공통 공격 75�
 ### 현재 설정과 제약
 
 - 이동 속도 6m/s, 점프 높이 1.5m, Motor 중력 25m/s². 수류탄은 별도로 프로젝트 Physics 중력을 사용한다.
-- 스태미나 소모·부족 시 거절·지연 자동 회복은 구현했다. Shift는 PlayerStat의 거리 5m를 Motor의 0.2초 동안 이동하고 후딜레이 0.3초 동안 이동·점프 외 행동을 차단한다. 대시 방향·속력은 시작 시 고정하며 CharacterController 충돌·중력을 유지하며 지면에 접지 중일 때만 대시를 시작한다. 전용 애니메이션과 무적은 추가하지 않았다. 공격력·공격속도 배율은 세 Attack에 연결했으며 최대 체력의 Mortal 동기화는 미구현이다. 최대 탄창은 기본 발사에 연결했다.
+- 스태미나 소모·부족 시 거절·지연 자동 회복은 구현했다. Shift는 PlayerStat의 거리 5m를 Motor의 0.2초 동안 이동하고 후딜레이 0.3초 동안 이동·점프 외 행동을 차단한다. 대시 방향·속력은 시작 시 고정하며 CharacterController 충돌·중력을 유지하며 지면에 접지 중일 때만 대시를 시작한다. 전용 애니메이션과 무적은 추가하지 않았다. 공격력·공격속도 배율은 세 Attack에 연결했으며 최대 체력은 PlayerStat.Awake에서 Mortal 시작 HP로 적용한다. 최대 탄창은 기본 발사에 연결했다.
 - Bullet: 현재 저장된 프리팹은 속력 10m/s, 수명 5초, 중력 없음, 사전 생성 24개, 최대 생성 128개.
 - Grenade: 속력 14m/s, 수명 2.5초, 중력 있음, 폭발 구체 연출 약 0.2초, 연출 반경 설정 4m, 사전 생성 8개, 최대 생성 32개.
 - PlayerCombat는 조준 거리 100m와 PlayerActionBinding 배열을 사용하고 슬롯별 액션에 명령을 전달한다. 슬롯·액션은 PlayerCombat에, Attack·반복 여부는 공격 액션에, 기본 Origin은 Attack에 설정하며 같은 슬롯·같은 Attack 중복과 누락 참조는 활성화 시 거절한다. 실제 원점은 실행 시 현재 Muzzle.position과 장애물 보정이다. 기존 Prototype Rifle/Muzzle의 로컬 위치 `(0, 0, 0.665)`와 씬 참조를 재사용한다. 현재 임시 수류탄도 같은 총구를 쓰며 손의 별도 투척 지점은 후속 작업이다. 투척 애니메이션만 연결했으며 실제 발사 타이밍·Origin·오프셋·발사각은 유지한다. 좌·우클릭은 Pressed 또는 Held, E는 Pressed를 사용한다. TempGrenade 발사각은 12도이며 선딜 0초·후딜 1초·쿨타임 6초다. 현재 소총 후딜은 좌클릭 0.25초·우클릭 0.5초이고 좌클릭 탄퍼짐은 3도다. Controller는 PlayerAction.RepeatWhileHeld가 true이면 실행 가능한 Held를 반복 요청하고 false이면 Pressed를 사용한다. 새 액션의 반복 기본값은 false이며 Data를 공유해도 정책은 액션별로 설정한다. 요청은 해당 Attack의 시간을 지키며 발사 간격의 최종 밸런스는 후속 작업이다.

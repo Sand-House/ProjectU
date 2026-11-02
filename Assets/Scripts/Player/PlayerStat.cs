@@ -3,13 +3,15 @@ using UnityEngine.Serialization;
 
 namespace ProjectU
 {
-    [DisallowMultipleComponent]
+    [DefaultExecutionOrder(-150), DisallowMultipleComponent]
+    [RequireComponent(typeof(Mortal))]
     public sealed class PlayerStat : MonoBehaviour
     {
         [SerializeField, Min(0f), Tooltip("Attack power multiplier. 1 means the weapon's base damage.")]
         [FormerlySerializedAs("attackPowerMultiplier")]
         private float attackMultiplier = 1f;
-        [SerializeField, Min(1)] private int maxHealth = 100;
+        [SerializeField, Min(1), Tooltip("Starting HP applied to Mortal once in Awake. Changing this during play does not refill HP.")]
+        private int maxHealth = 100;
         [SerializeField, Min(0f)] private float maxStamina = 100f;
         [SerializeField, Min(0.01f), Tooltip("Attack speed multiplier. 1 means the weapon's base fire rate.")]
         private float attackSpeed = 1f;
@@ -71,6 +73,12 @@ namespace ProjectU
         {
             get => dashDistance;
             set => dashDistance = ClampFinite(value, 0.01f);
+        }
+
+        private void Awake()
+        {
+            // A repeated or late initialization must preserve existing damage and death.
+            GetComponent<Mortal>().TryInitializeHealth(MaxHealth);
         }
 
         private void OnValidate()

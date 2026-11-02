@@ -109,6 +109,7 @@ GameObject:
   - component: {fileID: 1454034902022215248}
   - component: {fileID: 8675263533224017998}
   - component: {fileID: 3767358979068110472}
+  - component: {fileID: 6434382366726290001}
   m_Layer: 0
   m_Name: TempEnemy
   m_TagString: Untagged
@@ -303,3 +304,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 42d7604a712c84b42b0d738d03b0ab20, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.EnemyAI
+--- !u!114 &6434382366726290001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5747186414492840252}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ff10ebb110d84f928a3909d65113d844, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.EnemyStat
+  data: {fileID: 11400000, guid: 57d0632ac29646f28f24331ed5cbb2aa, type: 2}
