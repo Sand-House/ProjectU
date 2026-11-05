@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AYellowpaper.SerializedCollections;
 using UnityEngine;
 
 namespace ProjectU
@@ -32,11 +33,11 @@ namespace ProjectU
 
         public bool TrySpawn(EnemyType type, int count, out EnemyAI[] spawned)
         {
-            return TrySpawn(new[] { new EnemySpawnRequest(type, count) }, out spawned);
+            return TrySpawn(new SerializedDictionary<EnemyType, int> { { type, count } }, out spawned);
         }
 
-        public bool TrySpawn(EnemySpawnRequest[] requests, out EnemyAI[] spawned)
-            => TrySpawnWave(new WaveData(0, new EnemySpawnGroup(requests)), out spawned);
+        public bool TrySpawn(IReadOnlyDictionary<EnemyType, int> enemies, out EnemyAI[] spawned)
+            => TrySpawnWave(new WaveData(0, new EnemySpawnGroup(enemies)), out spawned);
 
         public bool TrySpawnWave(WaveData wave, out EnemyAI[] spawned)
         {
@@ -162,13 +163,15 @@ namespace ProjectU
             error = null; requests = new EnemySpawner.PrefabRequest[wave.SpawnGroups.Count][];
             for (int group = 0; group < requests.Length; group++)
             {
-                IReadOnlyList<EnemySpawnRequest> entries = wave.SpawnGroups[group].Enemies;
+                // A map has no gameplay ordering contract. Use enum values for stable result order.
+                var entries = new List<KeyValuePair<EnemyType, int>>(wave.SpawnGroups[group].Enemies);
+                entries.Sort((left, right) => left.Key.CompareTo(right.Key));
                 requests[group] = new EnemySpawner.PrefabRequest[entries.Count];
                 for (int index = 0; index < entries.Count; index++)
                 {
-                    if (!registry.TryGetValue(entries[index].Type, out EnemyAI prefab))
-                    { error = $"No prefab is registered for {entries[index].Type}."; return false; }
-                    requests[group][index] = new EnemySpawner.PrefabRequest(prefab, entries[index].Count);
+                    if (!registry.TryGetValue(entries[index].Key, out EnemyAI prefab))
+                    { error = $"No prefab is registered for {entries[index].Key}."; return false; }
+                    requests[group][index] = new EnemySpawner.PrefabRequest(prefab, entries[index].Value);
                 }
             }
             return true;

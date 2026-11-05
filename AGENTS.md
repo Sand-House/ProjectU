@@ -1,5 +1,13 @@
 # ProjectU 프로젝트 지침
 
+최신 스폰 데이터 기준: **2026-11-05, SerializedDictionary 이관 완료**. EnemySpawnRequest와 meta를 제거하고 EnemySpawnGroup에 `AYellowpaper.SerializedCollections.SerializedDictionary<EnemyType, int>`를 저장한다. Enemies 및 매니저의 혼합 TrySpawn은 IReadOnlyDictionary를 사용한다. StageData→WaveData[ ]→EnemySpawnGroup[1~4]→종류/수량 딕셔너리 구조다. StageSetup과 TempStage의 9개 그룹을 이관하고 3웨이브·수량 4/6/8·전이 기준 1/1/0·에셋 GUID를 유지했다. 반환 순서는 그룹 순서→EnemyType 값 오름차순이며 삽입 순서와 무관하다. Editor에서는 패키지가 숨겨 보관한 중복 행도 검사한다. 고정 버전 패키지의 내부 목록을 FieldInfo로 읽고 구조가 달라지면 검증을 실패시키며, 플레이어 코드에는 이 검사를 포함하지 않는다. 스테이지 진행·자동 호출은 추가하지 않았다. 상세 내용은 [스폰 규칙.md](스폰%20규칙.md) 9절을 참고한다. 아래 패키지 설치·배열 기반 기록은 당시 상태다.
+
+이번 직접 검증: Unity **6000.3.25f1**에서 StageDataDictionaryValidation **42개**·EnemySpawnerValidation **90개**·EnemyValidation **95개**, 총 **227개**를 실행해 모두 종료 코드 0을 확인했다. 실제 저장·재로드, Inspector 직렬화 값 수정·중복 거절/복구, 잘못된 값·복사·오버플로, 역순 삽입, 네 방향의 실제 생성·공유 예약·전체 실패·벽/플레이어 회피와 기존 적 전투를 검사했다. Windows 64비트 플레이어 스크립트도 별도 컴파일했다. 로그는 `Logs/DictionaryMigration_20261105/`다. 과거 26개·설치 7개·초기 147개 결과는 합산하지 않는다. 실제 Inspector 화면 렌더링·수동 플레이·전체 실행 파일 빌드는 수행하지 않았다.
+
+최신 패키지 설치 기준: **2026-11-05**. ayellowpaper의 Serialized Dictionary를 제작자 공식 GitHub 배포본으로 설치했다. UPM 이름은 `ayellowpaper.serialized-dictionary`, package.json 버전은 `1.0.0`, 고정 커밋은 `a709090ac35b99ab3a0a2ce380664387fd60bc22`다. 설치 경로는 Packages/manifest.json의 Git 의존성과 packages-lock.json이며 에셋스토어 다운로드판의 버전 표기와 구분한다. 네임스페이스는 `AYellowpaper.SerializedCollections`다. 이번 범위는 설치·호환 확인이며 기존 EnemySpawnRequest·스폰 데이터·매니저 API의 딕셔너리 이관은 아직 수행하지 않았다.
+
+이번 직접 검증: Unity **6000.3.25f1**에서 패키지를 실제 resolve·임포트하고 런타임/에디터 코드 컴파일과 **7개**의 Edit 모드 검사를 종료 코드 0으로 통과했다. 패키지 어셈블리 로드, enum→int 접근, 3단 중첩 배열의 SerializedObject 항목, ScriptableObject 에셋 저장·언로드·재로드, 기존 매니저/스포너 로드와 시작 적 0기를 확인했다. 실제 Inspector 화면 조작·플레이어 빌드·기존 스폰 Play 모드 회귀 검증과는 별도다. 임시 검증 코드·에셋은 제거했으며 로그는 `Logs/SerializedDictionary_20261105/`다. 최초 임시 검사 코드의 PackageInfo 이름 충돌 실패는 Initial.log로 보존하고 수정 후 결과와 구분했다.
+
 최신 스폰 구조 기준: **2026-11-03, EnemySpawnManager·데이터 구조**. EnemySpawner의 Entry·Player 참조와 enum 기반 TrySpawn을 `EnemySpawnManager`로 옮겼다. SampleScene의 Enemy Spawn Manager 한 곳에서 TempEnemy 프리팹·Player·기존 4개 스포너를 등록한다. `StageData → WaveData[] → EnemySpawnGroup[1~4] → EnemySpawnRequest[]`를 구현했다. 그룹 안의 타입은 유일하고 수량은 양수다. 각 요청에서 활성 스포너를 새로 셔플해 그룹마다 다른 스포너를 배정하고, 공간이 부족하면 다른 배정을 검사한다. 모든 그룹이 예약 위치를 공유하며 전체 위치 확보 후 같은 프레임에 생성한다. 실패하면 false·빈 배열이며 자동 재시도는 없다. `TempStage.asset`은 3웨이브 편집 예제다. **사용자 지정 범위에 따라 실제 스테이지 진행·생존 적 관리·다음 웨이브 호출·클리어 판정은 구현하지 않았고 StageRunner/GameManager도 추가하지 않았다.** 상세 작성법·API·후속 진행 규칙은 [스폰 규칙.md](스폰%20규칙.md)를 참고한다. 아래 같은 날짜의 개별 스포너 API·147개 검증은 매니저 도입 전 기록이다.
 
 이번 직접 확인은 Unity 6000.3.25f1의 C# 컴파일러와 프로젝트 참조를 사용한 런타임·에디터 전체 코드 컴파일, 순수 관리 코드 데이터 검증 **26개**(종류·수량·중복·그룹 수·전이 기준·오버플로·복사), 씬·에셋 참조 정적 검사다. Unity 배치 실행은 자동 승인 검토가 사용량 한도 오류로 완료되지 않아 실행하지 못했다. 새 매니저/그룹에 맞춘 플레이 검증은 작성했으나 이번에 직접 실행한 결과가 아니며, 과거 통과 수치를 합산하지 않는다. 로그·컴파일 결과는 `Logs/StageSystem_20261103/`에 기록한다.
@@ -156,7 +164,7 @@ Origin 이관의 이번 직접 검증: Unity 6000.3.25f1에서 공통 공격 75�
 | 체력·피해·사망 | 플레이어·적 피해 연결 | 현재 HP는 Mortal, 시작 HP는 PlayerStat.MaxHealth / EnemyStatData.MaxHealth에서 공급. Player·TempEnemy 기본 HP 100. 적은 OnDead에서 액션·이동·충돌 정리 후 Destroy. 플레이어 사망 이동 중단·연출·복귀와 적 지연 제거는 후속 작업 |
 | 적 AI·적 공격 | 근접형 TempEnemy 구현 | EnemyStateBase의 Idle·Chase·Combat·Dead, 시야/피격 인식, NavMesh 추격, 실제 근접 피해. 캡슐 프리팹은 스포너에 등록하고 씬의 5기는 제거. 공격 예고 시각 연출·애니메이션·Gunner 거리 유지·추가 패턴은 후속 작업 |
 | 적 생성 | EnemySpawnManager·그룹 생성 API 구현 | 매니저의 공통 프리팹 등록, 요청별 셔플·서로 다른 스포너 배정, 그룹 간 공유 예약·전체 위치 확보 후 생성. 실제 호출·풀·생존 수 추적은 후속 작업 |
-| 스테이지 데이터 | 데이터 구조·검증 구현 | StageData의 웨이브 목록, 웨이브당 1~4개 그룹, 그룹별 종류/양수 수량 배열, 다음 웨이브 기준값. TempStage 편집 예제 제공 |
+| 스테이지 데이터 | 딕셔너리 구조·검증 구현 | StageData의 웨이브 목록, 웨이브당 1~4개 그룹, 그룹별 SerializedDictionary의 종류/양수 수량, 중복 검사와 다음 웨이브 기준값. TempStage 편집 예제 제공 |
 | 웨이브 진행·강화 선택 | 미구현 | 데이터를 실행하며 생성 API를 호출할 진행 담당, 생존 적 수·클리어 판정, 전투 정지, 강화 제시·적용 필요 |
 | 보스·결과·재시작 | 미구현 | 10웨이브 보스, 성공·실패, 한 판 상태 초기화 필요 |
 | 게임 UI·사운드·완성도 | 시각 프로토타입, 나머지 미구현 | X Bot 이동·점프·상체 동작, 임시 소총과 폭발 구체 제공; HUD·보상·결과 UI, 사운드·파티클·추가 애니메이션·밸런스·성능 개선 필요 |

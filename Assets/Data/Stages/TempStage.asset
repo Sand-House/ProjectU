@@ -15,34 +15,43 @@ MonoBehaviour:
   waves:
   - spawnGroups:
     - enemies:
-      - type: 0
-        count: 2
+        _serializedList:
+        - Key: 0
+          Value: 2
     - enemies:
-      - type: 0
-        count: 2
+        _serializedList:
+        - Key: 0
+          Value: 2
     nextWaveRemainingEnemyThreshold: 1
   - spawnGroups:
     - enemies:
-      - type: 0
-        count: 2
+        _serializedList:
+        - Key: 0
+          Value: 2
     - enemies:
-      - type: 0
-        count: 2
+        _serializedList:
+        - Key: 0
+          Value: 2
     - enemies:
-      - type: 0
-        count: 2
+        _serializedList:
+        - Key: 0
+          Value: 2
     nextWaveRemainingEnemyThreshold: 1
   - spawnGroups:
     - enemies:
-      - type: 0
-        count: 2
+        _serializedList:
+        - Key: 0
+          Value: 2
     - enemies:
-      - type: 0
-        count: 2
+        _serializedList:
+        - Key: 0
+          Value: 2
     - enemies:
-      - type: 0
-        count: 2
+        _serializedList:
+        - Key: 0
+          Value: 2
     - enemies:
-      - type: 0
-        count: 2
+        _serializedList:
+        - Key: 0
+          Value: 2
     nextWaveRemainingEnemyThreshold: 0

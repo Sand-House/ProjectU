@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using AYellowpaper.SerializedCollections;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -103,8 +104,8 @@ namespace ProjectU.Editor
             Check(!first.TrySpawn((EnemyType)999, 1, out _), "undefined enum rejected");
             Check(!first.TrySpawn(EnemyType.TempEnemy, 0, out _) && !first.TrySpawn(EnemyType.TempEnemy, -1, out _), "invalid counts rejected");
             Check(!first.TrySpawn(EnemyType.TempEnemy, int.MaxValue, out _), "oversized batch rejected without overflow");
-            Check(!first.TrySpawn(null, out _) && !first.TrySpawn(Array.Empty<EnemySpawnRequest>(), out _), "null and empty batches rejected");
-            Check(!first.TrySpawn(new[] { new EnemySpawnRequest(EnemyType.TempEnemy, 1), new EnemySpawnRequest(EnemyType.Gunner, 1) }, out _) && EnemyCount() == before,
+            Check(!first.TrySpawn(null, out _) && !first.TrySpawn(new SerializedDictionary<EnemyType, int>(), out _), "null and empty batches rejected");
+            Check(!first.TrySpawn(new SerializedDictionary<EnemyType, int> { { EnemyType.TempEnemy, 1 }, { EnemyType.Gunner, 1 } }, out _) && EnemyCount() == before,
                 "mixed valid and invalid requests create nothing");
             first.enabled = false;
             Check(!first.TrySpawn(EnemyType.TempEnemy, 1, out _), "disabled component rejects spawning");
@@ -144,13 +145,15 @@ namespace ProjectU.Editor
             large.GetComponent<CapsuleCollider>().radius = 1f;
             large.GetComponent<NavMeshAgent>().radius = 1f;
             EnemySpawnManager mixed = NewSpawner(new Vector3(0f, 0f, -12f), prefab, large);
-            Check(mixed.TrySpawn(new[] { new EnemySpawnRequest(EnemyType.TempEnemy, 3), new EnemySpawnRequest(EnemyType.Striker, 2) }, out EnemyAI[] mixture) && mixture.Length == 5,
+            Check(mixed.TrySpawn(new SerializedDictionary<EnemyType, int> { { EnemyType.Striker, 2 }, { EnemyType.TempEnemy, 3 } }, out EnemyAI[] mixture) && mixture.Length == 5,
                 "two types and quantities in one batch"); Track(mixture);
             Check(mixture.Take(3).All(e => e.GetComponent<CapsuleCollider>().radius == 0.45f) && mixture.Skip(3).All(e => e.GetComponent<CapsuleCollider>().radius == 1f),
-                "request order and per-type prefab sizes preserved");
+                "enum order is stable regardless of dictionary insertion order and prefab sizes are preserved");
             Check(NoOverlaps(), "different sizes avoid units player and walls");
             before = EnemyCount();
-            Check(!mixed.TrySpawn(new[] { new EnemySpawnRequest(EnemyType.TempEnemy, 1), new EnemySpawnRequest(EnemyType.TempEnemy, 1) }, out EnemyAI[] duplicates) && duplicates.Length == 0,
+            var conflict = new SerializedDictionary<EnemyType, int> { { EnemyType.TempEnemy, 1 } };
+            conflict.AddConflictAllowed(EnemyType.TempEnemy, 2);
+            Check(!mixed.TrySpawn(conflict, out EnemyAI[] duplicates) && duplicates.Length == 0,
                 "duplicate types within one group are rejected");
             Check(EnemyCount() == before && NoOverlaps(), "duplicate type rejection creates nothing");
             var settings = new SerializedObject(mixed);
@@ -232,7 +235,7 @@ namespace ProjectU.Editor
             Check(new WaveData(999, Group(2)).TryValidate(true, out _), "final wave threshold is unused authoring data");
         }
 
-        private static EnemySpawnGroup Group(int count) => new EnemySpawnGroup(new EnemySpawnRequest(EnemyType.TempEnemy, count));
+        private static EnemySpawnGroup Group(int count) => new EnemySpawnGroup(new SerializedDictionary<EnemyType, int> { { EnemyType.TempEnemy, count } });
 
         private EnemySpawnManager NewSpawner(Vector3 position, EnemyAI prefab, EnemyAI second = null)
         {

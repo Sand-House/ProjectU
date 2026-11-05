@@ -1,6 +1,6 @@
 # Enemy 구현 가이드
 
-기준 날짜: **2026-11-03, EnemySpawnManager·데이터 구조 추가**. 이 문서는 현재 실행 코드·프리팹·SampleScene을 기준으로 적의 능력치, 상태, 행동, 이동, 공격, 사망과 새 적 추가 방법을 설명한다. 검증 결과는 11절, 스폰 구조 요약은 13절, 상세 규칙과 데이터 작성법은 [스폰 규칙.md](스폰%20규칙.md)에 기록한다.
+기준 날짜: **2026-11-05, SerializedDictionary 데이터·API 이관**. 이 문서는 현재 실행 코드·프리팹·SampleScene을 기준으로 적의 능력치, 상태, 행동, 이동, 공격, 사망과 새 적 추가 방법을 설명한다. 검증 결과는 11절, 스폰 구조 요약은 13절, 상세 규칙과 데이터 작성법은 [스폰 규칙.md](스폰%20규칙.md)에 기록한다.
 
 ## 1. 현재 구현 범위
 
@@ -22,12 +22,12 @@
 | `Assets/Scripts/Enemy/EnemyStat.cs` | 데이터 참조, 생성 시 능력치 복사·Mortal HP 초기화·NavMeshAgent 속도 적용 |
 | `Assets/Data/Enemies/TempEnemyStat.asset` | 생성되는 TempEnemy가 공유하는 최대 HP 100·이동속도 3.5·공격 배율 1·공격속도 1 설정 |
 | `Assets/Scripts/Enemy/EnemyType.cs` | 안정적인 정수 값을 갖는 적 종류 enum |
-| `Assets/Scripts/Enemy/EnemySpawnRequest.cs` | 한 종류와 수량으로 구성한 생성 요청 |
 | `Assets/Scripts/Enemy/EnemySpawnManager.cs` | 공통 enum→프리팹 등록, 스포너 셔플·그룹 배정·전체 생성 API |
 | `Assets/Scripts/Enemy/EnemySpawner.cs` | 개별 영역의 NavMesh·충돌·공유 예약 검사와 실제 생성 |
 | `Assets/Scripts/Stage/StageData.cs`, `WaveData.cs`, `EnemySpawnGroup.cs` | 스테이지→웨이브→그룹→종류/수량 데이터와 검증 |
 | `Assets/Data/Stages/TempStage.asset` | 실행 호출을 연결하지 않은 3웨이브 편집 예제 |
 | `Assets/Editor/StageDataEditor.cs` | 잘못된 데이터의 이유를 Inspector에 표시 |
+| `Assets/Editor/StageDataDictionaryValidation.cs` | 딕셔너리 검증·복사·중복·실제 에셋 저장/재로드·이관 값 검사와 플레이어 스크립트 컴파일 |
 | `Assets/Editor/StageSetup.cs` | 50×50m 바닥·벽, 기존 적 제거, 스포너 4개와 NavMesh를 저장하는 도구 |
 | `Assets/Editor/EnemySpawnerValidation.cs` | 씬 구성·자동 생성 없음·혼합 배치·충돌·실패 처리 자동 플레이 검증 |
 | `Assets/Scripts/Enemy/EnemyAI.cs` | 대상과 FSM 소유, 감지·피격·사망 연결, 현재 상태 알림 |
@@ -244,6 +244,12 @@ EnemyAI는 Awake에서 OnDead를 구독하고 OnDestroy에서 해제한다. AI �
 - `ProjectU > Validation > Capture Enemy Scene Preview`: 그래픽 장치가 있는 에디터에서 씬 전체와 캡슐 근접 이미지를 렌더링한다. 씬은 저장하지 않는다.
 - 기존 플레이어 검증은 `EnemyValidationIsolation.DisableDemoEnemies()`로 데모 적만 실행 중 비활성화한다. 실제 적 상호작용은 EnemyValidation이 별도로 검증한다.
 
+### 2026-11-05 딕셔너리 이관 직접 검증
+
+Unity **6000.3.25f1**에서 StageDataDictionaryValidation **42개**·EnemySpawnerValidation **90개**·EnemyValidation **95개**, 총 **227개**를 종료 코드 0으로 통과했다. 설치 당시 Edit 모드 7개나 아래 이전 날짜 검증과 별도다. 실제 StageData 저장·재로드, Inspector 값 변경·중복 거절·수정 후 복구, 데이터 오류·복사·반환 순서와 실제 다중 그룹 생성·겹침 방지·실패·기존 적 전투를 확인했다.
+
+Windows 64비트 플레이어 스크립트도 별도 컴파일했다. 로그는 `Logs/DictionaryMigration_20261105/`의 `StageDataDictionaryValidation.log`, `EnemySpawnerValidation.log`, `EnemyValidation.log`, `PlayerScriptCompilation.log`다. 새 API·Editor 전용 중복 검사·이관 값은 [스폰 규칙 9절](스폰%20규칙.md#9-딕셔너리-이관과-직접-검증-2026-11-05)에 정리했다. 실제 Inspector 화면 렌더링·키/마우스 수동 플레이·전체 실행 파일 빌드는 이번에 수행하지 않았다.
+
 ### 2026-11-03 스테이지 준비 직접 검증
 
 Unity **6000.3.25f1**에서 EnemySpawnerValidation **52개**, EnemyValidation **95개**, 총 **147개**를 모두 종료 코드 0으로 통과했다. 로그는 `Logs/StagePreparation_20261103/`에 있다.
@@ -316,18 +322,20 @@ EnemyValidation은 씬에서 실제 플레이어 피해, 시야 거리·각도·
 - 플레이어의 사망 시 이동 중단·연출·복귀와 HP HUD.
 - 최종 밸런스, 다수 적의 경로·회피·감지 및 할당 비용 최적화.
 
-## 13. 스포너 매니저와 스테이지 데이터 (2026-11-03)
+## 13. 스포너 매니저와 스테이지 데이터 (2026-11-05)
+
+Serialized Dictionary의 제작자 공식 GitHub UPM 배포본을 설치한 뒤 데이터·API 이관까지 완료했다. EnemySpawnGroup은 SerializedDictionary<EnemyType, int>를 저장하고 Enemies를 IReadOnlyDictionary로 노출한다. 매니저의 혼합 TrySpawn도 IReadOnlyDictionary를 받으며 EnemySpawnRequest는 제거했다. 패키지 설치 기록은 [스폰 규칙 8절](스폰%20규칙.md#8-serialized-dictionary-설치-2026-11-05), 이번 이관·검증은 9절을 참고한다.
 
 SampleScene의 아레나는 50×50m, 벽 중심은 X/Z ±25m이며 기존 NavMesh를 유지한다. Enemy Spawners 아래 NW·NE·SW·SE는 `(±16,0,±16)`에 배치돼 있다. 이번에는 Enemy Spawn Manager 오브젝트를 추가하고 개별 스포너의 프리팹 등록·Player 참조를 한 곳으로 옮겼다.
 
 `EnemySpawnManager.TrySpawnWave(WaveData, out EnemyAI[])`는 요청마다 스포너를 셔플하고 그룹마다 서로 다른 스포너를 배정한다. 공간 부족 시 다른 배정을 시도하고, 모든 그룹이 공유하는 예약 목록에서 겹침을 검사한다. 전체 위치를 확보해야 같은 호출·같은 프레임에 생성하며, 계획 실패 시 부분 생성 없이 false·빈 배열을 반환한다. 단일 타입·혼합 타입 한 그룹의 편의 TrySpawn도 매니저에 있다.
 
-데이터 계층은 `StageData → WaveData[] → EnemySpawnGroup[1~4] → EnemySpawnRequest[]`다. 같은 그룹 안의 중복 타입·0 이하 수량·빈 그룹·5개 이상 그룹 등을 거절한다. 다음 웨이브 기준값은 저장·검증만 하며 실제 생존 적 수를 평가하거나 다음 웨이브를 호출하는 코드는 없다. `Assets/Data/Stages/TempStage.asset`은 TempEnemy 4/6/8마리의 3웨이브 편집 예제이며 실행에 연결하지 않았다.
+데이터 계층은 `StageData → WaveData[] → EnemySpawnGroup[1~4] → SerializedDictionary<EnemyType, int>`다. 같은 그룹 안의 직렬화된 중복 타입·0 이하 수량·빈 그룹·5개 이상 그룹 등을 거절한다. 그룹 내 반환 순서는 EnemyType 값 오름차순으로 고정한다. 다음 웨이브 기준값은 저장·검증만 하며 실제 생존 적 수를 평가하거나 다음 웨이브를 호출하는 코드는 없다. `Assets/Data/Stages/TempStage.asset`은 9개 그룹을 딕셔너리로 이관했으며 TempEnemy 4/6/8마리·전이 기준·GUID를 유지했다. 실행에 연결하지 않았다.
 
 설정·코드 예제·방향 선택·실패 정책·프리팹 계약은 **[스폰 규칙.md](스폰%20규칙.md)**를 기준으로 한다. `ProjectU > Setup > Connect Stage System`에서 저장된 씬에 매니저 참조를 연결할 수 있고 StageData Inspector는 검증 오류를 표시한다. 스테이지 시작·생존 적 추적·기준 이하에서 다음 웨이브 시작·마지막 적 처치 후 클리어·재시작은 사용자 요청에 따라 후속 범위로 남겼다.
 
-### 이번 확인 결과 — 앞선 147개 검증과 별도
+### 이전 확인 결과 (2026-11-03) — 배열 기반 매니저 구현 당시
 
 Unity 6000.3.25f1에 포함된 C# 컴파일러와 프로젝트 참조로 런타임·에디터 전체 코드를 컴파일했고, 순수 관리 코드의 EnemySpawnGroup·WaveData 검증 26개를 실행했다. 이 결과는 Unity Play 모드의 NavMesh·물리·생성 실행 검증이 아니다. 로그는 `Logs/StageSystem_20261103/Compile/`과 `DataValidation.log`다.
 
-EnemySpawnerValidation은 매니저 API로 옮기고 여러 그룹의 배정·셔플·공유 위치 예약·전부 실패·다른 배정 재시도 검사를 추가했다. Unity 배치 실행은 자동 승인 검토의 사용량 한도 오류로 실행되지 않아, 변경 후 플레이 검증·기존 EnemyValidation 회귀·수동 플레이·이미지 렌더링은 이번에 직접 확인하지 못했다. 위 11절의 기존 52개·95개 결과는 이전 개별 스포너 구현의 기록이다.
+EnemySpawnerValidation은 매니저 API로 옮기고 여러 그룹의 배정·셔플·공유 위치 예약·전부 실패·다른 배정 재시도 검사를 추가했다. 당시 Unity 배치 실행은 자동 승인 검토의 사용량 한도 오류로 실행되지 않았다. 이후 2026-11-05에는 딕셔너리 이관 후 Play 모드 검증까지 통과했으며, 현재 결과는 위 11절의 227개 기록이다.

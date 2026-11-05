@@ -98,9 +98,10 @@ namespace ProjectU.Editor
                     SerializedProperty groups = value.FindPropertyRelative("spawnGroups"); groups.arraySize = counts[wave].Length;
                     for (int group = 0; group < groups.arraySize; group++)
                     {
-                        SerializedProperty enemies = groups.GetArrayElementAtIndex(group).FindPropertyRelative("enemies"); enemies.arraySize = 1;
-                        enemies.GetArrayElementAtIndex(0).FindPropertyRelative("type").intValue = (int)EnemyType.TempEnemy;
-                        enemies.GetArrayElementAtIndex(0).FindPropertyRelative("count").intValue = counts[wave][group];
+                        SerializedProperty enemies = groups.GetArrayElementAtIndex(group).FindPropertyRelative("enemies")
+                            .FindPropertyRelative("_serializedList"); enemies.arraySize = 1;
+                        enemies.GetArrayElementAtIndex(0).FindPropertyRelative("Key").intValue = (int)EnemyType.TempEnemy;
+                        enemies.GetArrayElementAtIndex(0).FindPropertyRelative("Value").intValue = counts[wave][group];
                     }
                 }
                 stageSettings.ApplyModifiedPropertiesWithoutUndo();
