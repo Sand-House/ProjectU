@@ -145,6 +145,7 @@ namespace ProjectU.Editor
                 throw new InvalidOperationException("Preview requires a graphics device.");
             Directory.CreateDirectory("Logs/Enemy_20261101");
             GameObject observerObject = new GameObject("Temporary Enemy Preview Camera");
+            GameObject preview = null;
             try
             {
                 Camera observer = observerObject.AddComponent<Camera>();
@@ -154,12 +155,22 @@ namespace ProjectU.Editor
                 observer.transform.LookAt(Vector3.zero);
                 Render(observer, "Logs/Enemy_20261101/EnemyScene.Overview.png");
                 EnemyAI enemy = UnityEngine.Object.FindFirstObjectByType<EnemyAI>();
+                if (enemy == null)
+                {
+                    // The stage intentionally has no saved enemies; this preview remains temporary.
+                    preview = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath));
+                    enemy = preview.GetComponent<EnemyAI>();
+                }
                 observer.transform.position = enemy.transform.position + new Vector3(3f, 2.5f, -4f);
                 observer.transform.LookAt(enemy.transform.position + Vector3.up);
                 Render(observer, "Logs/Enemy_20261101/TempEnemy.Closeup.png");
                 Debug.Log("ENEMY PREVIEW PASSED: overview and capsule closeup rendered without saving the scene.");
             }
-            finally { UnityEngine.Object.DestroyImmediate(observerObject); }
+            finally
+            {
+                if (preview != null) UnityEngine.Object.DestroyImmediate(preview);
+                UnityEngine.Object.DestroyImmediate(observerObject);
+            }
         }
 
         private static void Render(Camera camera, string path)

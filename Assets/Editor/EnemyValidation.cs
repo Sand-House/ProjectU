@@ -27,12 +27,13 @@ namespace ProjectU.Editor
         {
             EditorSceneManager.OpenScene("Assets/Scenes/SampleScene.unity");
             EnemyAI[] saved = UnityEngine.Object.FindObjectsByType<EnemyAI>(FindObjectsSortMode.None);
-            if (saved.Length != 5 || saved.Any(enemy => PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(enemy.gameObject) != TempEnemySetup.PrefabPath))
-                throw new InvalidOperationException("The saved scene must contain five linked TempEnemy prefab instances.");
+            if (saved.Length != 0 || UnityEngine.Object.FindObjectsByType<EnemySpawner>(FindObjectsSortMode.None).Length != 4)
+                throw new InvalidOperationException("The saved stage must contain four spawners and no enemies.");
             EnemyStatData stats = AssetDatabase.LoadAssetAtPath<EnemyStatData>(TempEnemySetup.StatPath);
-            if (stats == null || saved.Any(enemy => enemy.GetComponent<EnemyStat>() == null || enemy.GetComponent<EnemyStat>().Data != stats))
-                throw new InvalidOperationException("All five enemies must reference TempEnemyStat through the prefab.");
-            Debug.Log("ENEMY EDIT VALIDATION PASSED: five linked prefab instances and shared stat data.");
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(TempEnemySetup.PrefabPath);
+            if (stats == null || prefab == null || prefab.GetComponent<EnemyStat>().Data != stats)
+                throw new InvalidOperationException("TempEnemy must reference its shared stat data.");
+            Debug.Log("ENEMY EDIT VALIDATION PASSED: empty stage, four spawners and shared prefab stat data.");
             SessionState.SetBool(Running, true);
             EditorApplication.EnterPlaymode();
         }
@@ -86,10 +87,19 @@ namespace ProjectU.Editor
 
         private IEnumerator Validate()
         {
-            EnemyAI[] demo = FindObjectsByType<EnemyAI>(FindObjectsSortMode.None);
-            Check(demo.Length == 5, "scene has five enemies");
+            Check(FindObjectsByType<EnemyAI>(FindObjectsSortMode.None).Length == 0, "stage starts without enemies");
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(TempEnemySetup.PrefabPath);
             Check(prefab != null && prefab.activeSelf, "active TempEnemy prefab exists");
+            // Combat regression fixtures are created only by this validation, never saved to the stage.
+            Vector3[] demoPositions = { new Vector3(-8f, 0f, 8f), new Vector3(0f, 0f, 11f), new Vector3(8f, 0f, 8f),
+                new Vector3(-12f, 0f, -8f), new Vector3(12f, 0f, -8f) };
+            EnemyAI[] demo = new EnemyAI[demoPositions.Length];
+            for (int index = 0; index < demo.Length; index++)
+            {
+                GameObject fixture = Instantiate(prefab, demoPositions[index], Quaternion.LookRotation(-demoPositions[index]));
+                fixtures.Add(fixture);
+                demo[index] = fixture.GetComponent<EnemyAI>();
+            }
             Check(FindFirstObjectByType<NavMeshSurface>().navMeshData != null, "saved NavMesh is connected");
             Check(typeof(PlayerAction).BaseType == typeof(ActionBase) && typeof(EnemyAction).BaseType == typeof(ActionBase), "both actor action families share ActionBase");
             foreach (Type state in new[] { typeof(EnemyIdleState), typeof(EnemyChaseState), typeof(EnemyCombatState), typeof(EnemyDeadState) })
@@ -113,11 +123,11 @@ namespace ProjectU.Editor
             int sceneHits = 0;
             playerHealth.OnDamaged += (amount, attacker) => { if (attacker != null && attacker.GetComponent<EnemyAI>() != null) sceneHits++; };
             yield return null;
-            Check(demo.All(enemy => enemy.Motor.IsGrounded), "all saved spawns are on NavMesh");
+            Check(demo.All(enemy => enemy.Motor.IsGrounded), "all combat fixtures are on NavMesh");
             Vector3[] initial = demo.Select(enemy => enemy.transform.position).ToArray();
             for (int frame = 0; frame < 420 && sceneHits == 0; frame++) yield return null;
-            Check(sceneHits > 0 && playerHealth.HP < 1000, "saved scene AI senses chases and damages actual player");
-            Check(demo.Where((enemy, index) => Vector3.Distance(enemy.transform.position, initial[index]) > 1f).Any(), "saved enemies actually navigate");
+            Check(sceneHits > 0 && playerHealth.HP < 1000, "scene combat fixtures sense chase and damage actual player");
+            Check(demo.Where((enemy, index) => Vector3.Distance(enemy.transform.position, initial[index]) > 1f).Any(), "combat fixtures actually navigate");
             EnemyValidationIsolation.DisableDemoEnemies();
 
             arena = new GameObject("Isolated Enemy Arena");

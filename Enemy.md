@@ -1,10 +1,11 @@
 # Enemy 구현 가이드
 
-기준 날짜: **2026-11-02**. 이 문서는 현재 실행 코드·프리팹·SampleScene을 기준으로 적의 능력치, 상태, 행동, 이동, 공격, 사망과 새 적 추가 방법을 설명한다. 검증 결과는 11절에 날짜별로 기록한다.
+기준 날짜: **2026-11-03, EnemySpawnManager·데이터 구조 추가**. 이 문서는 현재 실행 코드·프리팹·SampleScene을 기준으로 적의 능력치, 상태, 행동, 이동, 공격, 사망과 새 적 추가 방법을 설명한다. 검증 결과는 11절, 스폰 구조 요약은 13절, 상세 규칙과 데이터 작성법은 [스폰 규칙.md](스폰%20규칙.md)에 기록한다.
 
 ## 1. 현재 구현 범위
 
-- `TempEnemy.prefab`은 빨간 캡슐 메시와 CapsuleCollider를 사용하는 근접형 적이다. SampleScene에 연결된 프리팹 인스턴스 5기가 있다.
+- `TempEnemy.prefab`은 빨간 캡슐 메시와 CapsuleCollider를 사용하는 근접형 적이다. SampleScene의 기존 인스턴스 5기는 제거했고, 50×50m 아레나에 EnemySpawner 4개를 정사각형으로 배치했다. 플레이를 시작해도 적은 자동 생성되지 않는다.
+- `EnemySpawnManager`가 적 프리팹 등록을 한 곳에서 관리하고 웨이브의 SpawnGroup마다 서로 다른 스포너를 배정한다. 모든 그룹의 NavMesh·충돌·예약 위치를 확인한 뒤 생성하며 StageData·WaveData·EnemySpawnGroup을 추가했다. 실제 스테이지 진행·웨이브 생성 명령 호출은 아직 연결하지 않았다.
 - 최대 HP·이동속도·공격력 배율·공격속도 배율은 `EnemyStatData` ScriptableObject에서 설정한다. `EnemyStat`이 생성 시 값을 복사해 적용하며 현재 HP는 적마다 Mortal이 관리한다.
 - 시각 감지 또는 실제 피격으로 플레이어를 인식하고, NavMesh로 추격한 뒤 근접 피해를 준다.
 - `Mortal`의 HP가 소진되면 `OnDead`에서 Dead 상태로 전환하고 `Destroy(gameObject)`를 호출한다. 실제 제거는 Unity의 프레임 종료 시점에 일어난다.
@@ -19,7 +20,16 @@
 |---|---|
 | `Assets/Scripts/Enemy/EnemyStatData.cs` | 공유하는 기본 능력치 ScriptableObject, 읽기 전용 속성과 값 검증 |
 | `Assets/Scripts/Enemy/EnemyStat.cs` | 데이터 참조, 생성 시 능력치 복사·Mortal HP 초기화·NavMeshAgent 속도 적용 |
-| `Assets/Data/Enemies/TempEnemyStat.asset` | TempEnemy 5기가 공유하는 최대 HP 100·이동속도 3.5·공격 배율 1·공격속도 1 설정 |
+| `Assets/Data/Enemies/TempEnemyStat.asset` | 생성되는 TempEnemy가 공유하는 최대 HP 100·이동속도 3.5·공격 배율 1·공격속도 1 설정 |
+| `Assets/Scripts/Enemy/EnemyType.cs` | 안정적인 정수 값을 갖는 적 종류 enum |
+| `Assets/Scripts/Enemy/EnemySpawnRequest.cs` | 한 종류와 수량으로 구성한 생성 요청 |
+| `Assets/Scripts/Enemy/EnemySpawnManager.cs` | 공통 enum→프리팹 등록, 스포너 셔플·그룹 배정·전체 생성 API |
+| `Assets/Scripts/Enemy/EnemySpawner.cs` | 개별 영역의 NavMesh·충돌·공유 예약 검사와 실제 생성 |
+| `Assets/Scripts/Stage/StageData.cs`, `WaveData.cs`, `EnemySpawnGroup.cs` | 스테이지→웨이브→그룹→종류/수량 데이터와 검증 |
+| `Assets/Data/Stages/TempStage.asset` | 실행 호출을 연결하지 않은 3웨이브 편집 예제 |
+| `Assets/Editor/StageDataEditor.cs` | 잘못된 데이터의 이유를 Inspector에 표시 |
+| `Assets/Editor/StageSetup.cs` | 50×50m 바닥·벽, 기존 적 제거, 스포너 4개와 NavMesh를 저장하는 도구 |
+| `Assets/Editor/EnemySpawnerValidation.cs` | 씬 구성·자동 생성 없음·혼합 배치·충돌·실패 처리 자동 플레이 검증 |
 | `Assets/Scripts/Enemy/EnemyAI.cs` | 대상과 FSM 소유, 감지·피격·사망 연결, 현재 상태 알림 |
 | `Assets/Scripts/Enemy/EnemySensor.cs` | 시야 거리·수평 시야각·장애물 검사, 플레이어 후보 참조 |
 | `Assets/Scripts/Enemy/EnemyMotor.cs` | NavMeshAgent의 목적지·정지·회전, 접지와 경로 조회 |
@@ -85,7 +95,7 @@ Chase와 Combat에서 대상이 사망·삭제·비활성화되거나 적대 플
 
 | 필드 | TempEnemy 기본값 | 의미 |
 |---|---:|---|
-| Player | 프리팹은 비어 있음, 씬 인스턴스는 Player 연결 | 검사할 플레이어 Combatant |
+| Player | 프리팹은 비어 있음, 매니저가 생성 후 Player 연결 | 검사할 플레이어 Combatant |
 | View Distance | 12m | 눈 위치에서 대상 피격체 중심까지의 최대 거리 |
 | View Angle | 120도 | 전방 기준 수평 전체 시야각 |
 | Eye Offset | (0, 1.5, 0) | 적 로컬 좌표의 눈 위치 |
@@ -228,9 +238,26 @@ EnemyAI는 Awake에서 OnDead를 구독하고 OnDestroy에서 해제한다. AI �
 ## 11. 씬 도구와 검증
 
 - `ProjectU > Setup > Create TempEnemy Demo`: SampleScene을 열어 TempEnemy 프리팹, 능력치 에셋, Enemy Navigation, Temp Enemies 그룹과 5기 배치를 구성한다. 능력치 에셋이 이미 있으면 해당 값을 유지해 연결한다. 해당 데모 프리팹·그룹을 다시 구성하므로 개별 적을 편집할 때 반복 실행하지 않는다.
-- `ProjectU > Validation > Validate Enemies`: 씬의 프리팹 연결은 Edit 모드에서, 실제 동작은 Play 모드에서 검사한다. 검증은 씬·프리팹을 저장하지 않는다.
+- 위 데모 메뉴는 과거 배치를 재현하는 도구다. 현재 스테이지 준비에는 `ProjectU > Setup > Prepare Stage Arena`를 사용한다. 저장된 씬을 열어 크기를 절대값으로 설정하므로 반복 실행해도 1.25배씩 누적되지 않는다. 배치·프리팹 매핑을 사용자 지정한 뒤에는 초기 설정 도구를 다시 실행하지 않는다.
+- `ProjectU > Validation > Validate Enemy Spawners`: 빈 씬·4개 스포너·확장 NavMesh와 실제 생성 API를 검증한다. 혼합 종류는 검증 중 만든 별도 크기의 임시 개체를 사용한다.
+- `ProjectU > Validation > Validate Enemies`: Edit 모드에서 빈 스테이지·스포너 수·프리팹 능력치 연결을 확인하고, Play 모드에서만 전투 검증용 적 5기를 생성한다. 기존 AI·공격 검증은 유지하며 씬·프리팹을 저장하지 않는다.
 - `ProjectU > Validation > Capture Enemy Scene Preview`: 그래픽 장치가 있는 에디터에서 씬 전체와 캡슐 근접 이미지를 렌더링한다. 씬은 저장하지 않는다.
 - 기존 플레이어 검증은 `EnemyValidationIsolation.DisableDemoEnemies()`로 데모 적만 실행 중 비활성화한다. 실제 적 상호작용은 EnemyValidation이 별도로 검증한다.
+
+### 2026-11-03 스테이지 준비 직접 검증
+
+Unity **6000.3.25f1**에서 EnemySpawnerValidation **52개**, EnemyValidation **95개**, 총 **147개**를 모두 종료 코드 0으로 통과했다. 로그는 `Logs/StagePreparation_20261103/`에 있다.
+
+| 검증 | 이번 확인 결과 | 로그 |
+|---|---|---|
+| StageSetup | 50×50m 아레나·NavMesh 재베이크·적 0기·스포너 4개 저장 | `StageSetup.log` |
+| EnemySpawnerValidation | 씬 크기·배치·외곽 NavMesh·자동 생성 없음, 4개 스포너의 생성/HP/접지/Player 연결, 같은 프레임 반복·공유 영역, 미등록/잘못된 요청·비활성화, 공간 부족 전체 실패, 벽·플레이어 회피, 크기가 다른 혼합 종류와 반환 순서 | `EnemySpawnerValidation.Final.log` |
+| EnemyValidation | 검증 중에만 생성하는 5기 전투와 기존 감지·추격·공격·사망·공통 액션·능력치 95개 | `EnemyValidation.log` |
+| .NET 빌드 | 런타임·에디터 코드 경고 0·오류 0 | `DotnetBuild.Final.log` |
+
+스포너 최초 52개 통과 후 Unity가 저장하며 바꾼 플레이어 액션의 필드 순서를 원본대로 복원하고 최종 52개를 재확인했다. 같은 검사를 합계에 중복 산입하지 않았다. 기존 씬 블록 112개를 보존하고 기존 블록 변경은 바닥 이름·크기, 벽 4개의 Transform, SceneRoots의 그룹 참조 총 7개로 제한했다. 기존 적 그룹/인스턴스 블록 12개를 제거하고 스포너 그룹/4개 개체 블록 14개를 추가했다. 기존 프리팹·공격 데이터·애니메이션·meta 변경 0, 전체 GUID 중복 0과 `git diff --check`도 확인했다.
+
+초기 Unity 라이선스 초기화 대기(`StageSetup.Sandbox.log`)와 .NET SDK 경로 접근 제한(`DotnetBuild.log`)은 일반 권한으로 다시 실행한 최종 성공 결과와 구분한다. 스포너 최초 실행의 종료 중 네트워크 `Curl error 42`는 52개 통과 이후 메시지이며 기능 검사 실패는 없었다. 이번에는 실제 키·마우스 수동 플레이, 이미지 렌더링과 다른 독립 검증은 수행하지 않았다. GameManager·웨이브 생성 명령·풀·생존 수 추적은 후속 작업이다.
 
 ### 2026-11-02 능력치 ScriptableObject 직접 검증
 
@@ -285,6 +312,22 @@ EnemyValidation은 씬에서 실제 플레이어 피해, 시야 거리·각도·
 - 적 메시·피격·공격 예고·공격·사망 애니메이션과 사운드.
 - Dead 연출 → 일정 시간 후 비활성화 → 스테이지 종료 시 일괄 Destroy.
 - Gunner의 거리 유지, 돌진형 적, 보스 패턴과 단계 전환.
-- 웨이브 생성·적 생존 수·강화 선택·결과·재시작.
+- StageData를 실행할 스테이지 진행 담당, 웨이브 생성 API 호출·적 생존 수·클리어 판정·강화 선택·결과·재시작.
 - 플레이어의 사망 시 이동 중단·연출·복귀와 HP HUD.
 - 최종 밸런스, 다수 적의 경로·회피·감지 및 할당 비용 최적화.
+
+## 13. 스포너 매니저와 스테이지 데이터 (2026-11-03)
+
+SampleScene의 아레나는 50×50m, 벽 중심은 X/Z ±25m이며 기존 NavMesh를 유지한다. Enemy Spawners 아래 NW·NE·SW·SE는 `(±16,0,±16)`에 배치돼 있다. 이번에는 Enemy Spawn Manager 오브젝트를 추가하고 개별 스포너의 프리팹 등록·Player 참조를 한 곳으로 옮겼다.
+
+`EnemySpawnManager.TrySpawnWave(WaveData, out EnemyAI[])`는 요청마다 스포너를 셔플하고 그룹마다 서로 다른 스포너를 배정한다. 공간 부족 시 다른 배정을 시도하고, 모든 그룹이 공유하는 예약 목록에서 겹침을 검사한다. 전체 위치를 확보해야 같은 호출·같은 프레임에 생성하며, 계획 실패 시 부분 생성 없이 false·빈 배열을 반환한다. 단일 타입·혼합 타입 한 그룹의 편의 TrySpawn도 매니저에 있다.
+
+데이터 계층은 `StageData → WaveData[] → EnemySpawnGroup[1~4] → EnemySpawnRequest[]`다. 같은 그룹 안의 중복 타입·0 이하 수량·빈 그룹·5개 이상 그룹 등을 거절한다. 다음 웨이브 기준값은 저장·검증만 하며 실제 생존 적 수를 평가하거나 다음 웨이브를 호출하는 코드는 없다. `Assets/Data/Stages/TempStage.asset`은 TempEnemy 4/6/8마리의 3웨이브 편집 예제이며 실행에 연결하지 않았다.
+
+설정·코드 예제·방향 선택·실패 정책·프리팹 계약은 **[스폰 규칙.md](스폰%20규칙.md)**를 기준으로 한다. `ProjectU > Setup > Connect Stage System`에서 저장된 씬에 매니저 참조를 연결할 수 있고 StageData Inspector는 검증 오류를 표시한다. 스테이지 시작·생존 적 추적·기준 이하에서 다음 웨이브 시작·마지막 적 처치 후 클리어·재시작은 사용자 요청에 따라 후속 범위로 남겼다.
+
+### 이번 확인 결과 — 앞선 147개 검증과 별도
+
+Unity 6000.3.25f1에 포함된 C# 컴파일러와 프로젝트 참조로 런타임·에디터 전체 코드를 컴파일했고, 순수 관리 코드의 EnemySpawnGroup·WaveData 검증 26개를 실행했다. 이 결과는 Unity Play 모드의 NavMesh·물리·생성 실행 검증이 아니다. 로그는 `Logs/StageSystem_20261103/Compile/`과 `DataValidation.log`다.
+
+EnemySpawnerValidation은 매니저 API로 옮기고 여러 그룹의 배정·셔플·공유 위치 예약·전부 실패·다른 배정 재시도 검사를 추가했다. Unity 배치 실행은 자동 승인 검토의 사용량 한도 오류로 실행되지 않아, 변경 후 플레이 검증·기존 EnemyValidation 회귀·수동 플레이·이미지 렌더링은 이번에 직접 확인하지 못했다. 위 11절의 기존 52개·95개 결과는 이전 개별 스포너 구현의 기록이다.
