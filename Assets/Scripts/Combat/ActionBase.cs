@@ -66,7 +66,7 @@ namespace ProjectU
         protected bool Evaluate(in ActionContext request, bool ignoreDelay)
             => isActiveAndEnabled && CanRequest &&
                 Time.timeScale > 0f && Time.deltaTime > 0f &&
-                Owner != null && Owner.IsAlive && CooldownRemaining <= 0f &&
+                Owner != null && Owner.IsAlive && !Owner.IsGameplayBlocked && CooldownRemaining <= 0f &&
                 (ignoreDelay ? (UsesDelayLock || (!pending && !active)) :
                     (!IsActive && lastBlockingFrame != Time.frameCount)) &&
                 MeetsGroundRequirement && CheckRequirements(request) && !Owner.BlocksAction(this, ignoreDelay);
@@ -104,6 +104,7 @@ namespace ProjectU
         {
             if (!isActiveAndEnabled) return;
             if (Owner == null || !Owner.IsAlive) { Cancel(ActionCancelReason.Death); return; }
+            if (Owner.IsGameplayBlocked) { CancelAndClear(ActionCancelReason.StageTransition); return; }
             if (Time.timeScale <= 0f || Time.deltaTime <= 0f) return;
             if (lastTickFrame == Time.frameCount) return;
             lastTickFrame = Time.frameCount;
@@ -124,7 +125,7 @@ namespace ProjectU
                 Time.timeAsDouble < executeAt) return;
             pending = false;
             lastBlockingFrame = Time.frameCount;
-            if (Owner == null || !Owner.IsAlive || !MeetsGroundRequirement || !CheckExecutionRequirements(context) ||
+            if (Owner == null || !Owner.IsAlive || Owner.IsGameplayBlocked || !MeetsGroundRequirement || !CheckExecutionRequirements(context) ||
                 Owner.BlocksAction(this, false, this))
             {
                 completionPending = false;
@@ -197,6 +198,15 @@ namespace ProjectU
         {
             Cancel(reason);
             ClearActionLock();
+        }
+
+        public void ResetForStage()
+        {
+            CancelAndClear(ActionCancelReason.StageTransition);
+            executeAt = cooldownEndsAt = 0d;
+            executionRecovery = 0f;
+            context = default;
+            lastTickFrame = -1;
         }
         protected virtual void OnDisable()
         {

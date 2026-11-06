@@ -28,6 +28,7 @@ namespace ProjectU.Editor
         public static void Run()
         {
             EditorSceneManager.OpenScene("Assets/Scenes/SampleScene.unity");
+            GameFlowValidationUtility.DisableAutomaticGameFlow();
             SessionState.SetBool(Running, true);
             EditorApplication.EnterPlaymode();
         }

@@ -4,7 +4,7 @@ namespace ProjectU
 {
     [DefaultExecutionOrder(50)]
     [RequireComponent(typeof(PlayerMotor), typeof(PlayerCombat))]
-    public sealed class PlayerAnimation : MonoBehaviour
+    public sealed class PlayerAnimation : MonoBehaviour, IPlayerStageSubscriber
     {
         private static readonly int MoveX = Animator.StringToHash("MoveX");
         private static readonly int MoveZ = Animator.StringToHash("MoveZ");
@@ -24,6 +24,22 @@ namespace ProjectU
         private PlayerCombat launcher;
         private bool reloadVisualActive;
         private bool animatorPaused;
+        private PlayerStageSubscription stageEvents;
+        private int resetSequence;
+        private PlayerStageSubscription StageEvents => stageEvents ?? (stageEvents = new PlayerStageSubscription(
+            this, HandleStageStateChanged, synchronize: SynchronizeStageReset));
+        void IPlayerStageSubscriber.BindStageEvents(GameManager game) => StageEvents.Bind(game);
+        void IPlayerStageSubscriber.UnbindStageEvents(GameManager game) => stageEvents?.Unbind(game);
+        private void HandleStageStateChanged(StageState state)
+        {
+            if (StageEvents.IsCurrent(state) && state == StageState.AfterStage) SynchronizeStageReset(state);
+        }
+        private void SynchronizeStageReset(StageState state)
+        {
+            if (StageEvents.StageClearSequence == resetSequence) return;
+            resetSequence = StageEvents.StageClearSequence;
+            ResetForStage();
+        }
 
         public bool IsReloading => launcher != null && launcher.IsReloading;
         public bool IsThrowingGrenade => animator != null &&
@@ -48,6 +64,8 @@ namespace ProjectU
 
         private void OnEnable()
         {
+            // Apply a missed clear before catching up a newer live reload/dash visual.
+            stageEvents?.Enable();
             if (launcher != null)
             {
                 launcher.AttackExecuted += OnAttackExecuted;
@@ -125,6 +143,11 @@ namespace ProjectU
         private void OnDashExecuted()
             => ReturnToRifleAim();
 
+        public void ResetForStage()
+        {
+            if (animator != null) ReturnToRifleAim();
+        }
+
         private void ReturnToRifleAim()
         {
             reloadVisualActive = false;
@@ -136,6 +159,7 @@ namespace ProjectU
 
         private void OnDisable()
         {
+            stageEvents?.Disable();
             if (launcher != null)
             {
                 launcher.AttackExecuted -= OnAttackExecuted;

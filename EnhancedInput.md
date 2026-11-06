@@ -1,5 +1,15 @@
 # 플레이어 입력·선입력 설계
 
+2026-11-06 분산 구독: 중앙 PlayerStageReset을 제거했다. GameManager가 OnGameplayEnabledChanged(bool)를 발행하면 Reader는 입력/커서, Controller는 예약, Motor는 이동, Combat은 요청, 각 PlayerAction은 실행 취소를 자기 안에서 처리한다. 단계 변경의 정리도 각 컴포넌트가 OnStageStateChanged를 직접 구독한다. Mortal 기반 PlayerMortal은 체력·무적만 관리한다. 구독 원본 연결과 수명 공유는 일반 C# PlayerStageSubscription이 지원하며 일괄 정리 함수는 없다. [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md) 2.1절 참고.
+
+2026-11-06 단계 이벤트 갱신: 진행 타입은 StageState, 이벤트는 OnStageStateChanged(StageState)다. PlayerStageReset이 구독해 정상 BeforeStage/OnStage/AfterStage의 무적·입력 정책과 클리어 정리를 처리한다. 최초/재활성화 시 현재 상태를 동기화한다. 보상 선택·사망·정지·같은 단계 재시도의 게이트는 상태 전환과 별개로 유지하며, 가짜 이벤트를 발행하거나 같은 상태에 재진입해 예약/HP/쿨타임을 반복 초기화하지 않는다. [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md) 2.1절 참고.
+
+2026-11-06 사망 재시작: 사망 창의 재시작 버튼은 캐릭터 입력이 차단되고 timeScale=0인 상태에서도 UI EventSystem으로 선택한다. 새 씬에서는 기존 선입력·전투 요청을 이어받지 않으며, Reader의 최초 기본 발사도 버튼 해제까지 억제해 재시작 선택/홀딩이 바로 사격으로 이어지지 않게 한다. 첫 스테이지 BeforeStage에서 이동하고 새 G 상호작용으로 시작한다. [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md) 8.1절 참고.
+
+2026-11-06 3단계 리팩토링: Reader에 G(`Interact`) 스냅샷을 추가했다. StageFlowUI가 BeforeStage의 시작, AfterStage의 보상 다시 열기, 가능한 경우 생성 재시도에 사용하며 기존 전투 키는 유지한다. BeforeStage와 AfterStage는 자유 조작이고 더미 보상 창이 열린 동안만 Reader·Combatant의 게임플레이 입력을 차단한다. UI 선택은 별도 InputSystemUIInputModule이 처리하며 timeScale은 유지한다. 완료 후 UI를 닫고 입력을 복구해 BeforeStage에서 새 시작 상호작용을 기다린다. 초기화·상태·선택 취소 계약은 [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md)를 따른다. 아래 첫 진행 연결의 설명보다 이 정책을 우선한다.
+
+2026-11-06 스테이지 진행 갱신: `PlayerStageReset.SetGameplayEnabled(false)`가 Reader 게임 입력 차단·커서 해제, Controller.ClearBufferedInput과 Combat.ClearRequests를 통해 예약·명령을 즉시 폐기한다. Controller는 사망·Combatant.IsGameplayBlocked 상태에서 이동·점프 명령도 보내지 않는다. Reader.SetGameplayBlocked는 재개 시 총을 누르고 있던 입력이 보상 선택 클릭과 겹치지 않도록 기본 발사를 해제까지 억제한다. 스테이지 종료의 이동·액션·회복·보상 대기 계약은 [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md)를 참고한다.
+
 2026-11-01 공통 액션 갱신: PlayerAction은 ActionBase를 상속한다. 선입력·홀딩·슬롯·PlayerActionStage는 플레이어 전용으로 유지하고 공통 타이밍·조건·이벤트는 ActionBase로 옮겼다. 공통 실행 타입 이름은 ActionContext·ActionPhase·ActionResult·ActionCancelReason이다. 적의 EnemyAction은 키 입력과 선입력을 사용하지 않으며 EnemyCombat이 요청한다. 기존 입력 규칙은 유지하고 이번 회귀 로그는 `Logs/Enemy_20261101/`에 기록한다. 적 설계는 [Enemy.md](Enemy.md)를 참고한다.
 
 기준 날짜: **2026-10-31, 공통 접지·이동 제한 반영**. PlayerAction.RequiresGrounded가 수신·시작·효과 실행 시의 접지를 검사하며 CanMove가 행동 중 일반 이동·점프 허용 여부를 정한다. 상세 필드·상속·이번 검증은 [PlayerAction 설계](PlayerAction%20설계.md) 11절을 참고한다. 아래 날짜별 검증은 해당 작업 당시의 기록이다.

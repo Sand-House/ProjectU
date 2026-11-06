@@ -15,11 +15,35 @@ namespace ProjectU
     }
 
     [DefaultExecutionOrder(110)]
-    public abstract class PlayerAction : ActionBase
+    public abstract class PlayerAction : ActionBase, IPlayerStageSubscriber
     {
         [SerializeField] private bool repeatWhileHeld;
         private PlayerCombat combat;
         private PlayerMotor motor;
+        private PlayerStageSubscription stageEvents;
+        private int resetSequence;
+        private PlayerStageSubscription StageEvents => stageEvents ?? (stageEvents = new PlayerStageSubscription(
+            this, HandleStageStateChanged, HandleGameplayEnabledChanged, SynchronizeStageReset));
+        void IPlayerStageSubscriber.BindStageEvents(GameManager game) => StageEvents.Bind(game);
+        void IPlayerStageSubscriber.UnbindStageEvents(GameManager game) => stageEvents?.Unbind(game);
+        private void HandleStageStateChanged(StageState state)
+        {
+            if (!StageEvents.IsCurrent(state)) return;
+            if (state == StageState.AfterStage) SynchronizeStageReset(state);
+            else if (state == StageState.BeforeStage) CancelAndClear(ActionCancelReason.StageTransition);
+        }
+        private void SynchronizeStageReset(StageState state)
+        {
+            if (StageEvents.StageClearSequence == resetSequence || Owner == null || !Owner.IsAlive) return;
+            resetSequence = StageEvents.StageClearSequence;
+            ResetForStage();
+        }
+        private void HandleGameplayEnabledChanged(bool enabled)
+        {
+            if (!enabled) CancelAndClear(ActionCancelReason.StageTransition);
+        }
+        protected override void OnEnable() { base.OnEnable(); stageEvents?.Enable(); }
+        protected override void OnDisable() { stageEvents?.Disable(); base.OnDisable(); }
         public abstract PlayerActionSlot Slot { get; }
         public virtual PlayerActionStage Stage => PlayerActionStage.AfterAim;
         public virtual bool RequiresHeldInput => false;

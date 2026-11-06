@@ -5,7 +5,7 @@ namespace ProjectU
     [DefaultExecutionOrder(-50)]
     [RequireComponent(typeof(PlayerInputReader), typeof(PlayerMotor))]
     [RequireComponent(typeof(PlayerStamina))]
-    public sealed class PlayerController : MonoBehaviour
+    public sealed class PlayerController : MonoBehaviour, IPlayerStageSubscriber
     {
         [SerializeField] private PlayerCamera playerCamera;
         [SerializeField, Min(0f), Tooltip("Maximum game seconds to keep one eligible pressed action. Zero disables buffering.")]
@@ -16,6 +16,14 @@ namespace ProjectU
         private Combatant combatant;
         private PlayerActionSlot bufferedAction = PlayerActionSlot.None;
         private double bufferExpiresAt;
+        private PlayerStageSubscription stageEvents;
+        private PlayerStageSubscription StageEvents => stageEvents ?? (stageEvents = new PlayerStageSubscription(
+            this, HandleStageStateChanged, HandleGameplayEnabledChanged));
+        void IPlayerStageSubscriber.BindStageEvents(GameManager game) => StageEvents.Bind(game);
+        void IPlayerStageSubscriber.UnbindStageEvents(GameManager game) => stageEvents?.Unbind(game);
+        private void OnEnable() => stageEvents?.Enable();
+        private void HandleStageStateChanged(StageState state) { if (StageEvents.IsCurrent(state)) ClearBuffer(); }
+        private void HandleGameplayEnabledChanged(bool enabled) => ClearBuffer();
 
         public PlayerActionSlot BufferedAction => bufferedAction;
         public float BufferRemaining => bufferedAction == PlayerActionSlot.None ? 0f :
@@ -36,7 +44,8 @@ namespace ProjectU
 
         private void Update()
         {
-            if (!input.isActiveAndEnabled || !input.IsGameplayInputEnabled || Time.timeScale <= 0f)
+            if (!input.isActiveAndEnabled || !input.IsGameplayInputEnabled || Time.timeScale <= 0f ||
+                (combatant != null && (!combatant.IsAlive || combatant.IsGameplayBlocked)))
             {
                 ClearActions();
                 return;
@@ -133,7 +142,8 @@ namespace ProjectU
 
         private void ClearBuffer() { bufferedAction = PlayerActionSlot.None; bufferExpiresAt = 0d; }
         private void ClearActions() { ClearBuffer(); if (combat != null) combat.InterruptInput(); }
-        private void OnDisable() => ClearActions();
+        public void ClearBufferedInput() => ClearActions();
+        private void OnDisable() { stageEvents?.Disable(); ClearActions(); }
         private void OnApplicationFocus(bool focused) { if (!focused) ClearActions(); }
 
         private void OnValidate() => maxInputBufferTime = AttackData.FiniteAtLeast(maxInputBufferTime, 0f);

@@ -1,16 +1,18 @@
 # Enemy 구현 가이드
 
-기준 날짜: **2026-11-05, SerializedDictionary 데이터·API 이관**. 이 문서는 현재 실행 코드·프리팹·SampleScene을 기준으로 적의 능력치, 상태, 행동, 이동, 공격, 사망과 새 적 추가 방법을 설명한다. 검증 결과는 11절, 스폰 구조 요약은 13절, 상세 규칙과 데이터 작성법은 [스폰 규칙.md](스폰%20규칙.md)에 기록한다.
+기준 날짜: **2026-11-06, 스테이지 진행 연결**. 이 문서는 현재 실행 코드·프리팹·SampleScene을 기준으로 적의 능력치, 상태, 행동, 이동, 공격, 사망과 새 적 추가 방법을 설명한다. 검증 결과는 11절, 스폰 구조 요약은 13절, 상세 규칙과 데이터 작성법은 [스폰 규칙.md](스폰%20규칙.md), 진행 클래스의 책임은 [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md)에 기록한다.
+
+2026-11-06 직접 회귀: EnemyValidation 95개·EnemySpawnerValidation 90개·StageDataDictionaryValidation 42개를 다시 종료 코드 0으로 확인했다. 새 진행·자동 시작·전체 전투 회귀와 플레이어 컴파일 결과는 [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md) 10절 및 `Logs/StageProgression_20261106/`에 기록하며 이전 날짜 결과에 합산하지 않는다.
 
 ## 1. 현재 구현 범위
 
-- `TempEnemy.prefab`은 빨간 캡슐 메시와 CapsuleCollider를 사용하는 근접형 적이다. SampleScene의 기존 인스턴스 5기는 제거했고, 50×50m 아레나에 EnemySpawner 4개를 정사각형으로 배치했다. 플레이를 시작해도 적은 자동 생성되지 않는다.
-- `EnemySpawnManager`가 적 프리팹 등록을 한 곳에서 관리하고 웨이브의 SpawnGroup마다 서로 다른 스포너를 배정한다. 모든 그룹의 NavMesh·충돌·예약 위치를 확인한 뒤 생성하며 StageData·WaveData·EnemySpawnGroup을 추가했다. 실제 스테이지 진행·웨이브 생성 명령 호출은 아직 연결하지 않았다.
+- `TempEnemy.prefab`은 빨간 캡슐 메시와 CapsuleCollider를 사용하는 근접형 적이다. 편집 상태에는 적 없이 50×50m 아레나와 스포너 4개를 저장한다. 2026-11-06 3단계 리팩토링 후에는 Play 시작 시 BeforeStage에서 기다리고 G 상호작용으로 TempStage 첫 웨이브를 실행한다. 보상 더미 UI 선택 완료 후에도 다음 상호작용까지 적을 생성하지 않는다.
+- `EnemySpawnManager`가 적 프리팹 등록·그룹 배정·전체 위치 확보 후 생성을 담당한다. StageRunner가 이 API를 호출하고 반환한 적을 생존 목록에 등록해 웨이브 전이·클리어를 판단한다.
 - 최대 HP·이동속도·공격력 배율·공격속도 배율은 `EnemyStatData` ScriptableObject에서 설정한다. `EnemyStat`이 생성 시 값을 복사해 적용하며 현재 HP는 적마다 Mortal이 관리한다.
 - 시각 감지 또는 실제 피격으로 플레이어를 인식하고, NavMesh로 추격한 뒤 근접 피해를 준다.
 - `Mortal`의 HP가 소진되면 `OnDead`에서 Dead 상태로 전환하고 `Destroy(gameObject)`를 호출한다. 실제 제거는 Unity의 프레임 종료 시점에 일어난다.
 - 플레이어·적은 `ActionBase`의 행동 생명주기를 공유한다. 공격 종류는 `Attack` 컴포넌트로 지정한다.
-- 적 전용 애니메이션, 웨이브 생성·클리어, 수색·귀환, 보스 패턴과 돌진형 적은 아직 구현하지 않았다.
+- 적 전용 애니메이션, 수색·귀환, 보스 패턴과 돌진형 적은 아직 구현하지 않았다.
 
 ## 2. 파일과 책임
 
@@ -29,7 +31,7 @@
 | `Assets/Editor/StageDataEditor.cs` | 잘못된 데이터의 이유를 Inspector에 표시 |
 | `Assets/Editor/StageDataDictionaryValidation.cs` | 딕셔너리 검증·복사·중복·실제 에셋 저장/재로드·이관 값 검사와 플레이어 스크립트 컴파일 |
 | `Assets/Editor/StageSetup.cs` | 50×50m 바닥·벽, 기존 적 제거, 스포너 4개와 NavMesh를 저장하는 도구 |
-| `Assets/Editor/EnemySpawnerValidation.cs` | 씬 구성·자동 생성 없음·혼합 배치·충돌·실패 처리 자동 플레이 검증 |
+| `Assets/Editor/EnemySpawnerValidation.cs` | 진행 매니저를 격리한 씬 구성·혼합 배치·충돌·실패 처리 자동 플레이 검증 |
 | `Assets/Scripts/Enemy/EnemyAI.cs` | 대상과 FSM 소유, 감지·피격·사망 연결, 현재 상태 알림 |
 | `Assets/Scripts/Enemy/EnemySensor.cs` | 시야 거리·수평 시야각·장애물 검사, 플레이어 후보 참조 |
 | `Assets/Scripts/Enemy/EnemyMotor.cs` | NavMeshAgent의 목적지·정지·회전, 접지와 경로 조회 |
@@ -330,9 +332,9 @@ SampleScene의 아레나는 50×50m, 벽 중심은 X/Z ±25m이며 기존 NavMes
 
 `EnemySpawnManager.TrySpawnWave(WaveData, out EnemyAI[])`는 요청마다 스포너를 셔플하고 그룹마다 서로 다른 스포너를 배정한다. 공간 부족 시 다른 배정을 시도하고, 모든 그룹이 공유하는 예약 목록에서 겹침을 검사한다. 전체 위치를 확보해야 같은 호출·같은 프레임에 생성하며, 계획 실패 시 부분 생성 없이 false·빈 배열을 반환한다. 단일 타입·혼합 타입 한 그룹의 편의 TrySpawn도 매니저에 있다.
 
-데이터 계층은 `StageData → WaveData[] → EnemySpawnGroup[1~4] → SerializedDictionary<EnemyType, int>`다. 같은 그룹 안의 직렬화된 중복 타입·0 이하 수량·빈 그룹·5개 이상 그룹 등을 거절한다. 그룹 내 반환 순서는 EnemyType 값 오름차순으로 고정한다. 다음 웨이브 기준값은 저장·검증만 하며 실제 생존 적 수를 평가하거나 다음 웨이브를 호출하는 코드는 없다. `Assets/Data/Stages/TempStage.asset`은 9개 그룹을 딕셔너리로 이관했으며 TempEnemy 4/6/8마리·전이 기준·GUID를 유지했다. 실행에 연결하지 않았다.
+데이터 계층은 `StageData → WaveData[] → EnemySpawnGroup[1~4] → SerializedDictionary<EnemyType, int>`다. 같은 그룹 안의 직렬화된 중복 타입·0 이하 수량·빈 그룹·5개 이상 그룹 등을 거절한다. 그룹 내 반환 순서는 EnemyType 값 오름차순으로 고정한다. StageRunner가 전체 생존 수를 기준값과 비교해 다음 웨이브를 호출한다. TempStage의 9개 그룹·TempEnemy 4/6/8마리·전이 기준·GUID는 유지하며 현재 SampleScene의 자동 진행에 연결했다.
 
-설정·코드 예제·방향 선택·실패 정책·프리팹 계약은 **[스폰 규칙.md](스폰%20규칙.md)**를 기준으로 한다. `ProjectU > Setup > Connect Stage System`에서 저장된 씬에 매니저 참조를 연결할 수 있고 StageData Inspector는 검증 오류를 표시한다. 스테이지 시작·생존 적 추적·기준 이하에서 다음 웨이브 시작·마지막 적 처치 후 클리어·재시작은 사용자 요청에 따라 후속 범위로 남겼다.
+설정·코드 예제·방향 선택·실패 정책·프리팹 계약은 **[스폰 규칙.md](스폰%20규칙.md)**를 기준으로 한다. `ProjectU > Setup > Connect Stage System`에서 진행 컴포넌트까지 연결하며 StageData Inspector는 검증 오류를 표시한다. `EnemyAI.OnRemoved`는 OnDestroy에서 실제 제거를 알린다. StageRunner가 OnDead와 OnRemoved를 함께 구독해 중복 없이 생존 목록에서 해제하며, 비활성화만으로는 해제하지 않는다. 스테이지 회복·보상·다음 스테이지·승패는 [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md)를 참고한다.
 
 ### 이전 확인 결과 (2026-11-03) — 배열 기반 매니저 구현 당시
 

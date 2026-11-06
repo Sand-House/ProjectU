@@ -18,6 +18,8 @@ namespace ProjectU
         public EnemyState State => current != null ? current.Kind : EnemyState.Idle;
         public bool HasTarget => Target != null && Target.Faction == Faction.Player && owner.CanTarget(Target);
         public event Action<EnemyState> OnStateChanged;
+        // Destruction is distinct from temporary disablement, including destruction of this component.
+        public event Action<EnemyAI> OnRemoved;
 
         private void Awake()
         {
@@ -85,6 +87,7 @@ namespace ProjectU
         private void OnDestroy()
         {
             if (owner != null) owner.Mortal.OnDead -= HandleDeath;
+            OnRemoved?.Invoke(this);
         }
     }
 }

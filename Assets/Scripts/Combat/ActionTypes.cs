@@ -4,7 +4,7 @@ namespace ProjectU
 {
     public enum ActionPhase { Ready, Windup, Active, Recovery }
     public enum ActionResult { Failed, Completed, Running }
-    public enum ActionCancelReason { Explicit, Released, InputInterrupted, Disabled, Death, TargetLost }
+    public enum ActionCancelReason { Explicit, Released, InputInterrupted, Disabled, Death, TargetLost, StageTransition }
 
     // One request's execution anchors. Input history and AI selection remain outside the action.
     public readonly struct ActionContext

@@ -30,6 +30,7 @@ namespace ProjectU.Editor
             try
             {
                 EditorSceneManager.OpenScene("Assets/Scenes/SampleScene.unity");
+                GameFlowValidationUtility.DisableAutomaticGameFlow();
                 AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(
                     "Assets/Characters/Soldier/Animator/Soldier.controller");
                 Check(controller != null && controller.layers.Length == 2, "Two Animator layers.");
@@ -133,6 +134,7 @@ namespace ProjectU.Editor
         private double wallStarted;
         private bool finished;
         private bool positionedNearWall;
+        private float nearWallInnerZ;
         private float pausedReloadTime;
         private bool postReloadShotRequested;
         private int grenadeRequestFrame;
@@ -306,7 +308,8 @@ namespace ProjectU.Editor
                         obstruction = null;
                         CharacterController character = input.GetComponent<CharacterController>();
                         character.enabled = false;
-                        input.transform.position = new Vector3(0f, 1.05f, 18.99f);
+                        nearWallInnerZ = GameObject.Find("North Wall").GetComponent<Collider>().bounds.min.z;
+                        input.transform.position = new Vector3(0f, 1.05f, nearWallInnerZ - 0.51f);
                         character.enabled = true;
                         Physics.SyncTransforms();
                         positionedNearWall = true;
@@ -565,7 +568,7 @@ namespace ProjectU.Editor
                 }
                 if (phase == 23)
                 {
-                    Check(aim.Muzzle.position.z < 19.5f && origin.z < 19.5f,
+                    Check(aim.Muzzle.position.z < nearWallInnerZ && origin.z < nearWallInnerZ,
                         "Near-wall visual muzzle and hitscan origin remain on the player side.");
                     Check(Vector3.Distance(aim.Muzzle.position, aim.AimPoint) >= 0.07f,
                         "Near-wall barrel retracts from the aim point.");

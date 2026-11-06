@@ -35,6 +35,16 @@ namespace ProjectU
             return true;
         }
 
+        // Explicit full recovery between stages. A dead unit must never be revived here.
+        public bool TryRestoreHealth(int maxHealth)
+        {
+            if (isDead || maxHealth <= 0)
+                return false;
+            hp = maxHealth;
+            healthInitialized = true;
+            return true;
+        }
+
         public virtual void TakeDamage(int damage, GameObject attacker)
         {
             if (isDead || IsInvincible || damage <= 0 || hp <= 0)

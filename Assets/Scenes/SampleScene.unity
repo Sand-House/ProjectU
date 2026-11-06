@@ -299,6 +299,86 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 41543253}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &83339670
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 83339673}
+  - component: {fileID: 83339672}
+  - component: {fileID: 83339671}
+  - component: {fileID: 83339674}
+  m_Layer: 0
+  m_Name: Game Manager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &83339671
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 83339670}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 57c245e4dacb47258f1b0894eb0c9dfd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.GameManager
+  stages:
+  - {fileID: 11400000, guid: 6807fc16a4d344fd839be8601c2c496f, type: 2}
+  - {fileID: 11400000, guid: 6807fc16a4d344fd839be8601c2c496f, type: 2}
+  stageRunner: {fileID: 83339672}
+  player: {fileID: 1295477704}
+  projectilePools:
+  - {fileID: 264866010}
+--- !u!114 &83339672
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 83339670}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c813354d55345a0bbe2116ba0e94e53, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.StageRunner
+  spawnManager: {fileID: 2000000102}
+--- !u!4 &83339673
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 83339670}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &83339674
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 83339670}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6a5394fc9764434caa8c95da4f1e35a7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.StageFlowUI
+  game: {fileID: 83339671}
+  input: {fileID: 1295477693}
 --- !u!1 &132303005
 GameObject:
   m_ObjectHideFlags: 0
@@ -616,7 +696,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5866666021909216657, guid: 6908cd30deea3204fad8d5a9a517f217, type: 3}
       propertyPath: m_Controller
-      value:
+      value: 
       objectReference: {fileID: 9100000, guid: 795bec4ddcd50954c9a7b3173c201444, type: 2}
     - target: {fileID: 5866666021909216657, guid: 6908cd30deea3204fad8d5a9a517f217, type: 3}
       propertyPath: m_CullingMode
@@ -711,7 +791,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 06a3adee62288454a9ff0d8b7651bf63, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.ProjectilePool
   entries:
   - prefab: {fileID: 2135943712521666338, guid: 3f933023557cfe34e83c53cab4ca899d, type: 3}
@@ -762,7 +842,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7a5ac11cc976e418e8d13136b07e1f52, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshSurface
   m_SerializedVersion: 0
   m_AgentTypeID: 0
@@ -903,8 +983,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
   m_RequiresOpaqueTextureOption: 2
@@ -947,7 +1027,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f1208257132a9b141ad6d10c846a7d58, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerCamera
   target: {fileID: 1295477697}
   input: {fileID: 1295477693}
@@ -1071,8 +1151,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_UsePipelineSettings: 1
   m_AdditionalLightsShadowResolutionTier: 2
   m_CustomShadowLayers: 0
@@ -1222,7 +1302,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1c182ff9f2324616b580fc2770d5f056, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.EnemySpawner
   halfExtent: 4
   spacing: 0.25
@@ -1471,8 +1551,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 172515602e62fb746b5d573b38a5fe58, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_IsGlobal: 1
   priority: 0
   blendDistance: 0
@@ -1647,7 +1727,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1c182ff9f2324616b580fc2770d5f056, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.EnemySpawner
   halfExtent: 4
   spacing: 0.25
@@ -1929,7 +2009,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1c182ff9f2324616b580fc2770d5f056, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.EnemySpawner
   halfExtent: 4
   spacing: 0.25
@@ -2097,7 +2177,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 34977ea40cd8e6a4791f75e83fe1bd16, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerMotor
   jumpHeight: 1.5
   gravity: 25
@@ -2112,7 +2192,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 15c49d892e614a34c90210ef3251b090, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerInputReader
 --- !u!143 &1295477694
 CharacterController:
@@ -2223,7 +2303,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b91dc68464f14c9387e628f1069adcda, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerController
   playerCamera: {fileID: 330585548}
   maxInputBufferTime: 1
@@ -2237,7 +2317,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 810bdef62c39a4b4c94901ea221cd967, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerCombat
   actionBindings:
   - slot: 0
@@ -2266,7 +2346,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5be8ab70bee07fc43894e8bf00d20d82, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerAim
   animator: {fileID: 220890195}
   weapon: {fileID: 1991367555}
@@ -2286,7 +2366,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b24310faed979b0459a5e117d7abad17, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerAnimation
   animator: {fileID: 220890195}
   movementDampTime: 0.08
@@ -2300,7 +2380,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4a9554ca389a4ff7a155ac47ec78b5fe, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerStat
   attackMultiplier: 1
   maxHealth: 100
@@ -2321,7 +2401,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 87bbd22fc5784531945014933641e865, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerStamina
   current: 100
   recoveryDelay: 1
@@ -2335,9 +2415,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1295477691}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9d1a6b0c44964bf4ad6d14e808933f78, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.Mortal
+  m_Script: {fileID: 11500000, guid: f1547c333d9e47f3a917d66e37c808b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerMortal
   hp: 100
   isInvincible: 0
 --- !u!114 &1295477705
@@ -2350,7 +2430,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 839bef593d394bc0b20bc7abbd314e9f, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.Combatant
   faction: 0
 --- !u!114 &1295477706
@@ -2363,7 +2443,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0fe0ec2ecb734995b5e51e33570b5a5a, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.HitscanAttack
   origin: {fileID: 962656585}
   data: {fileID: 11400000, guid: 6cd9c50030ee431cac78446ab8376756, type: 2}
@@ -2380,7 +2460,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cb133c2c3d164cb098ba3c0cb9b6ea56, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.ProjectileAttack
   origin: {fileID: 962656585}
   data: {fileID: 11400000, guid: 443eb90971e3477b933a3d16f7a251f5, type: 2}
@@ -2395,7 +2475,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cb133c2c3d164cb098ba3c0cb9b6ea56, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.ProjectileAttack
   origin: {fileID: 962656585}
   data: {fileID: 11400000, guid: e768ae5af7e34a80b474c523d188b45a, type: 2}
@@ -2410,7 +2490,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ee01cd47e15b4b1dbef244464ad003c2, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.SoilderPrimaryFireAction
   windupTime: 0
   recoveryTime: 0.25
@@ -2429,7 +2509,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c399526b8bcb4516bb706ca91d398de3, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.SoilderSecondaryFireAction
   windupTime: 0
   recoveryTime: 0.5
@@ -2448,7 +2528,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ce0527975d634a7c96461c10873c27c0, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.SoilderSkill1Action
   windupTime: 0
   recoveryTime: 1
@@ -2467,7 +2547,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 782fd1991a6840c4a97af7a2c5965999, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.SoilderSkill2Action
   windupTime: 0.5
   recoveryTime: 1
@@ -2485,7 +2565,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 94bb96d772a3422695803a13199ab04c, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.SoilderUltimateAction
   windupTime: 0.5
   recoveryTime: 1
@@ -2503,7 +2583,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 19dd2c6ff7ca443ea445703037a6ed6f, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.SoilderDashAction
   windupTime: 0
   recoveryTime: 0.3
@@ -2522,7 +2602,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d6bc1ded7e734b54bd4099cd4372a006, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.SoilderReloadAction
   windupTime: 0
   recoveryTime: 0
@@ -2864,7 +2944,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1c182ff9f2324616b580fc2770d5f056, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.EnemySpawner
   halfExtent: 4
   spacing: 0.25
@@ -3157,7 +3237,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1f564cdd753e42d5a9723a88d1316c3c, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectU.EnemySpawnManager
   entries:
   - type: 0
@@ -3185,3 +3265,4 @@ SceneRoots:
   - {fileID: 327590577}
   - {fileID: 776563260}
   - {fileID: 2000000101}
+  - {fileID: 83339673}

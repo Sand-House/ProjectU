@@ -4,7 +4,7 @@ using UnityEngine;
 namespace ProjectU
 {
     [RequireComponent(typeof(CharacterController), typeof(PlayerStat))]
-    public sealed class PlayerMotor : MonoBehaviour
+    public sealed class PlayerMotor : MonoBehaviour, IPlayerStageSubscriber
     {
         private const float GroundStickSpeed = -2f;
 
@@ -31,6 +31,17 @@ namespace ProjectU
         private float dashRemaining;
         private PlayerAction movementAction;
         private PlayerCombat combat;
+        private PlayerStageSubscription stageEvents;
+        private PlayerStageSubscription StageEvents => stageEvents ?? (stageEvents = new PlayerStageSubscription(
+            this, HandleStageStateChanged, HandleGameplayEnabledChanged));
+        void IPlayerStageSubscriber.BindStageEvents(GameManager game) => StageEvents.Bind(game);
+        void IPlayerStageSubscriber.UnbindStageEvents(GameManager game) => stageEvents?.Unbind(game);
+        private void OnEnable() => stageEvents?.Enable();
+        private void HandleStageStateChanged(StageState state)
+        {
+            if (StageEvents.IsCurrent(state) && state != StageState.OnStage) ResetMovementState();
+        }
+        private void HandleGameplayEnabledChanged(bool enabled) { if (!enabled) ResetMovementState(); }
         private PlayerAction DashAction
         {
             get
@@ -53,7 +64,8 @@ namespace ProjectU
         // Keep every consumer blocked on the last frame containing dash/recovery time.
         public bool IsDashActionLocked => DashAction != null && DashAction.Blocks(PlayerActionSlot.PrimaryFire);
         public bool CanPerformActions => combatant == null || !combatant.IsActionDelayLocked;
-        public bool CanMove => combatant == null || !combatant.IsMovementLocked;
+        public bool CanMove => combatant == null ||
+            (!combatant.IsGameplayBlocked && !combatant.IsMovementLocked);
         // Jump requests ignore attack/dash recovery locks. Grounding is checked when moving.
         public bool CanJump => isActiveAndEnabled && controller != null && controller.enabled &&
             Time.timeScale > 0f && Time.deltaTime > 0f && !IsDashing && CanMove;
@@ -159,7 +171,7 @@ namespace ProjectU
             jumpRequested = false;
         }
 
-        private void OnDisable()
+        public void ResetMovementState()
         {
             verticalSpeed = 0f;
             HorizontalVelocity = Vector3.zero;
@@ -169,6 +181,8 @@ namespace ProjectU
             if (dash != movementAction) dash?.CancelFromDependency();
             ClearCommands();
         }
+
+        private void OnDisable() { stageEvents?.Disable(); ResetMovementState(); }
 
         private void OnValidate()
         {

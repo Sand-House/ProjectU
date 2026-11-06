@@ -1,5 +1,7 @@
 # PlayerAction 및 공통 ActionBase 구현 설계
 
+2026-11-06 스테이지 초기화 갱신: `PlayerStageReset`이 입력·이동·진행 중 액션·후딜을 정리한 뒤 `ActionBase.ResetForStage()`로 쿨타임을 초기화한다. 일반 Cancel·비활성화는 기존처럼 쿨타임을 유지한다. `Combatant.IsGameplayBlocked`는 보상 대기·종료 중 직접 액션 수락과 효과 실행도 막는다. `ActionCancelReason.StageTransition`은 기존 enum 끝에 추가했다. 상세 호출 순서·API·보상 계약은 [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md)를 참고한다.
+
 최신 공통화 기준: **2026-11-01**. PlayerAction의 타이밍·접지/이동 조건·생명주기·이벤트를 새 `ActionBase`로 이관했다. PlayerAction과 EnemyAction은 ActionBase를 직접 상속하며, 슬롯·홀딩·선입력 자격·플레이어 실행 단계는 PlayerAction에 남는다. 공통 타입은 `ActionContext / ActionPhase / ActionResult / ActionCancelReason`이고 `PlayerActionSlot / PlayerActionStage`는 유지한다. Attack.TryExecute는 ActionBase를 받으며 Combatant는 모든 ActionBase의 제한을 집계한다. 상세한 적 계열·확장 방법은 [Enemy.md](Enemy.md)를 참고한다. 이번 로그는 `Logs/Enemy_20261101/`이다. 아래 2026-10-30~31의 검증과 이관 기록은 해당 날짜의 결과다.
 
 기준 날짜: **2026-11-01**. 공통 부모는 `ActionBase`, 플레이어 전용 부모는 `PlayerAction`, 캐릭터별 클래스 접두사는 **Soilder**다. 공통 접지 조건·이동 허용과 Skill2/Ultimate 검증용 동작은 유지한다. 2026-10-31의 결과는 11절, 앞선 리팩토링은 9절, 이번 적·공통화 결과는 12절과 `Logs/Enemy_20261101/`에 기록한다.

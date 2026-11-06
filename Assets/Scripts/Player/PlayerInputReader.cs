@@ -4,12 +4,13 @@ using UnityEngine.InputSystem;
 namespace ProjectU
 {
     [DefaultExecutionOrder(-200)]
-    public sealed class PlayerInputReader : MonoBehaviour
+    public sealed class PlayerInputReader : MonoBehaviour, IPlayerStageSubscriber
     {
         private InputActionMap actions;
         private InputAction move;
         private InputAction look;
         private InputAction jump;
+        private InputAction interact;
         private InputAction ultimate;
         private InputAction reload;
         private InputAction dash;
@@ -17,16 +18,25 @@ namespace ProjectU
         private InputAction skill2;
         private InputAction primaryFire;
         private InputAction secondaryFire;
-        private bool suppressPrimaryFire;
+        private bool suppressPrimaryFire = true;
         private InputAction releaseCursor;
         private InputAction captureCursor;
         private bool skipLook;
+        private bool gameplayBlocked;
+        private PlayerStageSubscription stageEvents;
+        private PlayerStageSubscription StageEvents => stageEvents ?? (stageEvents = new PlayerStageSubscription(
+            this, HandleStageStateChanged, HandleGameplayEnabledChanged));
+        void IPlayerStageSubscriber.BindStageEvents(GameManager game) => StageEvents.Bind(game);
+        void IPlayerStageSubscriber.UnbindStageEvents(GameManager game) => stageEvents?.Unbind(game);
+        private void HandleStageStateChanged(StageState state) { if (StageEvents.IsCurrent(state)) ClearInput(); }
+        private void HandleGameplayEnabledChanged(bool enabled) => SetGameplayBlocked(!enabled);
 
         public bool IsGameplayInputEnabled { get; private set; }
 
         public Vector2 Move { get; private set; }
         public Vector2 Look { get; private set; }
         public ButtonInputState Jump { get; private set; }
+        public ButtonInputState Interact { get; private set; }
         public ButtonInputState Ultimate { get; private set; }
         public ButtonInputState Reload { get; private set; }
         public ButtonInputState Dash { get; private set; }
@@ -44,6 +54,7 @@ namespace ProjectU
                 .With("Left", "<Keyboard>/a").With("Right", "<Keyboard>/d");
             look = actions.AddAction("Look", InputActionType.Value, "<Mouse>/delta");
             jump = actions.AddAction("Jump", InputActionType.Button, "<Keyboard>/space");
+            interact = actions.AddAction("Interact", InputActionType.Button, "<Keyboard>/g");
             ultimate = actions.AddAction("Ultimate", InputActionType.Button, "<Keyboard>/q");
             reload = actions.AddAction("Reload", InputActionType.Button, "<Keyboard>/r");
             dash = actions.AddAction("Dash", InputActionType.Button, "<Keyboard>/leftShift");
@@ -62,13 +73,14 @@ namespace ProjectU
         private void OnEnable()
         {
             actions.Enable();
-            SetCursorCaptured(true);
+            SetCursorCaptured(!gameplayBlocked);
+            stageEvents?.Enable();
         }
 
         private void Update()
         {
             ClearInput();
-            if (!Application.isFocused || Time.timeScale == 0f)
+            if (gameplayBlocked || !Application.isFocused || Time.timeScale == 0f)
                 return;
 
             if (releaseCursor.WasPressedThisFrame())
@@ -87,6 +99,7 @@ namespace ProjectU
             Look = skipLook ? Vector2.zero : look.ReadValue<Vector2>();
             skipLook = false;
             Jump = ButtonInputState.Read(jump);
+            Interact = ButtonInputState.Read(interact);
             Ultimate = ButtonInputState.Read(ultimate);
             Reload = ButtonInputState.Read(reload);
             Dash = ButtonInputState.Read(dash);
@@ -111,11 +124,20 @@ namespace ProjectU
             skipLook = true;
         }
 
+        public void SetGameplayBlocked(bool blocked)
+        {
+            if (gameplayBlocked == blocked) return;
+            gameplayBlocked = blocked;
+            ClearInput();
+            suppressPrimaryFire = true;
+            SetCursorCaptured(!blocked && isActiveAndEnabled && Application.isFocused);
+        }
+
         private void ClearInput()
         {
             IsGameplayInputEnabled = false;
             Move = Look = Vector2.zero;
-            Jump = Ultimate = Reload = Dash = Skill1 = Skill2 = PrimaryFire = SecondaryFire = default;
+            Jump = Interact = Ultimate = Reload = Dash = Skill1 = Skill2 = PrimaryFire = SecondaryFire = default;
         }
 
         private void OnApplicationFocus(bool focused)
@@ -129,6 +151,7 @@ namespace ProjectU
 
         private void OnDisable()
         {
+            stageEvents?.Disable();
             actions.Disable();
             ClearInput();
             SetCursorCaptured(false);

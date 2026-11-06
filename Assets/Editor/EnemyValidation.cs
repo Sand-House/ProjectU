@@ -26,6 +26,7 @@ namespace ProjectU.Editor
         public static void Run()
         {
             EditorSceneManager.OpenScene("Assets/Scenes/SampleScene.unity");
+            GameFlowValidationUtility.DisableAutomaticGameFlow();
             EnemyAI[] saved = UnityEngine.Object.FindObjectsByType<EnemyAI>(FindObjectsSortMode.None);
             if (saved.Length != 0 || UnityEngine.Object.FindObjectsByType<EnemySpawner>(FindObjectsSortMode.None).Length != 4)
                 throw new InvalidOperationException("The saved stage must contain four spawners and no enemies.");

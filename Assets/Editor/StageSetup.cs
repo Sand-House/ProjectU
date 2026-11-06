@@ -77,7 +77,7 @@ namespace ProjectU.Editor
             ConfigureStageSystem();
             AssetDatabase.SaveAssets();
             EditorSceneManager.SaveScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
-            Debug.Log("STAGE SYSTEM SETUP PASSED: shared manager, four spawners and TempStage data configured; no stage execution.");
+            Debug.Log("STAGE SYSTEM SETUP PASSED: shared spawner, stage runner, game manager and player reset configured.");
         }
 
         private static void ConfigureStageSystem()
@@ -123,10 +123,55 @@ namespace ProjectU.Editor
                 entries.GetArrayElementAtIndex(0).FindPropertyRelative("prefab").objectReferenceValue =
                     AssetDatabase.LoadAssetAtPath<GameObject>(TempEnemySetup.PrefabPath).GetComponent<EnemyAI>();
             }
-            SerializedProperty points = settings.FindProperty("spawners"); points.arraySize = spawners.Length;
-            for (int index = 0; index < spawners.Length; index++) points.GetArrayElementAtIndex(index).objectReferenceValue = spawners[index];
+            SerializedProperty points = settings.FindProperty("spawners");
+            var existingPoints = new System.Collections.Generic.HashSet<EnemySpawner>();
+            for (int index = 0; index < points.arraySize; index++)
+                existingPoints.Add(points.GetArrayElementAtIndex(index).objectReferenceValue as EnemySpawner);
+            if (points.arraySize != spawners.Length || existingPoints.Count != spawners.Length || !spawners.All(existingPoints.Contains))
+            {
+                points.arraySize = spawners.Length;
+                for (int index = 0; index < spawners.Length; index++) points.GetArrayElementAtIndex(index).objectReferenceValue = spawners[index];
+            }
             settings.FindProperty("player").objectReferenceValue = GameObject.FindGameObjectWithTag("Player").GetComponent<Combatant>();
             settings.ApplyModifiedPropertiesWithoutUndo();
+            ConfigureGameFlow(manager, data);
+        }
+
+        private static void ConfigureGameFlow(EnemySpawnManager manager, StageData data)
+        {
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            PlayerMortal health = player.GetComponent<PlayerMortal>();
+            if (health == null)
+                throw new InvalidOperationException("Connect Stage System requires PlayerMortal on the player instead of the base Mortal component.");
+            GameObject root = GameObject.Find("Game Manager");
+            if (root == null) root = new GameObject("Game Manager");
+            StageRunner runner = root.GetComponent<StageRunner>();
+            if (runner == null) runner = root.AddComponent<StageRunner>();
+            var runnerSettings = new SerializedObject(runner);
+            runnerSettings.FindProperty("spawnManager").objectReferenceValue = manager;
+            runnerSettings.ApplyModifiedPropertiesWithoutUndo();
+            GameManager game = root.GetComponent<GameManager>();
+            if (game == null) game = root.AddComponent<GameManager>();
+            var gameSettings = new SerializedObject(game);
+            gameSettings.FindProperty("stageRunner").objectReferenceValue = runner;
+            gameSettings.FindProperty("player").objectReferenceValue = health;
+            SerializedProperty stages = gameSettings.FindProperty("stages");
+            if (stages.arraySize == 0)
+            {
+                stages.arraySize = 1;
+                stages.GetArrayElementAtIndex(0).objectReferenceValue = data;
+            }
+            ProjectilePool[] pools = UnityEngine.Object.FindObjectsByType<ProjectilePool>(FindObjectsSortMode.None);
+            SerializedProperty poolSettings = gameSettings.FindProperty("projectilePools");
+            poolSettings.arraySize = pools.Length;
+            for (int index = 0; index < pools.Length; index++) poolSettings.GetArrayElementAtIndex(index).objectReferenceValue = pools[index];
+            gameSettings.ApplyModifiedPropertiesWithoutUndo();
+            StageFlowUI ui = root.GetComponent<StageFlowUI>();
+            if (ui == null) ui = root.AddComponent<StageFlowUI>();
+            var uiSettings = new SerializedObject(ui);
+            uiSettings.FindProperty("game").objectReferenceValue = game;
+            uiSettings.FindProperty("input").objectReferenceValue = player.GetComponent<PlayerInputReader>();
+            uiSettings.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static void SetWall(string name, Vector3 position, Vector3 scale)

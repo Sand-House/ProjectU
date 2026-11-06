@@ -24,6 +24,8 @@ namespace ProjectU
             }
         }
         public bool IsAlive => isActiveAndEnabled && Mortal != null && !Mortal.isDead;
+        public bool IsGameplayBlocked { get; private set; }
+        public void SetGameplayBlocked(bool blocked) => IsGameplayBlocked = blocked;
         public bool IsPerformingAttack
         {
             get

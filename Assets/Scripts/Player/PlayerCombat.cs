@@ -6,7 +6,7 @@ namespace ProjectU
 {
     [RequireComponent(typeof(PlayerStat))]
     [DefaultExecutionOrder(100)]
-    public sealed class PlayerCombat : MonoBehaviour
+    public sealed class PlayerCombat : MonoBehaviour, IPlayerStageSubscriber
     {
         [SerializeField] private PlayerActionBinding[] actionBindings = Array.Empty<PlayerActionBinding>();
         [SerializeField] private Camera aimCamera;
@@ -17,6 +17,22 @@ namespace ProjectU
         private PlayerActionSlot requestedAction = PlayerActionSlot.None;
         private int requestFrame = -1;
         private int reloadCompletedFrame = -1;
+        private PlayerStageSubscription stageEvents;
+        private PlayerStageSubscription StageEvents => stageEvents ?? (stageEvents = new PlayerStageSubscription(
+            this, HandleStageStateChanged, HandleGameplayEnabledChanged));
+        void IPlayerStageSubscriber.BindStageEvents(GameManager game) => StageEvents.Bind(game);
+        void IPlayerStageSubscriber.UnbindStageEvents(GameManager game) => stageEvents?.Unbind(game);
+        private void HandleStageStateChanged(StageState state)
+        {
+            if (!StageEvents.IsCurrent(state)) return;
+            ClearRequests();
+            if (state != StageState.OnStage) InterruptInput();
+        }
+        private void HandleGameplayEnabledChanged(bool enabled)
+        {
+            ClearRequests();
+            if (!enabled) InterruptInput();
+        }
         private Vector3 dashDirection;
         private readonly RaycastHit[] aimHits = new RaycastHit[32];
         private readonly Dictionary<PlayerAction, Action> executionHandlers = new Dictionary<PlayerAction, Action>();
@@ -65,6 +81,7 @@ namespace ProjectU
                 executionHandlers.Add(action, handler);
                 action.OnExecuted += handler;
             }
+            stageEvents?.Enable();
         }
 
         private bool ValidateBindings()
@@ -201,6 +218,7 @@ namespace ProjectU
 
         private void OnDisable()
         {
+            stageEvents?.Disable();
             ClearRequests();
             foreach (PlayerActionBinding binding in actionBindings)
                 if (binding?.Action != null) binding.Action.Cancel(ActionCancelReason.Disabled);
