@@ -15,7 +15,6 @@ namespace ProjectU
         private GameObject modal;
         private GameObject deathModal;
         private Text status;
-        private Text prompt;
         private Text rewardTitle;
         private Button selectReward;
         private Button retry;
@@ -54,10 +53,6 @@ namespace ProjectU
             Place(hud, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f, -28f), new Vector2(350f, 98f));
             status = Label("Status", hud, "", 20, TextAnchor.MiddleLeft);
             Stretch(status.rectTransform, 18f, 12f);
-            RectTransform hint = Panel("Interaction Prompt", canvasRoot.transform, new Color(0.035f, 0.065f, 0.1f, 0.92f));
-            Place(hint, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(620f, 64f));
-            prompt = Label("Prompt", hint, "", 20, TextAnchor.MiddleCenter);
-            Stretch(prompt.rectTransform, 12f, 8f);
 
             RectTransform retryPanel = Panel("Retry Spawn", canvasRoot.transform, new Color(0f, 0f, 0f, 0f));
             Place(retryPanel, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(320f, 64f));
@@ -143,12 +138,6 @@ namespace ProjectU
                  displayedState == StageState.OnStage && runner != null
                     ? $"WAVE {runner.CurrentWaveIndex + 1}   ·   남은 적 {runner.RemainingEnemyCount}"
                     : game.IsChoosingReward ? "보상 선택 중 · 캐릭터 입력 잠금" : "이동 · 점프 · 전투 조작 가능");
-            prompt.text = game.Result == GameResult.Won ? "모든 스테이지 클리어" :
-                game.Result == GameResult.Lost ? "플레이어 사망" :
-                game.IsChoosingReward ? "보상을 선택하여 계속하세요" :
-                game.IsSpawnFailed ? "적 생성 실패 · 설정 확인 후 재시도" :
-                displayedState == StageState.BeforeStage ? "[G] 상호작용 · 스테이지 시작" :
-                displayedState == StageState.AfterStage ? "[G] 보상 선택" : "적을 처치하여 다음 웨이브로 진행하세요";
             retry.transform.parent.gameObject.SetActive(game.IsSpawnFailed && game.Result == GameResult.None);
             bool show = game.IsChoosingReward && game.Result == GameResult.None;
             if (show && (!modal.activeSelf || displayedRewardId != game.PendingRewardId))
