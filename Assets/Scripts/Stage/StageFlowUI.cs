@@ -1,10 +1,11 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace ProjectU
 {
-    // Temporary presentation only. Reward effects will be supplied by a future reward system.
+    // Rarity selection only. Reward effects will be supplied by a future reward system.
     [DefaultExecutionOrder(350), DisallowMultipleComponent]
     public sealed class StageFlowUI : MonoBehaviour
     {
@@ -17,10 +18,18 @@ namespace ProjectU
         [SerializeField] private GameObject retryPanel;
         [SerializeField] private Text status;
         [SerializeField] private Text rewardTitle;
-        [SerializeField] private Button selectReward;
+        [SerializeField] private RewardCardView[] rewardCards = new RewardCardView[3];
         [SerializeField] private Button retry;
         [SerializeField] private Button restart;
         [SerializeField] private Text restartDescription;
+
+        [Header("Reward Cards")]
+        [Tooltip("Each card is rolled independently. Totals below 100 are normalized; all zero restores defaults.")]
+        [SerializeField] private RewardRarityChances rarityChances = new RewardRarityChances();
+        [SerializeField] private Color commonCardColor = new Color(0.38f, 0.41f, 0.46f, 1f);
+        [SerializeField] private Color rareCardColor = new Color(0.12f, 0.42f, 0.82f, 1f);
+        [SerializeField] private Color epicCardColor = new Color(0.52f, 0.24f, 0.76f, 1f);
+        [SerializeField] private Color uniqueCardColor = new Color(0.95f, 0.72f, 0.12f, 1f);
 
         [Header("Phase Text")]
         [SerializeField] private string beforeStageLabel = "준비";
@@ -51,16 +60,26 @@ namespace ProjectU
         private StageState displayedState;
 
         public bool IsRewardVisible => modal != null && modal.activeInHierarchy;
-        public Button RewardButton => selectReward;
+        public Button RewardButton => rewardCards != null && rewardCards.Length > 0 ? rewardCards[0]?.Button : null;
+        public IReadOnlyList<RewardCardView> RewardCards => rewardCards;
         public bool IsDeathVisible => deathModal != null && deathModal.activeInHierarchy;
         public Button RestartButton => restart;
         public Canvas Canvas => canvas;
 
         private void Awake()
         {
+            OnValidate();
             viewReady = canvas != null && modal != null && deathModal != null && retryPanel != null &&
-                status != null && rewardTitle != null && selectReward != null && retry != null &&
+                status != null && rewardTitle != null && retry != null &&
                 restart != null && restartDescription != null;
+            viewReady &= rewardCards != null && rewardCards.Length == 3;
+            if (viewReady)
+                for (int i = 0; i < rewardCards.Length; i++)
+                {
+                    if (rewardCards[i] == null || !rewardCards[i].IsAssigned) { viewReady = false; break; }
+                    for (int j = 0; j < i; j++)
+                        if (rewardCards[i].Button == rewardCards[j].Button) viewReady = false;
+                }
             if (!viewReady)
             {
                 Debug.LogError(MissingSceneUIMessage, this);
@@ -68,6 +87,12 @@ namespace ProjectU
                 return;
             }
             canvas.gameObject.SetActive(isActiveAndEnabled);
+        }
+
+        private void OnValidate()
+        {
+            if (rarityChances == null) rarityChances = new RewardRarityChances();
+            rarityChances.Validate();
         }
 
         private void Update()
@@ -109,14 +134,23 @@ namespace ProjectU
                     : game.IsChoosingReward ? choosingRewardStatus : controlsEnabledStatus);
             retryPanel.SetActive(game.IsSpawnFailed && game.Result == GameResult.None);
             bool show = game.IsChoosingReward && game.Result == GameResult.None;
-            if (show && (!modal.activeSelf || displayedRewardId != game.PendingRewardId))
+            if (show)
             {
-                displayedRewardId = game.PendingRewardId;
-                selectionSubmitted = false;
-                selectReward.interactable = true;
+                // Reopening the same view must not reroll an existing request.
+                if (displayedRewardId != game.PendingRewardId)
+                {
+                    displayedRewardId = game.PendingRewardId;
+                    selectionSubmitted = false;
+                    foreach (RewardCardView card in rewardCards)
+                    {
+                        RewardRarity rarity = rarityChances.Roll();
+                        card.Show(rarity, CardColor(rarity));
+                    }
+                }
                 rewardTitle.text = string.Format(rewardTitleFormat, game.CurrentStageIndex + 1);
+                bool opened = !modal.activeSelf;
                 modal.SetActive(true);
-                if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(selectReward.gameObject);
+                if (opened && EventSystem.current != null) EventSystem.current.SetSelectedGameObject(RewardButton.gameObject);
             }
             else if (!show) modal.SetActive(false);
             bool showDeath = game.Result == GameResult.Lost;
@@ -132,11 +166,24 @@ namespace ProjectU
             }
         }
 
-        public void SelectReward()
+        private Color CardColor(RewardRarity rarity)
         {
-            if (!isActiveAndEnabled || selectionSubmitted || game == null || !game.CompleteReward(displayedRewardId)) return;
+            switch (rarity)
+            {
+                case RewardRarity.Rare: return rareCardColor;
+                case RewardRarity.Epic: return epicCardColor;
+                case RewardRarity.Unique: return uniqueCardColor;
+                default: return commonCardColor;
+            }
+        }
+
+        public void SelectReward(int cardIndex)
+        {
+            if (!isActiveAndEnabled || !IsRewardVisible || selectionSubmitted || game == null ||
+                cardIndex < 0 || cardIndex >= rewardCards.Length || !rewardCards[cardIndex].Button.interactable ||
+                !game.CompleteReward(displayedRewardId)) return;
             selectionSubmitted = true;
-            selectReward.interactable = false;
+            foreach (RewardCardView card in rewardCards) card.Button.interactable = false;
         }
 
         public void RestartGame()
