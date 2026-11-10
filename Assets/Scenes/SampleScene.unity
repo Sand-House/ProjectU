@@ -413,6 +413,13 @@ MonoBehaviour:
   healthFill: {fileID: 81495423}
   healthColor: {r: 0.94, g: 0.97, b: 1, a: 1}
   lowHealthColor: {r: 1, g: 0.28, b: 0.24, a: 1}
+  victoryText: "모든 스테이지 클리어"
+  deathText: "플레이어 사망"
+  choosingRewardText: "보상을 선택하여 계속하세요"
+  spawnFailedText: "적 생성 실패 · 설정 확인 후 재시도"
+  beforeStageText: "[G] 상호작용 · 스테이지 시작"
+  afterStageText: "[G] 보상 선택"
+  combatText: "적을 처치하여 다음 웨이브로 진행하세요"
 --- !u!1 &132303005
 GameObject:
   m_ObjectHideFlags: 0

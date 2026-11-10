@@ -22,6 +22,20 @@ namespace ProjectU
         [SerializeField] private Color healthColor = new Color(0.94f, 0.97f, 1f);
         [SerializeField] private Color lowHealthColor = new Color(1f, 0.28f, 0.24f);
 
+        [Header("HUD Text")]
+        [Tooltip("{0}: current magazine ammo, {1}: maximum magazine ammo. Supports rich text.")]
+        [SerializeField] private string ammoFormat = "{0}<size=28><color=#CBD4DF> / {1}</color></size>";
+        [Header("Prompt Text")]
+        [SerializeField] private string victoryText = "모든 스테이지 클리어";
+        [SerializeField] private string deathText = "플레이어 사망";
+        [SerializeField] private string choosingRewardText = "보상을 선택하여 계속하세요";
+        [SerializeField] private string spawnFailedText = "적 생성 실패 · 설정 확인 후 재시도";
+        [SerializeField] private string beforeStageText = "[G] 상호작용 · 스테이지 시작";
+        [SerializeField] private string afterStageText = "[G] 보상 선택";
+        [SerializeField] private string combatText = "적을 처치하여 다음 웨이브로 진행하세요";
+
+        private const string MissingSceneUIMessage = "PlayerHUD requires its scene Canvas and UI references.";
+
         private Mortal health;
         private PlayerStat stat;
         private PlayerCombat combat;
@@ -30,6 +44,7 @@ namespace ProjectU
         private int displayedMaxHealth = -1;
         private int displayedAmmo = -1;
         private int displayedMaxAmmo = -1;
+        private string displayedAmmoFormat;
         private Rect displayedSafeArea;
         private Vector2Int displayedScreenSize;
 
@@ -44,7 +59,7 @@ namespace ProjectU
                 crosshair != null && healthNumber != null && ammoNumber != null && prompt != null && healthFill != null;
             if (!viewReady)
             {
-                Debug.LogError("PlayerHUD requires its scene Canvas and UI references.", this);
+                Debug.LogError(MissingSceneUIMessage, this);
                 enabled = false;
                 return;
             }
@@ -80,12 +95,13 @@ namespace ProjectU
             {
                 int current = combat.CurrentAmmo;
                 int maximum = combat.MaxAmmo;
-                if (current != displayedAmmo || maximum != displayedMaxAmmo)
+                if (current != displayedAmmo || maximum != displayedMaxAmmo || ammoFormat != displayedAmmoFormat)
                 {
                     displayedAmmo = current;
                     displayedMaxAmmo = maximum;
+                    displayedAmmoFormat = ammoFormat;
                     // Reserve ammo is unlimited; the denominator is the magazine capacity.
-                    ammoNumber.text = $"{current}<size=28><color=#CBD4DF> / {maximum}</color></size>";
+                    ammoNumber.text = string.Format(ammoFormat, current, maximum);
                 }
             }
             crosshair.SetActive(hasHealth && !health.isDead && combat != null && combat.isActiveAndEnabled &&
@@ -97,12 +113,12 @@ namespace ProjectU
             bool show = game != null && game.isActiveAndEnabled;
             prompt.transform.parent.gameObject.SetActive(show);
             if (!show) return;
-            string message = game.Result == GameResult.Won ? "모든 스테이지 클리어" :
-                game.Result == GameResult.Lost ? "플레이어 사망" :
-                game.IsChoosingReward ? "보상을 선택하여 계속하세요" :
-                game.IsSpawnFailed ? "적 생성 실패 · 설정 확인 후 재시도" :
-                game.State == StageState.BeforeStage ? "[G] 상호작용 · 스테이지 시작" :
-                game.State == StageState.AfterStage ? "[G] 보상 선택" : "적을 처치하여 다음 웨이브로 진행하세요";
+            string message = game.Result == GameResult.Won ? victoryText :
+                game.Result == GameResult.Lost ? deathText :
+                game.IsChoosingReward ? choosingRewardText :
+                game.IsSpawnFailed ? spawnFailedText :
+                game.State == StageState.BeforeStage ? beforeStageText :
+                game.State == StageState.AfterStage ? afterStageText : combatText;
             if (prompt.text != message) prompt.text = message;
         }
 

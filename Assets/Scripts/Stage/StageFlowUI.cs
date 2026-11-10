@@ -21,12 +21,34 @@ namespace ProjectU
         [SerializeField] private Button retry;
         [SerializeField] private Button restart;
         [SerializeField] private Text restartDescription;
+
+        [Header("Phase Text")]
+        [SerializeField] private string beforeStageLabel = "준비";
+        [SerializeField] private string onStageLabel = "전투";
+        [SerializeField] private string afterStageLabel = "클리어";
+        [Header("Status Text")]
+        [Tooltip("{0}: stage number, {1}: stage count, {2}: phase label.")]
+        [TextArea, SerializeField] private string stageStatusFormat = "STAGE {0}  /  {1}   ·   {2}\n";
+        [Tooltip("{0}: wave number, {1}: remaining enemy count.")]
+        [SerializeField] private string waveStatusFormat = "WAVE {0}   ·   남은 적 {1}";
+        [SerializeField] private string combatEndedStatus = "전투 종료";
+        [SerializeField] private string choosingRewardStatus = "보상 선택 중 · 캐릭터 입력 잠금";
+        [SerializeField] private string controlsEnabledStatus = "이동 · 점프 · 전투 조작 가능";
+        [Header("Reward Text")]
+        [Tooltip("{0}: cleared stage number.")]
+        [SerializeField] private string rewardTitleFormat = "STAGE {0} 클리어";
+        [Header("Restart Text")]
+        [TextArea, SerializeField] private string restartingMessage = "첫 스테이지를 준비하고 있습니다…";
+        [TextArea, SerializeField] private string deathMessage = "플레이어가 사망했습니다.\n첫 스테이지부터 다시 도전할 수 있습니다.";
+        [TextArea, SerializeField] private string restartFailedMessage = "재시작하지 못했습니다. 다시 시도해 주세요.";
+
+        private const string MissingSceneUIMessage = "StageFlowUI requires its scene Canvas and UI references.";
+
         private bool viewReady;
         private long displayedRewardId;
         private bool selectionSubmitted;
         private bool restartFailed;
         private StageState displayedState;
-        private string phaseLabel;
 
         public bool IsRewardVisible => modal != null && modal.activeInHierarchy;
         public Button RewardButton => selectReward;
@@ -41,7 +63,7 @@ namespace ProjectU
                 restart != null && restartDescription != null;
             if (!viewReady)
             {
-                Debug.LogError("StageFlowUI requires its scene Canvas and UI references.", this);
+                Debug.LogError(MissingSceneUIMessage, this);
                 enabled = false;
                 return;
             }
@@ -72,18 +94,19 @@ namespace ProjectU
         {
             if (game == null || state != game.State || canvas == null) return;
             displayedState = state;
-            phaseLabel = state == StageState.BeforeStage ? "준비" : state == StageState.OnStage ? "전투" : "클리어";
             RefreshPresentation();
         }
 
         private void RefreshPresentation()
         {
             StageRunner runner = game.StageRunner;
-            status.text = $"STAGE {game.CurrentStageIndex + 1}  /  {game.Stages.Count}   ·   {phaseLabel}\n" +
-                (game.Result == GameResult.Lost ? "전투 종료" :
+            string phaseLabel = displayedState == StageState.BeforeStage ? beforeStageLabel :
+                displayedState == StageState.OnStage ? onStageLabel : afterStageLabel;
+            status.text = string.Format(stageStatusFormat, game.CurrentStageIndex + 1, game.Stages.Count, phaseLabel) +
+                (game.Result == GameResult.Lost ? combatEndedStatus :
                  displayedState == StageState.OnStage && runner != null
-                    ? $"WAVE {runner.CurrentWaveIndex + 1}   ·   남은 적 {runner.RemainingEnemyCount}"
-                    : game.IsChoosingReward ? "보상 선택 중 · 캐릭터 입력 잠금" : "이동 · 점프 · 전투 조작 가능");
+                    ? string.Format(waveStatusFormat, runner.CurrentWaveIndex + 1, runner.RemainingEnemyCount)
+                    : game.IsChoosingReward ? choosingRewardStatus : controlsEnabledStatus);
             retryPanel.SetActive(game.IsSpawnFailed && game.Result == GameResult.None);
             bool show = game.IsChoosingReward && game.Result == GameResult.None;
             if (show && (!modal.activeSelf || displayedRewardId != game.PendingRewardId))
@@ -91,7 +114,7 @@ namespace ProjectU
                 displayedRewardId = game.PendingRewardId;
                 selectionSubmitted = false;
                 selectReward.interactable = true;
-                rewardTitle.text = $"STAGE {game.CurrentStageIndex + 1} 클리어";
+                rewardTitle.text = string.Format(rewardTitleFormat, game.CurrentStageIndex + 1);
                 modal.SetActive(true);
                 if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(selectReward.gameObject);
             }
@@ -103,9 +126,8 @@ namespace ProjectU
             if (showDeath)
             {
                 restart.interactable = !game.IsRestarting;
-                restartDescription.text = game.IsRestarting ? "첫 스테이지를 준비하고 있습니다…" :
-                    !restartFailed ? "플레이어가 사망했습니다.\n첫 스테이지부터 다시 도전할 수 있습니다." :
-                    "재시작하지 못했습니다. 다시 시도해 주세요.";
+                restartDescription.text = game.IsRestarting ? restartingMessage :
+                    !restartFailed ? deathMessage : restartFailedMessage;
                 if (openedDeath && EventSystem.current != null) EventSystem.current.SetSelectedGameObject(restart.gameObject);
             }
         }
