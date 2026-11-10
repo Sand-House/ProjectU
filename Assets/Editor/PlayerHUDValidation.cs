@@ -5,6 +5,8 @@ using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 namespace ProjectU.Editor
@@ -27,8 +29,39 @@ namespace ProjectU.Editor
         public static void Run()
         {
             EditorSceneManager.OpenScene("Assets/Scenes/SampleScene.unity");
+            ValidateSavedHierarchy();
             SessionState.SetBool(Running, true);
             EditorApplication.EnterPlaymode();
+        }
+
+        private static void ValidateSavedHierarchy()
+        {
+            var hud = UnityEngine.Object.FindFirstObjectByType<PlayerHUD>();
+            var flow = UnityEngine.Object.FindFirstObjectByType<StageFlowUI>();
+            if (hud == null || flow == null || hud.Canvas == null || flow.Canvas == null ||
+                hud.Canvas.transform.parent != null || flow.Canvas.transform.parent != null)
+                throw new InvalidOperationException("Both UI Canvases must exist as saved scene roots before Play.");
+            foreach (var owner in new MonoBehaviour[] { hud, flow })
+            {
+                var property = new SerializedObject(owner).GetIterator();
+                while (property.NextVisible(true))
+                    if (property.propertyType == SerializedPropertyType.ObjectReference && property.objectReferenceValue == null)
+                        throw new InvalidOperationException(owner.name + " has an unassigned UI reference: " + property.name);
+            }
+            foreach (var canvas in new[] { hud.Canvas, flow.Canvas })
+                if (canvas.GetComponentsInChildren<Text>(true).Any(label => label.font == null || !EditorUtility.IsPersistent(label.font)))
+                    throw new InvalidOperationException("Every saved Text requires a persistent font asset.");
+            var events = UnityEngine.Object.FindObjectsByType<EventSystem>(FindObjectsSortMode.None);
+            if (events.Length != 1) throw new InvalidOperationException("Scene must save exactly one UI EventSystem.");
+            var module = events[0].GetComponent<InputSystemUIInputModule>();
+            if (module == null || !EditorUtility.IsPersistent(module.actionsAsset) ||
+                module.leftClick?.action == null || module.submit?.action == null ||
+                module.leftClick.action.actionMap.asset != module.actionsAsset || module.submit.action.actionMap.asset != module.actionsAsset)
+                throw new InvalidOperationException("UI input actions must survive scene reload.");
+            foreach (var button in flow.Canvas.GetComponentsInChildren<Button>(true))
+                if (button.onClick.GetPersistentEventCount() != 1 || button.onClick.GetPersistentTarget(0) != flow)
+                    throw new InvalidOperationException("Button is missing its Inspector On Click binding: " + button.name);
+            Debug.Log("SAVED UI HIERARCHY VALIDATION PASSED: scene roots, references, fonts, input actions and three Inspector button bindings.");
         }
 
         internal static void Finish(int code)
@@ -43,7 +76,7 @@ namespace ProjectU.Editor
 
     public sealed class PlayerHUDValidationDriver : MonoBehaviour
     {
-        private const string Folder = "Logs/HUDPromptMigration_20261107";
+        private const string Folder = "Logs/CanvasHierarchy_20261108";
         private int checks;
 
         private IEnumerator Start()
@@ -84,21 +117,24 @@ namespace ProjectU.Editor
             PlayerCombat combat = hud.GetComponent<PlayerCombat>();
             hud.GetComponent<PlayerController>().enabled = false;
             for (int i = 0; i < 4; i++) yield return null;
-            Text hp = hud.GetComponentsInChildren<Text>(true).Single(label => label.name == "Current Health");
-            Text ammo = hud.GetComponentsInChildren<Text>(true).Single(label => label.name == "Magazine Ammo");
-            Text prompt = hud.GetComponentsInChildren<Text>(true).Single(label => label.name == "Prompt");
+            Check(FindObjectsByType<Canvas>(FindObjectsSortMode.None).Length == 2 &&
+                FindObjectsByType<EventSystem>(FindObjectsSortMode.None).Length == 1,
+                "Play uses exactly the two saved Canvases and one EventSystem");
+            Text hp = hud.Canvas.GetComponentsInChildren<Text>(true).Single(label => label.name == "Current Health");
+            Text ammo = hud.Canvas.GetComponentsInChildren<Text>(true).Single(label => label.name == "Magazine Ammo");
+            Text prompt = hud.Canvas.GetComponentsInChildren<Text>(true).Single(label => label.name == "Prompt");
             Check(flow.Canvas.transform.Find("Interaction Prompt") == null, "only PlayerHUD owns the interaction prompt");
             Check(prompt.text == "[G] 상호작용 · 스테이지 시작", "HUD shows the preparation prompt");
             flow.enabled = false;
             yield return null; yield return null;
             Check(prompt.isActiveAndEnabled, "prompt stays visible independently of StageFlowUI");
             flow.enabled = true;
-            Image fill = hud.GetComponentsInChildren<Image>(true).Single(image => image.name == "Health Fill");
+            Image fill = hud.Canvas.GetComponentsInChildren<Image>(true).Single(image => image.name == "Health Fill");
             RectTransform crosshair = (RectTransform)hud.Canvas.transform.Find("Crosshair");
             Check(hp.text == health.HP.ToString() && Mathf.Approximately(fill.rectTransform.anchorMax.x, 1f), "initial health is full");
             Check(ammo.text.StartsWith(combat.CurrentAmmo + "<") && ammo.text.Contains(" / " + combat.MaxAmmo), "initial magazine uses actual capacity");
             Check(hud.Canvas.sortingOrder < flow.Canvas.sortingOrder && hud.Canvas.GetComponent<GraphicRaycaster>() == null &&
-                hud.GetComponentsInChildren<Graphic>(true).All(graphic => !graphic.raycastTarget), "HUD cannot intercept reward or restart clicks");
+                hud.Canvas.GetComponentsInChildren<Graphic>(true).All(graphic => !graphic.raycastTarget), "HUD cannot intercept reward or restart clicks");
             Canvas.ForceUpdateCanvases();
             Vector2 center = RectTransformUtility.WorldToScreenPoint(null, crosshair.position);
             Check(Vector2.Distance(center, new Vector2(Screen.width, Screen.height) * 0.5f) < 1f, "crosshair matches the camera's screen center");

@@ -166,11 +166,27 @@ namespace ProjectU.Editor
             Capture("BeforeStage");
             var disabledUIObject = new GameObject("Disabled UI Fixture");
             disabledUIObject.SetActive(false);
+            var disabledCanvas = Instantiate(ui.Canvas.gameObject);
+            disabledCanvas.transform.SetParent(disabledUIObject.transform, false);
             var disabledUI = disabledUIObject.AddComponent<StageFlowUI>();
+            EditorUtility.CopySerialized(ui, disabledUI);
+            var disabledView = new SerializedObject(disabledUI);
+            var viewField = disabledView.GetIterator();
+            while (viewField.NextVisible(true))
+            {
+                if (viewField.propertyType != SerializedPropertyType.ObjectReference) continue;
+                var original = viewField.objectReferenceValue;
+                var originalTransform = original is GameObject node ? node.transform : (original as Component)?.transform;
+                if (originalTransform == null || !originalTransform.IsChildOf(ui.Canvas.transform)) continue;
+                string path = AnimationUtility.CalculateTransformPath(originalTransform, ui.Canvas.transform);
+                var copy = path.Length == 0 ? disabledCanvas.transform : disabledCanvas.transform.Find(path);
+                viewField.objectReferenceValue = original is GameObject ? (UnityEngine.Object)copy.gameObject : copy.GetComponent(original.GetType());
+            }
+            disabledView.ApplyModifiedPropertiesWithoutUndo();
             disabledUI.enabled = false;
             disabledUIObject.SetActive(true);
             Check(disabledUI.Canvas != null && !disabledUI.Canvas.gameObject.activeInHierarchy,
-                "presenter disabled before Awake creates no visible overlay or active UI event system");
+                "presenter disabled before Awake hides its assigned scene Canvas");
             Destroy(disabledUIObject);
 
             StageData waveStage = Stage(new WaveData(1, Group(2), Group(2)), new WaveData(0, Group(2)), new WaveData(999, Group(1)));

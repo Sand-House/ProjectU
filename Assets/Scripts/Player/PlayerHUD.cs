@@ -8,25 +8,24 @@ namespace ProjectU
     public sealed class PlayerHUD : MonoBehaviour
     {
         [SerializeField] private GameManager game;
+        [Header("Scene UI")]
+        [SerializeField] private Canvas canvas;
+        [SerializeField] private RectTransform safeArea;
+        [SerializeField] private GameObject healthWidget;
+        [SerializeField] private GameObject ammoWidget;
+        [SerializeField] private GameObject crosshair;
+        [SerializeField] private Text healthNumber;
+        [SerializeField] private Text ammoNumber;
+        [SerializeField] private Text prompt;
+        [SerializeField] private Image healthFill;
+        [Header("Health State Colors")]
         [SerializeField] private Color healthColor = new Color(0.94f, 0.97f, 1f);
         [SerializeField] private Color lowHealthColor = new Color(1f, 0.28f, 0.24f);
-        [SerializeField] private Color crosshairColor = Color.white;
 
         private Mortal health;
         private PlayerStat stat;
         private PlayerCombat combat;
-        private GameObject canvasRoot;
-        private RectTransform safeArea;
-        private GameObject healthWidget;
-        private GameObject ammoWidget;
-        private GameObject crosshair;
-        private Text healthNumber;
-        private Text ammoNumber;
-        private Text prompt;
-        private Font promptFont;
-        private Image healthFill;
-        private Font font;
-        private bool ownsFont;
+        private bool viewReady;
         private int displayedHealth = -1;
         private int displayedMaxHealth = -1;
         private int displayedAmmo = -1;
@@ -34,103 +33,23 @@ namespace ProjectU
         private Rect displayedSafeArea;
         private Vector2Int displayedScreenSize;
 
-        public Canvas Canvas => canvasRoot != null ? canvasRoot.GetComponent<Canvas>() : null;
+        public Canvas Canvas => canvas;
 
         private void Awake()
         {
             health = GetComponent<Mortal>();
             stat = GetComponent<PlayerStat>();
             combat = GetComponent<PlayerCombat>();
-            font = Font.CreateDynamicFontFromOSFont(new[] { "Arial", "Malgun Gothic" }, 54);
-            ownsFont = font != null;
-            if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-
-            canvasRoot = new GameObject("Player HUD Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
-            canvasRoot.transform.SetParent(transform, false);
-            Canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            Canvas.sortingOrder = 90; // StageFlowUI's reward and death modals render above the HUD.
-            var scaler = canvasRoot.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1280f, 720f);
-            scaler.matchWidthOrHeight = 0.5f;
-
-            safeArea = Node("Safe Area", canvasRoot.transform);
-            BuildHealth();
-            BuildAmmo();
-            BuildPrompt();
-            BuildCrosshair();
-            RefreshPresentation();
-            canvasRoot.SetActive(isActiveAndEnabled);
-        }
-
-        private void BuildHealth()
-        {
-            RectTransform widget = Node("Health Widget", safeArea);
-            Place(widget, Vector2.zero, Vector2.zero, new Vector2(44f, 36f), new Vector2(256f, 92f));
-            healthWidget = widget.gameObject;
-            healthNumber = Label("Current Health", widget, 54, TextAnchor.LowerLeft);
-            Place(healthNumber.rectTransform, Vector2.zero, Vector2.zero, new Vector2(0f, 28f), new Vector2(256f, 64f));
-
-            Image track = Block("Health Track", widget, new Color(0.025f, 0.04f, 0.065f, 0.8f));
-            Place(track.rectTransform, Vector2.zero, Vector2.zero, new Vector2(0f, 8f), new Vector2(252f, 18f));
-            RectTransform inset = Node("Bar Interior", track.transform);
-            Stretch(inset, 2f);
-            healthFill = Block("Health Fill", inset, healthColor);
-            Stretch(healthFill.rectTransform, 0f);
-            for (int i = 1; i < 10; i++)
+            viewReady = canvas != null && safeArea != null && healthWidget != null && ammoWidget != null &&
+                crosshair != null && healthNumber != null && ammoNumber != null && prompt != null && healthFill != null;
+            if (!viewReady)
             {
-                Image divider = Block("Division " + i, inset, new Color(0.025f, 0.04f, 0.065f, 0.85f));
-                RectTransform rect = divider.rectTransform;
-                rect.anchorMin = new Vector2(i / 10f, 0f);
-                rect.anchorMax = new Vector2(i / 10f, 1f);
-                rect.sizeDelta = new Vector2(2f, 0f);
-                rect.anchoredPosition = Vector2.zero;
+                Debug.LogError("PlayerHUD requires its scene Canvas and UI references.", this);
+                enabled = false;
+                return;
             }
-        }
-
-        private void BuildAmmo()
-        {
-            RectTransform widget = Node("Ammo Widget", safeArea);
-            Place(widget, Vector2.right, Vector2.right, new Vector2(-44f, 44f), new Vector2(260f, 76f));
-            ammoWidget = widget.gameObject;
-            ammoNumber = Label("Magazine Ammo", widget, 54, TextAnchor.LowerRight);
-            Stretch(ammoNumber.rectTransform, 0f);
-        }
-
-        private void BuildPrompt()
-        {
-            Image hint = Block("Interaction Prompt", safeArea, new Color(0.035f, 0.065f, 0.1f, 0.92f));
-            Place(hint.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(440f, 64f));
-            promptFont = Font.CreateDynamicFontFromOSFont(new[] { "Malgun Gothic", "Arial" }, 20);
-            prompt = Node("Prompt", hint.transform).gameObject.AddComponent<Text>();
-            prompt.font = promptFont != null ? promptFont : font;
-            prompt.fontSize = 20;
-            prompt.color = new Color(0.94f, 0.97f, 1f);
-            prompt.alignment = TextAnchor.MiddleCenter;
-            prompt.raycastTarget = false;
-            Stretch(prompt.rectTransform, 0f);
-            prompt.rectTransform.offsetMin = new Vector2(12f, 8f);
-            prompt.rectTransform.offsetMax = new Vector2(-12f, -8f);
-        }
-
-        private void BuildCrosshair()
-        {
-            RectTransform root = Node("Crosshair", canvasRoot.transform);
-            Place(root, Vector2.one * 0.5f, Vector2.one * 0.5f, Vector2.zero, new Vector2(32f, 32f));
-            crosshair = root.gameObject;
-            CrosshairPart(root, "Top", new Vector2(0f, 8f), new Vector2(2f, 7f));
-            CrosshairPart(root, "Bottom", new Vector2(0f, -8f), new Vector2(2f, 7f));
-            CrosshairPart(root, "Left", new Vector2(-8f, 0f), new Vector2(7f, 2f));
-            CrosshairPart(root, "Right", new Vector2(8f, 0f), new Vector2(7f, 2f));
-            CrosshairPart(root, "Center", Vector2.zero, new Vector2(2f, 2f));
-        }
-
-        private void CrosshairPart(Transform parent, string name, Vector2 position, Vector2 size)
-        {
-            Image outline = Block(name + " Outline", parent, new Color(0f, 0f, 0f, 0.8f));
-            Place(outline.rectTransform, Vector2.one * 0.5f, Vector2.one * 0.5f, position, size + Vector2.one * 2f);
-            Image line = Block(name, outline.transform, crosshairColor);
-            Place(line.rectTransform, Vector2.one * 0.5f, Vector2.one * 0.5f, Vector2.zero, size);
+            RefreshPresentation();
+            canvas.gameObject.SetActive(isActiveAndEnabled);
         }
 
         private void LateUpdate() => RefreshPresentation();
@@ -201,71 +120,14 @@ namespace ProjectU
 
         private void OnEnable()
         {
-            if (canvasRoot == null) return;
+            if (!viewReady) return;
             RefreshPresentation();
-            canvasRoot.SetActive(true);
+            canvas.gameObject.SetActive(true);
         }
 
         private void OnDisable()
         {
-            if (canvasRoot != null) canvasRoot.SetActive(false);
-        }
-
-        private void OnDestroy()
-        {
-            if (canvasRoot != null) Destroy(canvasRoot);
-            if (ownsFont && font != null) Destroy(font);
-            if (promptFont != null) Destroy(promptFont);
-        }
-
-        private static RectTransform Node(string name, Transform parent)
-        {
-            var node = new GameObject(name, typeof(RectTransform));
-            node.transform.SetParent(parent, false);
-            return node.GetComponent<RectTransform>();
-        }
-
-        private static Image Block(string name, Transform parent, Color color)
-        {
-            RectTransform node = Node(name, parent);
-            Image image = node.gameObject.AddComponent<Image>();
-            image.color = color;
-            image.raycastTarget = false;
-            return image;
-        }
-
-        private Text Label(string name, Transform parent, int size, TextAnchor alignment)
-        {
-            RectTransform node = Node(name, parent);
-            Text label = node.gameObject.AddComponent<Text>();
-            label.font = font;
-            label.fontSize = size;
-            label.fontStyle = FontStyle.BoldAndItalic;
-            label.alignment = alignment;
-            label.color = healthColor;
-            label.raycastTarget = false;
-            label.horizontalOverflow = HorizontalWrapMode.Overflow;
-            label.verticalOverflow = VerticalWrapMode.Overflow;
-            Shadow shadow = node.gameObject.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.7f);
-            shadow.effectDistance = new Vector2(1.5f, -2f);
-            return label;
-        }
-
-        private static void Place(RectTransform rect, Vector2 anchor, Vector2 pivot, Vector2 position, Vector2 size)
-        {
-            rect.anchorMin = rect.anchorMax = anchor;
-            rect.pivot = pivot;
-            rect.anchoredPosition = position;
-            rect.sizeDelta = size;
-        }
-
-        private static void Stretch(RectTransform rect, float inset)
-        {
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.one * inset;
-            rect.offsetMax = Vector2.one * -inset;
+            if (canvas != null) canvas.gameObject.SetActive(false);
         }
     }
 }
