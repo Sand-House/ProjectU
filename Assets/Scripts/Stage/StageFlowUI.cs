@@ -10,7 +10,6 @@ namespace ProjectU
     public sealed class StageFlowUI : MonoBehaviour
     {
         [SerializeField] private GameManager game;
-        [SerializeField] private PlayerInputReader input;
         [Header("Scene UI")]
         [SerializeField] private Canvas canvas;
         [SerializeField] private GameObject modal;
@@ -93,15 +92,6 @@ namespace ProjectU
         {
             if (rarityChances == null) rarityChances = new RewardRarityChances();
             rarityChances.Validate();
-        }
-
-        private void Update()
-        {
-            if (game == null || input == null || !game.isActiveAndEnabled ||
-                !input.IsGameplayInputEnabled || !input.Interact.Pressed) return;
-            if (game.IsSpawnFailed) game.TryRetrySpawn();
-            else if (game.State == StageState.BeforeStage) game.TryStartStage();
-            else if (game.State == StageState.AfterStage) game.TryOpenReward();
         }
 
         private void LateUpdate()

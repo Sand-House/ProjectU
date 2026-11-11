@@ -14,13 +14,22 @@ namespace ProjectU
         private PlayerMotor motor;
         private PlayerCombat combat;
         private Combatant combatant;
+        private GameManager game;
         private PlayerActionSlot bufferedAction = PlayerActionSlot.None;
         private double bufferExpiresAt;
         private PlayerStageSubscription stageEvents;
         private PlayerStageSubscription StageEvents => stageEvents ?? (stageEvents = new PlayerStageSubscription(
             this, HandleStageStateChanged, HandleGameplayEnabledChanged));
-        void IPlayerStageSubscriber.BindStageEvents(GameManager game) => StageEvents.Bind(game);
-        void IPlayerStageSubscriber.UnbindStageEvents(GameManager game) => stageEvents?.Unbind(game);
+        void IPlayerStageSubscriber.BindStageEvents(GameManager manager)
+        {
+            game = manager;
+            StageEvents.Bind(manager);
+        }
+        void IPlayerStageSubscriber.UnbindStageEvents(GameManager manager)
+        {
+            stageEvents?.Unbind(manager);
+            if (game == manager) game = null;
+        }
         private void OnEnable() => stageEvents?.Enable();
         private void HandleStageStateChanged(StageState state) { if (StageEvents.IsCurrent(state)) ClearBuffer(); }
         private void HandleGameplayEnabledChanged(bool enabled) => ClearBuffer();
@@ -59,18 +68,35 @@ namespace ProjectU
                 combat.ProcessBeforeMotor();
                 foreach (PlayerActionBinding binding in combat.ActionBindings)
                     combat.DeliverInput(binding.Slot, ReadInput(binding.Slot));
+                ProcessHeldActions();
             }
             SelectAction();
             if (input.Jump.Pressed && motor.CanJump) motor.RequestJump();
+            HandleInteraction();
+        }
+
+        private void ProcessHeldActions()
+        {
+            foreach (PlayerActionBinding binding in combat.ActionBindings)
+                if (binding.Action.RequiresHeldInput &&
+                    ReadInput(binding.Slot).Held && !binding.Action.IsActive)
+                    combat.TryStartAction(binding.Slot);
+        }
+
+        private void HandleInteraction()
+        {
+            if (game == null || !game.isActiveAndEnabled || !input.Interact.Pressed ||
+                (combat != null && combat.IsAiming)) return;
+            if (game.IsSpawnFailed) game.TryRetrySpawn();
+            else if (game.State == StageState.BeforeStage) game.TryStartStage();
+            else if (game.State == StageState.AfterStage) game.TryOpenReward();
         }
 
         private void SelectAction()
         {
             if (combatant != null && !combatant.IsAlive) { ClearActions(); return; }
             if (bufferedAction != PlayerActionSlot.None &&
-                (Time.timeAsDouble >= bufferExpiresAt ||
-                 (combat != null && combat.GetAction(bufferedAction) != null &&
-                  combat.GetAction(bufferedAction).RequiresHeldInput && !ReadInput(bufferedAction).Held)))
+                (Time.timeAsDouble >= bufferExpiresAt || !CanKeepBufferedAction()))
                 ClearBuffer();
             PlayerActionSlot pressed = ReadPressedAction();
             if (pressed != PlayerActionSlot.None &&
@@ -102,7 +128,11 @@ namespace ProjectU
                     return;
                 }
             }
-            if (combat.CurrentAmmo == 0) combat.RequestReload();
+            if (combat.CurrentAmmo == 0)
+            {
+                if (combat.GetAction(PlayerActionSlot.Reload)?.RequiresHeldInput == false && combat.CanReload)
+                    combat.RequestReload();
+            }
             else if (WantsRepeat(combat.GetBinding(PlayerActionSlot.PrimaryFire)))
                 combat.RequestAction(PlayerActionSlot.PrimaryFire);
         }
@@ -113,17 +143,28 @@ namespace ProjectU
             if (combat != null && combat.isActiveAndEnabled)
                 foreach (PlayerActionBinding binding in combat.ActionBindings)
                     if (binding.Slot != PlayerActionSlot.PrimaryFire && binding.Slot != PlayerActionSlot.Dash &&
-                        binding.Slot != PlayerActionSlot.Reload && ReadInput(binding.Slot).Pressed && CanAcceptAction(binding.Slot))
+                        binding.Slot != PlayerActionSlot.Reload &&
+                        ReadInput(binding.Slot).Pressed && CanAcceptAction(binding.Slot))
                         return binding.Slot;
             if (input.Reload.Pressed && CanAcceptAction(PlayerActionSlot.Reload)) return PlayerActionSlot.Reload;
             if (input.PrimaryFire.Pressed && CanAcceptAction(PlayerActionSlot.PrimaryFire)) return PlayerActionSlot.PrimaryFire;
             return PlayerActionSlot.None;
         }
 
-        private bool CanAcceptAction(PlayerActionSlot slot) => combat != null && combat.CanBuffer(slot) &&
-            (!combat.GetAction(slot).RequiresHeldInput || ReadInput(slot).Held);
+        private bool CanKeepBufferedAction()
+        {
+            PlayerAction action = combat != null && combat.isActiveAndEnabled ? combat.GetAction(bufferedAction) : null;
+            return action != null && !action.RequiresHeldInput && !combat.IsBufferBlocked(bufferedAction);
+        }
+
+        private bool CanAcceptAction(PlayerActionSlot slot)
+        {
+            PlayerAction action = combat != null ? combat.GetAction(slot) : null;
+            return action != null && !action.RequiresHeldInput && combat.CanBuffer(slot);
+        }
         private bool WantsRepeat(PlayerActionBinding binding) => binding != null && binding.Action != null &&
-            binding.Action.RepeatWhileHeld && ReadInput(binding.Slot).Held && combat.CanStart(binding.Slot);
+            !binding.Action.RequiresHeldInput && binding.Action.RepeatWhileHeld &&
+            ReadInput(binding.Slot).Held && combat.CanStart(binding.Slot);
 
         private ButtonInputState ReadInput(PlayerActionSlot slot)
         {

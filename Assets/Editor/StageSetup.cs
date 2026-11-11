@@ -170,7 +170,6 @@ namespace ProjectU.Editor
             if (ui == null) ui = root.AddComponent<StageFlowUI>();
             var uiSettings = new SerializedObject(ui);
             uiSettings.FindProperty("game").objectReferenceValue = game;
-            uiSettings.FindProperty("input").objectReferenceValue = player.GetComponent<PlayerInputReader>();
             uiSettings.ApplyModifiedPropertiesWithoutUndo();
         }
 

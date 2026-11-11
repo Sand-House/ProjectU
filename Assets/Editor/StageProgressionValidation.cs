@@ -535,13 +535,45 @@ namespace ProjectU.Editor
             Check(ui != null && !ui.IsRewardVisible && !player.GetComponent<Combatant>().IsGameplayBlocked, "saved UI leaves preparation freely controllable");
             InputAction interaction = (InputAction)typeof(PlayerInputReader).GetField("interact", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(probe.Reader);
             Check(interaction.bindings.Any(binding => binding.path == "<Keyboard>/g"), "start interaction is bound to G without changing skill keys");
+            Check(!typeof(StageFlowUI).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                .Any(field => field.FieldType == typeof(PlayerInputReader) || field.FieldType == typeof(PlayerCombat)),
+                "stage presenter has no player input or combat dependency");
+            Check(new SerializedObject(ui).FindProperty("input") == null,
+                "stage presenter exposes no saved player input reference");
+            PlayerController controller = player.GetComponent<PlayerController>();
+            Check(new SerializedObject(controller).FindProperty("game") == null,
+                "controller needs no new Inspector game binding");
+            controller.enabled = false;
+            probe.Interact = true;
+            for (int frame = 0; frame < 3; frame++) yield return null;
+            Check(game.State == StageState.BeforeStage && runner.RemainingEnemyCount == 0,
+                "enabled UI cannot execute G while the controller is disabled");
+            controller.enabled = true;
+            for (int frame = 0; frame < 3; frame++) yield return null;
+            Check(game.State == StageState.BeforeStage,
+                "controller reenable does not replay an ignored interaction");
+            game.enabled = false;
+            probe.Interact = true;
+            for (int frame = 0; frame < 3; frame++) yield return null;
+            Check(runner.RemainingEnemyCount == 0, "unbound controller cannot start a disabled game");
+            game.enabled = true;
+            for (int frame = 0; frame < 3; frame++) yield return null;
+            Check(game.State == StageState.BeforeStage && runner.RemainingEnemyCount == 0,
+                "manager rebind waits for a fresh G input");
             Capture("Saved-BeforeStage");
+            ui.enabled = false;
             probe.Interact = true;
             yield return null;
             probe.Interact = false;
             for (int frame = 0; frame < 4; frame++) yield return null;
             Check(game.State == StageState.OnStage, "saved scene interaction starts combat");
             Check(runner.CurrentWaveIndex == 0 && runner.RemainingEnemyCount == 4, "saved first wave spawns four enemies");
+            Check(!ui.enabled && !ui.Canvas.gameObject.activeInHierarchy,
+                "controller G starts combat independently of the disabled presenter");
+            ui.enabled = true;
+            for (int frame = 0; frame < 2; frame++) yield return null;
+            Check(game.State == StageState.OnStage && runner.CurrentWaveIndex == 0 && runner.RemainingEnemyCount == 4,
+                "presenter reenable does not repeat the start interaction");
             foreach (EnemyAI enemy in Enemies()) enemy.enabled = false;
             foreach (EnemyAI enemy in Enemies().Take(3)) enemy.GetComponent<Mortal>().Dead();
             for (int frame = 0; frame < 4; frame++) yield return null;

@@ -15,9 +15,13 @@ namespace ProjectU
         [SerializeField] private Quaternion leftHandRotationOffset = Quaternion.identity;
         [SerializeField, Range(0f, 1f)] private float spineWeight = 0.35f;
         [SerializeField, Range(0f, 90f)] private float maximumBodyAngle = 80f;
+        [Header("Aim Down Sights")]
+        [SerializeField, Tooltip("Weapon grip position relative to the camera at full ADS. The existing iron sight sits above this grip.")]
+        private Vector3 aimWeaponPosition = new Vector3(0f, -0.16f, 0.35f);
 
         private PlayerAnimation animationController;
         private PlayerCombat launcher;
+        private PlayerCamera playerCamera;
         private Transform spine;
         private Transform chest;
         private Transform rightHand;
@@ -34,6 +38,7 @@ namespace ProjectU
         {
             animationController = GetComponent<PlayerAnimation>();
             launcher = GetComponent<PlayerCombat>();
+            playerCamera = launcher.AimCamera != null ? launcher.AimCamera.GetComponent<PlayerCamera>() : null;
             if (animator == null || !animator.isHuman || weapon == null || leftGrip == null || muzzle == null)
             {
                 FailConfiguration();
@@ -89,6 +94,15 @@ namespace ProjectU
             }
             else if (!aim)
                 weapon.rotation = rightHand.rotation * Quaternion.Inverse(rightHandRotationOffset);
+            if (aim && playerCamera != null && playerCamera.AimBlend > 0f)
+            {
+                // The camera is placed first. Align the rifle to its sight line without
+                // feeding an animated weapon transform back into camera positioning.
+                Transform view = playerCamera.transform;
+                Vector3 aimPosition = playerCamera.AimCameraPosition + view.rotation * aimWeaponPosition;
+                weapon.position = Vector3.Lerp(weapon.position, aimPosition, playerCamera.AimBlend);
+                weapon.rotation = Quaternion.Slerp(weapon.rotation, view.rotation, playerCamera.AimBlend);
+            }
             if (aim)
             {
                 SolveArm(rightUpperArm, rightForearm, rightHand, weapon.position,
@@ -98,6 +112,11 @@ namespace ProjectU
             }
             else
                 rightHand.rotation = weapon.rotation * rightHandRotationOffset;
+        }
+
+        private void OnValidate()
+        {
+            if (!AttackData.IsFinite(aimWeaponPosition)) aimWeaponPosition = new Vector3(0f, -0.16f, 0.35f);
         }
 
         private void SolveArm(Transform upperArm, Transform forearm, Transform hand,

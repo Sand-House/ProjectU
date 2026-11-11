@@ -43,6 +43,8 @@ namespace ProjectU.Editor
     public sealed class PlayerActionHoldProbe : PlayerAction
     {
         public override PlayerActionSlot Slot => PlayerActionSlot.Skill2;
+        public PlayerActionStage ExecutionStage { get; set; } = PlayerActionStage.AfterAim;
+        public override PlayerActionStage Stage => ExecutionStage;
         public override bool RequiresHeldInput => true;
         protected override bool UsesDelayLock => false;
         protected override bool BlocksCore(PlayerActionSlot slot) => false;
@@ -54,6 +56,22 @@ namespace ProjectU.Editor
             Starts++;
             return ActionResult.Running;
         }
+        protected override void Cleanup(ActionCancelReason reason) => Cleanups++;
+    }
+
+    // A non-ADS stance on an ordinary skill slot exercises generic input routing.
+    public sealed class PlayerActionStanceProbe : PlayerAction
+    {
+        public override PlayerActionSlot Slot => PlayerActionSlot.Skill1;
+        public override PlayerActionStage Stage => PlayerActionStage.BeforeMotor;
+        public override bool RequiresHeldInput => true;
+        public PlayerActionSlot BlockedSlot { get; set; } = PlayerActionSlot.None;
+        public int Starts { get; private set; }
+        public int Cleanups { get; private set; }
+        protected override bool UsesDelayLock => false;
+        protected override bool BlocksCore(PlayerActionSlot slot) => slot == BlockedSlot;
+        protected override bool CheckRequirements(in ActionContext request) => true;
+        protected override ActionResult ExecuteCore(in ActionContext request) { Starts++; return ActionResult.Running; }
         protected override void Cleanup(ActionCancelReason reason) => Cleanups++;
     }
 
@@ -69,12 +87,14 @@ namespace ProjectU.Editor
     [DefaultExecutionOrder(-150)]
     public sealed class PlayerActionValidationDriver : MonoBehaviour
     {
+        private const int SecondaryInput = 1, Skill1Input = 2, ReloadInput = 4, UltimateInput = 8;
         private PlayerInputReader input;
         private PlayerController controller;
         private PlayerCombat combat;
         private PlayerAttackAction primary;
         private PlayerActionHoldProbe hold;
         private bool primaryPress, holdPress, holdHeld, holdRelease;
+        private int extraPressed, extraHeld;
         private bool gameplay = true;
         private int shots;
         private double startedAt;
@@ -134,6 +154,9 @@ namespace ProjectU.Editor
             Check(primary.RecoveryTime == 0.25f && primary.RepeatWhileHeld &&
                 combat.GetAction(PlayerActionSlot.Skill1).RecoveryTime == 1f && combat.GetAction(PlayerActionSlot.Skill1).Cooldown == 6f,
                 "saved action timing migrated exactly");
+            Check(combat.ActionBindings.All(binding => binding.Action.RequiresHeldInput ==
+                (binding.Slot == PlayerActionSlot.SecondaryFire)),
+                "saved ADS requires Held while other actions retain ordinary input");
             combat.AttackExecuted += slot => { if (slot == PlayerActionSlot.PrimaryFire) shots++; };
             PlayerActionValidationUtility.Set(primary, "windupTime", 0f);
             PlayerActionValidationUtility.Set(primary, "recoveryTime", 0.2f);
@@ -195,17 +218,18 @@ namespace ProjectU.Editor
             holdHeld = holdPress = true;
             yield return null;
             yield return null;
-            Check(controller.BufferedAction == PlayerActionSlot.Skill2, "held action can wait for an attack delay");
+            Check(controller.BufferedAction == PlayerActionSlot.None && hold.Starts == startsBefore,
+                "held action waits for an attack delay without reserving input");
             holdHeld = false;
             holdRelease = true;
             yield return null;
             yield return new WaitForSeconds(0.25f);
             Check(controller.BufferedAction == PlayerActionSlot.None && hold.Starts == startsBefore,
-                "released buffered hold is discarded before activation");
-            holdHeld = holdPress = true;
+                "release before the delay ends prevents later activation");
+            holdHeld = true;
             yield return null;
             yield return null;
-            Check(hold.Phase == ActionPhase.Active, "new held press starts after discarded reservation");
+            Check(hold.Phase == ActionPhase.Active, "Held alone starts a hold on the default execution stage");
             gameplay = false;
             yield return null;
             yield return null;
@@ -214,6 +238,9 @@ namespace ProjectU.Editor
             holdHeld = false;
             gameplay = true;
             yield return null;
+
+            IEnumerator heldChecks = ValidateHeldInput();
+            while (heldChecks.MoveNext()) yield return heldChecks.Current;
 
             PlayerStamina stamina = input.GetComponent<PlayerStamina>();
             PlayerMotor motor = input.GetComponent<PlayerMotor>();
@@ -251,6 +278,144 @@ namespace ProjectU.Editor
                 "action owns dash recovery and releases the lock");
         }
 
+        private IEnumerator ValidateHeldInput()
+        {
+            yield return new WaitForSeconds(0.25f);
+            PlayerActionBinding[] savedBindings = combat.ActionBindings.ToArray();
+            combat.enabled = false;
+            var stance = input.gameObject.AddComponent<PlayerActionStanceProbe>();
+            var binding = new PlayerActionBinding();
+            PlayerActionValidationUtility.Set(binding, "slot", PlayerActionSlot.Skill1);
+            PlayerActionValidationUtility.Set(binding, "action", stance);
+            var bindings = savedBindings.ToArray();
+            bindings[(int)PlayerActionSlot.Skill1] = binding;
+            PlayerActionValidationUtility.Set(combat, "actionBindings", bindings);
+            combat.enabled = true;
+            Check(stance.RequiresHeldInput && !((PlayerAction)stance is IPlayerAimAction) && !stance.RepeatWhileHeld,
+                "RequiresHeldInput supplies held lifetime without ADS or repeat-fire traits");
+
+            int shotsBefore = shots;
+            extraHeld = Skill1Input;
+            primaryPress = true;
+            yield return null;
+            yield return null;
+            Check(stance.Phase == ActionPhase.Active && stance.Starts == 1 && shots == shotsBefore + 1 &&
+                controller.BufferedAction == PlayerActionSlot.None && !combat.IsAiming,
+                "held-only Skill1 starts alongside a same-frame primary shot");
+            PlayerActionValidationUtility.Set(stance, "repeatWhileHeld", true);
+            yield return new WaitForSeconds(0.25f);
+            Check(stance.Starts == 1 && controller.BufferedAction == PlayerActionSlot.None,
+                "RepeatWhileHeld does not duplicate or reserve an active holding action");
+            primaryPress = true;
+            yield return null;
+            yield return null;
+            extraHeld = 0;
+            yield return null;
+            yield return null;
+            Check(stance.Phase == ActionPhase.Ready && stance.Cleanups == 1 && primary.Phase == ActionPhase.Recovery,
+                "loss of Held releases a holding action during primary recovery without Released");
+            extraPressed = Skill1Input;
+            yield return null;
+            yield return null;
+            Check(stance.Starts == 1 && controller.BufferedAction == PlayerActionSlot.None,
+                "press without Held cannot start or reserve a holding action");
+            yield return new WaitForSeconds(0.25f);
+
+            PlayerActionValidationUtility.Set(controller, "maxInputBufferTime", 0.05f);
+            primaryPress = true;
+            yield return null;
+            yield return null;
+            extraHeld = Skill1Input;
+            yield return null;
+            yield return null;
+            Check(stance.Phase == ActionPhase.Ready && controller.BufferedAction == PlayerActionSlot.None,
+                "holding input respects an attack delay without occupying the reservation");
+            yield return new WaitForSeconds(0.25f);
+            Check(stance.Phase == ActionPhase.Active && stance.Starts == 2,
+                "continued skill hold enters after a delay longer than the input buffer lifetime");
+            PlayerActionValidationUtility.Set(controller, "maxInputBufferTime", 1f);
+            gameplay = false;
+            yield return null;
+            yield return null;
+            Check(stance.Phase == ActionPhase.Ready && stance.Cleanups == 2,
+                "input interruption cancels a non-ADS holding action");
+            extraHeld = 0;
+            gameplay = true;
+            yield return null;
+
+            stance.BlockedSlot = PlayerActionSlot.Ultimate;
+            primaryPress = true;
+            yield return null;
+            yield return null;
+            extraPressed = UltimateInput;
+            yield return null;
+            yield return null;
+            Check(controller.BufferedAction == PlayerActionSlot.Ultimate, "ordinary action retains delay buffering");
+            extraHeld = Skill1Input;
+            yield return new WaitForSeconds(0.25f);
+            Check(stance.IsActive && !combat.IsAiming && controller.BufferedAction == PlayerActionSlot.None &&
+                !combat.GetAction(PlayerActionSlot.Ultimate).IsActive,
+                "non-ADS persistent restriction discards its blocked buffered slot");
+            primaryPress = true;
+            yield return null;
+            yield return null;
+            extraPressed = ReloadInput;
+            yield return null;
+            yield return null;
+            Check(controller.BufferedAction == PlayerActionSlot.Reload && stance.IsActive,
+                "ordinary input preserves a permitted reservation and does not cancel the active hold");
+            yield return new WaitForSeconds(0.25f);
+            Check(combat.IsReloading && stance.IsActive,
+                "permitted reload executes alongside the holding stance");
+            combat.CancelReload();
+            extraHeld = 0;
+            yield return null;
+            yield return null;
+
+            stance.BlockedSlot = PlayerActionSlot.None;
+            hold.ExecutionStage = PlayerActionStage.BeforeMotor;
+            int stanceStartsBefore = stance.Starts;
+            int holdStartsBefore = hold.Starts;
+            shotsBefore = shots;
+            extraHeld = Skill1Input;
+            holdHeld = true;
+            primaryPress = true;
+            yield return null;
+            yield return null;
+            Check(stance.IsActive && hold.IsActive && stance.Starts == stanceStartsBefore + 1 &&
+                hold.Starts == holdStartsBefore + 1 && shots == shotsBefore + 1,
+                "multiple holding skill slots can enter alongside an ordinary action when restrictions allow");
+            holdHeld = false;
+            yield return null;
+            yield return null;
+            Check(!hold.IsActive && stance.IsActive, "holding bindings have separate release lifetimes");
+            extraHeld = 0;
+            yield return new WaitForSeconds(0.25f);
+
+            PlayerActionValidationUtility.UseSecondaryAttackFixture(combat);
+            PlayerAction secondary = combat.GetAction(PlayerActionSlot.SecondaryFire);
+            PlayerActionValidationUtility.Set(secondary, "repeatWhileHeld", false);
+            int secondaryExecutions = 0;
+            Action secondaryListener = () => secondaryExecutions++;
+            secondary.OnExecuted += secondaryListener;
+            extraHeld = SecondaryInput;
+            yield return new WaitForSeconds(0.08f);
+            Check(!secondary.RequiresHeldInput && secondaryExecutions == 0,
+                "ordinary SecondaryFire is not automatically treated as a holding action");
+            extraPressed = SecondaryInput;
+            yield return new WaitForSeconds(0.08f);
+            Check(secondaryExecutions == 1, "ordinary SecondaryFire still executes through normal pressed selection");
+            secondary.OnExecuted -= secondaryListener;
+            extraHeld = extraPressed = 0;
+            hold.ExecutionStage = PlayerActionStage.AfterAim;
+            combat.enabled = false;
+            secondary.enabled = false;
+            stance.enabled = false;
+            PlayerActionValidationUtility.Set(combat, "actionBindings", savedBindings);
+            combat.enabled = true;
+            yield return new WaitForSeconds(0.25f);
+        }
+
         private void Update()
         {
             if (input == null) return;
@@ -266,7 +431,12 @@ namespace ProjectU.Editor
                 SetInput(name, default(ButtonInputState));
             SetInput("PrimaryFire", Snapshot(primaryPress, false, false));
             SetInput("Skill2", Snapshot(holdPress, holdHeld, holdRelease));
+            SetInput("SecondaryFire", Snapshot((extraPressed & SecondaryInput) != 0, (extraHeld & SecondaryInput) != 0, false));
+            SetInput("Skill1", Snapshot((extraPressed & Skill1Input) != 0, (extraHeld & Skill1Input) != 0, false));
+            SetInput("Reload", Snapshot((extraPressed & ReloadInput) != 0, false, false));
+            SetInput("Ultimate", Snapshot((extraPressed & UltimateInput) != 0, false, false));
             primaryPress = holdPress = holdRelease = false;
+            extraPressed = 0;
         }
 
         private void SetInput(string name, object value) => typeof(PlayerInputReader).GetProperty(name).SetValue(input, value);

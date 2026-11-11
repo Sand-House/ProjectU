@@ -92,6 +92,7 @@ namespace ProjectU.Editor
             input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();
             controller = input.GetComponent<PlayerController>();
             attacks = input.GetComponent<PlayerCombat>();
+            PlayerActionValidationUtility.UseSecondaryAttackFixture(attacks);
             motor = input.GetComponent<PlayerMotor>();
             stamina = input.GetComponent<PlayerStamina>();
             Check((float)GetField(controller, "maxInputBufferTime") == 1f, "saved buffer limit is one game second");

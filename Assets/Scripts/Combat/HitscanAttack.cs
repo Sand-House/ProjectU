@@ -13,20 +13,29 @@ namespace ProjectU
         [SerializeField, Min(0f)] private float debugLineDuration = 1f;
         private int consecutiveShots;
         private double lastShotAt = double.NegativeInfinity;
+        private float spreadAngleMultiplier = 1f;
 
         public override AttackData Data => data;
         public int ConsecutiveShots => data == null || Time.timeAsDouble - lastShotAt >= data.SpreadResetDelay ? 0 : consecutiveShots;
         public Vector3 LastShotDirection { get; private set; }
         public Vector3 LastShotEndPoint { get; private set; }
+        public float LastSpreadAngle { get; private set; }
+        // Per-execution runtime modifier; shared AttackData assets are never edited.
+        public float SpreadAngleMultiplier
+        {
+            get => spreadAngleMultiplier;
+            set => spreadAngleMultiplier = Mathf.Clamp01(AttackData.FiniteAtLeast(value, 0f));
+        }
 
         protected override bool ExecuteAttack(Vector3 origin, Vector3 direction, in DamageContext context)
         {
             consecutiveShots = ConsecutiveShots == int.MaxValue ? int.MaxValue : ConsecutiveShots + 1;
             lastShotAt = Time.timeAsDouble;
-            if (data.SpreadAngle > 0f && consecutiveShots >= data.SpreadStartShot)
+            LastSpreadAngle = consecutiveShots >= data.SpreadStartShot ? data.SpreadAngle * SpreadAngleMultiplier : 0f;
+            if (LastSpreadAngle > 0f)
             {
                 // Uniform solid-angle distribution inside the cone.
-                float cosine = Mathf.Lerp(1f, Mathf.Cos(data.SpreadAngle * Mathf.Deg2Rad), UnityEngine.Random.value);
+                float cosine = Mathf.Lerp(1f, Mathf.Cos(LastSpreadAngle * Mathf.Deg2Rad), UnityEngine.Random.value);
                 float sine = Mathf.Sqrt(Mathf.Max(0f, 1f - cosine * cosine));
                 float azimuth = UnityEngine.Random.value * Mathf.PI * 2f;
                 direction = Quaternion.LookRotation(direction) * new Vector3(sine * Mathf.Cos(azimuth), sine * Mathf.Sin(azimuth), cosine);

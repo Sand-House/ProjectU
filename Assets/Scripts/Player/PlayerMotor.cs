@@ -57,7 +57,7 @@ namespace ProjectU
 
         public bool IsGrounded => controller != null && controller.isGrounded;
         public float VerticalSpeed => verticalSpeed;
-        public float MoveSpeed => playerStat.MoveSpeed;
+        public float MoveSpeed => playerStat.MoveSpeed * (combat != null ? combat.AimMoveSpeedMultiplier : 1f);
         public Vector3 HorizontalVelocity { get; private set; }
         public bool IsDashing => dashRemaining > 0f;
         public bool IsDashPostDelay => DashAction != null && DashAction.Phase == ActionPhase.Recovery;
@@ -82,6 +82,7 @@ namespace ProjectU
             controller = GetComponent<CharacterController>();
             playerStat = GetComponent<PlayerStat>();
             combatant = GetComponent<Combatant>();
+            combat = GetComponent<PlayerCombat>();
         }
 
         // Commands are world-space requests, valid for one Motor update only.

@@ -20,6 +20,22 @@ namespace ProjectU.Editor
         private static readonly string[] timingFields = { "windupTime", "recoveryTime", "cooldown", "repeatWhileHeld" };
         private static readonly Dictionary<AttackData, Dictionary<string, object>> presets = new Dictionary<AttackData, Dictionary<string, object>>();
 
+        // Older generic attack/input regressions exercise a second weapon, not ADS.
+        // Replace only their unsaved Play-mode binding; the saved scene keeps ADS.
+        public static void UseSecondaryAttackFixture(PlayerCombat combat)
+        {
+            if (!(combat.GetAction(PlayerActionSlot.SecondaryFire) is IPlayerAimAction)) return;
+            bool wasEnabled = combat.enabled;
+            combat.enabled = false;
+            ProjectileAttack attack = combat.GetComponents<ProjectileAttack>()
+                .Single(item => item.Data != null && item.Data.name == "TempSecondaryFire");
+            PlayerAttackAction action = Attach(attack, PlayerActionSlot.SecondaryFire, attack.Origin);
+            SetDirect(action, "recoveryTime", 0.5f);
+            SetDirect(action, "repeatWhileHeld", true);
+            SetDirect(combat.GetBinding(PlayerActionSlot.SecondaryFire), "action", action);
+            combat.enabled = wasEnabled;
+        }
+
         private static IEnumerable<PlayerAttackAction> ActionsFor(AttackData data)
             => UnityEngine.Object.FindObjectsByType<PlayerAttackAction>(FindObjectsInactive.Include, FindObjectsSortMode.None)
                 .Where(action => action.Attack != null && action.Attack.Data == data);
@@ -41,7 +57,7 @@ namespace ProjectU.Editor
                 Type type = slot switch
                 {
                     PlayerActionSlot.PrimaryFire => typeof(SoilderPrimaryFireAction),
-                    PlayerActionSlot.SecondaryFire => typeof(SoilderSecondaryFireAction),
+                    PlayerActionSlot.SecondaryFire => typeof(PlayerActionAttackProbe),
                     PlayerActionSlot.Skill1 => typeof(SoilderSkill1Action),
                     PlayerActionSlot.Skill2 => typeof(PlayerActionAttackProbe),
                     PlayerActionSlot.Ultimate => typeof(PlayerActionAttackProbe),

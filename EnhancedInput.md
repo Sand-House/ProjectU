@@ -1,5 +1,36 @@
 # 플레이어 입력·선입력 설계
 
+## 2026-11-11 ADS 전환 중 기본 발사 차단
+
+이번 직접 검증은 ADS 88개·공통 액션/홀딩 60개·선입력 85개·행동 딜레이 110개·플레이어 공격 59개·장전 40개·재시작 56개, 총 498개와 7종 모두 종료 코드 0이다. C# 오류·경고 0이며 로그는 `Logs/ADSTransitionFireLock_20261111/`에 이전 작업과 분리한다. 새 이미지 렌더·수동 플레이·전체 실행 파일 빌드는 수행하지 않았다.
+
+PlayerCamera.IsAimTransitioning은 실제 AimBlend 보간과 아직 LateUpdate에 반영하지 않은 ADS 진입/해제 요청을 함께 확인한다. SoilderPrimaryFireAction은 기존 Combat.AimCamera에 연결된 PlayerCamera를 캐시해 이 읽기 전용 상태를 CheckRequirements에서 검사한다. 공용 Controller·Combat에 ADS 전용 입력 분기나 새 직렬화 참조를 추가하지 않는다.
+
+진입·해제·도중 반전 중에는 PrimaryFire의 누름·홀딩·예약 자격과 직접 TryStart 요청을 거절한다. 짧게 누른 입력은 예약하지 않고 버리며 좌클릭을 계속 누르면 전환 완료 후 기존 반복 사격이 재개된다. 선딜을 이미 수락했더라도 실제 발사 시점이 전환 중이면 기존 실행 조건 재검사로 실패하고 탄약·새 후딜·쿨타임·발사 성공 이벤트를 만들지 않는다. 이미 발사한 탄과 후딜은 유지한다. Transition Time=0이면 카메라를 즉시 옮기므로 추가 발사 잠금이 없다. 전환 완료 후에는 기존 탄약·장전·행동 딜레이 조건을 따른다. 기록은 `Logs/ADSTransitionFireLock_20261111/`에 분리한다.
+
+## 2026-11-11 홀딩 액션 공통 처리
+
+이번 직접 검증은 공통 액션/홀딩 60개·ADS 73개·선입력 85개·딜레이 110개·조건 39개·공격 59개·장전 40개·대시 70개·진행 132개·저장 씬 22개·재시작 56개, 총 746개를 11종 모두 종료 코드 0으로 통과했다. C# 오류·경고 0이며 이전 검증과 합산하지 않는다. 로그는 `Logs/HeldInput_20261111/`이고 공통 액션은 안내 문자열 정리 후 ActionsFinal.log를 사용한다. 이미지 렌더·수동 키/마우스 플레이·전체 실행 파일 빌드는 수행하지 않았다.
+
+Selected/IndependentHold 분류와 PlayerActionInputMode·InputMode를 제거했다. 모든 홀딩 액션은 기존 가상 프로퍼티 RequiresHeldInput=true만 선언한다. 기본값은 false이며 ADS는 true를 오버라이드한다. 새 Inspector 설정이나 씬 연결은 없다.
+
+| RequiresHeldInput | Controller 처리 | 예약·해제 |
+|---|---|---|
+| false | 기존 Pressed 우선순위·한 개 예약·RepeatWhileHeld·자동 장전 경로 | 기존 일반 액션의 예약 자격과 만료 유지 |
+| true | ProcessHeldActions에서 바인딩 순서로 현재 Held를 읽고 일반 선택 전에 시작 시도. 실행 중에는 중복 시작하지 않음 | 일반 선택·예약·반복·자동 장전에서 제외. 해제·Held 소실·입력 중단 시 취소 |
+
+홀딩 액션이 딜레이나 자격 때문에 시작하지 못하면 현재 버튼을 누르고 있는 동안 매 프레임 다시 시도한다. 입력 예약의 만료 시간과 무관하며, 시작 전에 놓으면 나중에 실행하지 않는다. 일반 입력이 들어와도 실행 중인 홀딩 액션을 자동 취소하지 않는다. 완료·명시적 취소 후에도 계속 누르고 있다면 기존 시작 조건을 만족할 때 다시 시작할 수 있다.
+
+RequiresHeldInput은 공통 홀딩 입력 경로와 해제 수명을 함께 정한다. RepeatWhileHeld는 RequiresHeldInput=false인 일반 액션의 반복 요청이며, 켜져 있어도 홀딩 액션에 별도 요청을 추가하지 않는다. Stage는 실제 실행 시점, BlocksCore는 다른 행동 허용 범위, CanMove는 이동·새 점프 허용 여부다. 홀딩 처리는 선딜·후딜·쿨타임·구성·자원·행동 잠금을 그대로 검사한다.
+
+Controller는 ADS나 SecondaryFire 구체 타입으로 홀딩을 판단하지 않는다. 모든 바인딩에 같은 규칙을 적용하므로 다른 슬롯·캐릭터에도 공용으로 사용한다. 기본 SecondaryFire 매핑은 ReadInput에만 남고 일반 보조 공격은 기존 누름 입력을 사용한다. G의 combat.IsAiming 게이트와 미구현 중앙 트리거 계획은 유지한다.
+
+기존 일반 예약은 만료·현재 바인딩의 RequiresHeldInput·지속 제한을 재검사한다. PlayerCombat.IsBufferBlocked는 일반 딜레이를 제외한 공통 제한으로 금지된 슬롯만 지운다. 허용된 일반 예약은 홀딩과 병행할 수 있고, 홀딩이 그 예약 슬롯을 막으면 폐기한다. 수신 시 CanBuffer 자격 검사와 실행 직전 재검사도 유지한다. 이번 검증 기록은 `Logs/HeldInput_20261111/`이며 이전 분류 정책의 2026-11-10 검증(746개, `Logs/ActionInputPolicy_20261110/`)과 구분한다.
+
+2026-11-10 확정 후속 계획(아직 미구현): G는 기존 범용 상호작용 입력 액션 `Interact`로 유지하고, 입력 측은 현재 대상에 상호작용 요청을 전달하도록 변경할 예정이다. `BeforeStage`에서 씬 중앙 트리거가 이 요청을 받아 GameManager를 참조해 TryStartStage를 호출한다. GameManager를 직접 참조해 전투 시작을 요청하는 책임은 트리거가 소유하며, 단계 이벤트 구독 연결은 별도 수명으로 유지한다. 현재 PlayerController의 단계별 G 직접 호출은 임시 구현이다. 이번 요청은 문서 기록만 수행하며 코드·입력 바인딩·씬에 트리거나 상호작용 탐색을 추가하지 않는다. 구체 대상 탐색/범위와 보상·생성 재시도 경로의 추가 변경은 후속 구현 때 정한다. 상세 내용은 [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md) 11절을 따른다.
+
+2026-11-10 G 입력 이관: PlayerInputReader는 G의 Interact 스냅샷을 수집하고 PlayerController는 Update에서 ADS·기존 전투 선택·점프 처리 후 HandleInteraction으로 시작/보상 재열기/가능한 생성 재시도를 요청한다. 같은 프레임에 ADS와 G가 들어오면 먼저 확정한 ADS 상태로 G를 차단하며, G는 선입력 저장소에 넣지 않는다. Controller의 GameManager 참조는 기존 BindStageEvents에서 받아 같은 매니저의 UnbindStageEvents에서 비운다. Controller 자체 비활성화에서는 구독 수명만 중단하고 재활성화 시 기존 연결을 재사용한다. 새 Inspector 연결·씬 검색·이벤트는 추가하지 않는다. StageFlowUI는 PlayerInputReader/PlayerCombat 참조와 G Update 없이 표시·버튼·기존 단계 구독만 처리한다. 아래 날짜별 StageFlowUI 입력 소유 설명은 이전 기록이다. 이번 직접 검증은 저장 씬 22개·ADS 73개·진행 132개·카드 111개·재시작 56개·선입력 85개, 총 479개를 여섯 종류 모두 종료 코드 0으로 확인했다. UI 비활성 G 시작·Controller/매니저 재연결·동시 ADS/G 차단을 포함하며 C# 오류·경고 0이다. 검증은 `Logs/InteractionController_20261110/`에 별도로 기록하고 이전 결과와 합산하지 않는다.
+
 2026-11-06 분산 구독: 중앙 PlayerStageReset을 제거했다. GameManager가 OnGameplayEnabledChanged(bool)를 발행하면 Reader는 입력/커서, Controller는 예약, Motor는 이동, Combat은 요청, 각 PlayerAction은 실행 취소를 자기 안에서 처리한다. 단계 변경의 정리도 각 컴포넌트가 OnStageStateChanged를 직접 구독한다. Mortal 기반 PlayerMortal은 체력·무적만 관리한다. 구독 원본 연결과 수명 공유는 일반 C# PlayerStageSubscription이 지원하며 일괄 정리 함수는 없다. [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md) 2.1절 참고.
 
 2026-11-06 단계 이벤트 갱신: 진행 타입은 StageState, 이벤트는 OnStageStateChanged(StageState)다. PlayerStageReset이 구독해 정상 BeforeStage/OnStage/AfterStage의 무적·입력 정책과 클리어 정리를 처리한다. 최초/재활성화 시 현재 상태를 동기화한다. 보상 선택·사망·정지·같은 단계 재시도의 게이트는 상태 전환과 별개로 유지하며, 가짜 이벤트를 발행하거나 같은 상태에 재진입해 예약/HP/쿨타임을 반복 초기화하지 않는다. [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md) 2.1절 참고.
@@ -14,15 +45,21 @@
 
 기준 날짜: **2026-10-31, 공통 접지·이동 제한 반영**. PlayerAction.RequiresGrounded가 수신·시작·효과 실행 시의 접지를 검사하며 CanMove가 행동 중 일반 이동·점프 허용 여부를 정한다. 상세 필드·상속·이번 검증은 [PlayerAction 설계](PlayerAction%20설계.md) 11절을 참고한다. 아래 날짜별 검증은 해당 작업 당시의 기록이다.
 
+## 2026-11-10 ADS 입력
+
+우클릭 SecondaryFire의 ADS 액션은 Attack 없는 `IPlayerAimAction`이며 RequiresHeldInput=true를 선언한다. Controller는 모든 홀딩 바인딩의 현재 Held를 일반 예약/선택보다 먼저 처리하고 해제는 기존 DeliverInput 경로로 전달한다. ADS는 별도 입력 예약을 두지 않는다. 같은 프레임에 좌·우클릭이 들어오면 ADS가 먼저 시작되며 0초가 아닌 카메라 전환 중에는 PrimaryFire를 거절한다. 기본 발사의 선딜·후딜과 이미 진행 중인 다른 행동은 ADS 진입을 막는다. 홀드를 계속하면 해당 행동의 딜레이가 끝난 뒤 ADS에 진입하며, 딜레이 중 해제한 우클릭을 나중에 재생하지 않는다. 쿨타임만 남으면 진입할 수 있고, 전환이 끝난 ADS에서는 기본 발사를 허용한다.
+
+ADS의 제한은 일반 딜레이가 아니므로 CanBuffer에서도 우회할 수 없다. ADS 진입 시 이전의 금지 행동 예약을 지우고, ADS 중 대시·장전·스킬·궁극기는 새 예약을 만들지 않는다. 0발 자동 장전도 조준을 해제한 뒤 재개한다. 이동·시점·점프와 카메라 전환 완료 후 PrimaryFire를 허용하며 G 상호작용도 조준 중에는 받지 않는다. Reader/Controller/Combat/ADS 비활성화·커서/포커스 상실·보상/사망 게이트는 기존 중단 경로로 상태를 정리한다. 아래의 일반 액션 우선순위는 ADS 홀드 처리 이후에 적용한다. 상세 설정은 [플레이어 조작 가이드.md](플레이어%20조작%20가이드.md)의 ADS 절, 최초 로그는 `Logs/ADS_20261110/`이다.
+
 ## 1. 클래스의 역할과 책임
 
 | 클래스 | 책임 | 상태 원본 |
 |---|---|---|
 | ButtonInputState / PlayerInputReader | 프레임별 Pressed·Held·Released, 커서·포커스·입력 가능 여부 | 현재 입력 스냅샷 |
-| PlayerController | 카메라 기준 이동·점프 명령, 전투 선택·우선순위·한 개 예약·만료·반복·자동 장전 요청 | maxInputBufferTime·예약 슬롯·만료 시각 |
+| PlayerController | 카메라 기준 이동·점프 명령, 전투 선택·우선순위·한 개 예약·만료·반복·자동 장전, ADS 확인 후 G 요청 | maxInputBufferTime·예약 슬롯·만료 시각·구독으로 받은 GameManager |
 | PlayerCombat | 슬롯/액션 연결, 실행 가능 조회·한 프레임 명령·조준/배율·탄창·외부 이벤트 | 한 프레임 명령·탄창 |
 | PlayerAction / PlayerAttackAction | 공통 접지·이동 허용·타이밍·단계·검증·취소 / 공격 실행 어댑터 | 액션별 접지 필요·이동 허용·선딜·유지·후딜·쿨타임·반복 |
-| Soilder…Action | 기본·보조 발사·스킬·궁극기·대시·장전 구현 | 개별 조건·자원·효과와 장전 작업량 |
+| Soilder…Action | 기본 사격·ADS·스킬·궁극기·대시·장전 구현 | 개별 조건·자원·효과와 장전 작업량, ADS 전환 시간·배율 |
 | PlayerActionBinding | PlayerActionSlot과 PlayerAction 연결 | 씬/프리팹 참조 |
 | Attack / Combatant | 기본 Origin 보관·동기 공격 효과 / 같은 소유자의 액션 제한 집계·진영·생존 | 기본 Origin·공격 결과·공통 제한 조회 |
 | PlayerMotor | 실제 이동·점프·중력·충돌·대시 이동 | 접지·속도·대시 이동 상태 |
@@ -41,7 +78,7 @@
 4. 유효한 대시는 일반 예약을 교체하고, 일반 입력·Held는 예약 대시를 교체하거나 연장하지 못한다.
 5. 선택한 슬롯을 막는 딜레이가 끝나는 첫 실행 기회에 조건을 다시 검사한다. 시도한 예약은 성공·실패와 관계없이 소비하며 자원 회복·착지·쿨타임 종료를 기다리지 않는다.
 6. 일반 예약은 더 나중의 유효한 Pressed로 교체한다. 동일 프레임은 Dash → 비기본 공격 바인딩 순서 → Reload → PrimaryFire다.
-7. 예약을 시도한 프레임에는 다른 홀딩 행동을 추가 실행하지 않는다. 반복·자동 장전은 다음 프레임부터 다시 시도할 수 있다.
+7. 예약을 시도한 프레임에는 일반 선택 경로의 반복 요청·자동 장전을 추가 실행하지 않는다. 공통 홀딩 처리는 이 선택 전에 수행한다.
 
 CanBuffer는 현재 딜레이만 제외하고, CanStart는 현재 행동 제한도 포함한다. 장전 중 두 발사 금지는 두 검사에 모두 적용한다. RequiresGrounded=true인 액션은 PlayerAction에서 수신·시작·선딜 완료 시 모두 접지를 검사한다. 현재 대시와 Skill2가 해당하며 공중 입력은 예약하지 않는다. 예약 후 공중이 되면 첫 실행 기회에 폐기하고, 선딜 중 공중이 되면 실행에 실패한다.
 
@@ -57,12 +94,12 @@ CanBuffer는 현재 딜레이만 제외하고, CanStart는 현재 행동 제한�
 |---|---|
 | WASD·시점 | 현재 입력 사용. 예약하지 않음. CanMove=false 액션 중 일반 이동은 막고 시점은 유지 |
 | Jump.Pressed | CanJump·접지로 즉시 판단. 공중·실제 대시 이동·CanMove=false 액션 중 입력은 예약하지 않음 |
-| 전투 Pressed | 유효한 입력만 한 개 예약하거나 즉시 한 번 시도 |
-| RepeatWhileHeld | PlayerAction의 설정. 예약 다음에 실행 가능한 현재 Held를 반복 요청 |
-| 유지형 액션 | 한 번 시작해 Active로 유지. 다른 행동 잠금 중에도 Release를 전달 |
-| 유지형 예약의 버튼 해제 | 예약 폐기. 일반 발사·수류탄의 짧은 누름은 유지 |
-| 0발 자동 장전 | 예약·비기본 반복 다음에 매 프레임 다시 요청 |
-| 장전 중 기본·보조 발사 | 수신·실행 모두 거절 |
+| 일반 전투 Pressed | RequiresHeldInput=false인 유효한 입력만 한 개 예약하거나 즉시 한 번 시도 |
+| RepeatWhileHeld | 일반 액션만 예약 다음에 실행 가능한 현재 Held로 반복 요청 |
+| 홀딩 액션 | RequiresHeldInput=true. 일반 선택 전에 Held로 시작을 시도하고 Active 유지. 다른 행동 잠금 중에도 Release 전달 |
+| 홀딩 입력 해제 | 예약이 없으며 진행 중 홀딩 취소. 잠금 중 놓은 입력을 이후 재생하지 않음 |
+| 0발 자동 장전 | 장전 액션이 RequiresHeldInput=false이면 예약·비기본 반복 다음에 매 프레임 다시 요청 |
+| 장전 중 기본 사격·ADS | 수신·실행 모두 거절 |
 | 장전 중 대시·스킬 | 대시 시작 성공 / 스킬 수락 시 보충 없이 취소 |
 
 장전 진행은 SoilderReloadAction, 탄창은 PlayerCombat, 스태미나 소모 정책은 SoilderDashAction이 담당한다. RepeatWhileHeld를 자동 장전 조건이나 줌 유지 여부로 사용하지 않는다.

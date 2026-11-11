@@ -102,6 +102,7 @@ namespace ProjectU.Editor
             stamina = input.GetComponent<PlayerStamina>();
             animationController = input.GetComponent<PlayerAnimation>();
             attacks = input.GetComponent<PlayerCombat>();
+            PlayerActionValidationUtility.UseSecondaryAttackFixture(attacks);
             cameraController = UnityEngine.Object.FindFirstObjectByType<PlayerCamera>();
             var settings = new SerializedObject(motor);
             Check(input.GetComponent<PlayerStat>().DashDistance == 5f &&

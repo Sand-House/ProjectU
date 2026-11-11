@@ -1,5 +1,41 @@
 # PlayerAction 및 공통 ActionBase 구현 설계
 
+## 2026-11-11 ADS 전환 중 PrimaryFire 제한
+
+이번 직접 검증은 Unity 6000.3.25f1에서 ADS 88개·공통 액션/홀딩 60개·선입력 85개·행동 딜레이 110개·공격 59개·장전 40개·재시작 56개, 총 498개를 7종 모두 종료 코드 0으로 통과했다. C# 오류·경고 0이며 시작 파일 354개 중 런타임 2개·기존 검증기 1개만 변경하고 351개와 씬·meta·데이터·패키지를 보존했다. 전체 Assets와 검증 복사본 해시가 같고 문서 링크 90개·git diff --check를 확인했다. 로그는 `Logs/ADSTransitionFireLock_20261111/`이며 이전 작업과 합산하지 않는다. 새 렌더·수동 플레이·전체 실행 파일 빌드는 수행하지 않았다.
+
+PlayerCamera에 읽기 전용 IsAimTransitioning을 추가해 실제 카메라 보간 여부를 제공한다. 카메라 LateUpdate 전에 바뀐 논리 ADS 요청도 확인하므로 진입·해제 첫 입력 프레임부터 차단하며 도중 반전에도 적용한다. SoilderPrimaryFireAction.CheckRequirements가 기존 Combat.AimCamera에서 PlayerCamera를 캐시해 조회한다. 공용 Controller·Combat·홀딩 처리에는 캐릭터별 분기를 추가하지 않고 새 Inspector 참조나 별도 전환 타이머를 만들지 않는다.
+
+카메라 전환 중에는 일반 입력/예약 수신·직접 시작·선딜 완료 시 실제 발사를 같은 자격 검사로 거절한다. 전환 중 짧은 누름은 나중에 실행하지 않고 계속 누르면 완료 후 반복 사격한다. 이미 수락한 발사 선딜이 전환 중 끝나면 기존 실행 실패 경로로 탄약·새 후딜·쿨타임·성공 이벤트 없이 종료한다. 이미 실행한 발사와 진행 중 후딜은 유지한다. 0초 전환은 추가 발사 제한 없이 같은 프레임에 카메라를 옮긴다. 기존 이동/탄퍼짐 배율은 논리 ADS 진입·해제 즉시 적용/복구하고, 탄약·장전·기본 공격 딜레이의 제한도 유지한다. 이번 기록은 `Logs/ADSTransitionFireLock_20261111/`이다.
+
+## 2026-11-11 홀딩 액션 공통 처리
+
+이번 직접 검증은 Unity 6000.3.25f1에서 공통 액션/홀딩 60개·ADS 73개·선입력 85개·딜레이 110개·조건 39개·공격 59개·장전 40개·대시 70개·진행 132개·저장 씬 22개·재시작 56개, 총 746개와 11종 모두 종료 코드 0이다. C# 오류·경고 0이며 기존 354개 중 런타임 3개와 검증기 2개만 수정하고 349개·씬·meta·데이터·패키지를 보존했다. 최종 소스와 전체 검증 Assets의 해시가 같고 문서 링크 90개·git diff --check를 확인했다. 로그는 `Logs/HeldInput_20261111/`이며 이전 결과와 합산하지 않는다. 공통 액션의 안내 문자열 정리 후 최종 실행은 ActionsFinal.log다. `-nographics`로 새 렌더·수동 플레이·전체 실행 파일 빌드는 수행하지 않았다.
+
+Selected/IndependentHold 분류 enum과 InputMode를 제거하고 기존 RequiresHeldInput으로 모든 홀딩 입력을 통일했다. 기본값은 false이며 홀딩 액션만 true를 오버라이드한다. Inspector 필드·씬 직렬화는 추가하지 않는다.
+
+```csharp
+// PlayerAction의 기본 입력 수명
+public virtual bool RequiresHeldInput => false;
+
+// SoilderSecondaryFireAction의 선언
+public override bool RequiresHeldInput => true;
+```
+
+RequiresHeldInput=false인 일반 액션은 기존 Pressed 선택·우선순위·한 개 예약·RepeatWhileHeld·자동 장전 경로를 따른다. true인 모든 홀딩 액션은 Controller.ProcessHeldActions가 바인딩 순서로 현재 Held를 읽어 일반 선택 전에 시작을 시도한다. 실행 중에는 중복 시작하지 않고 일반 선택·예약·반복·자동 장전에서는 제외한다. 해제·Held 소실·입력 중단은 기존 Release/InterruptInput으로 취소한다.
+
+시작이 거절되어도 계속 누르면 매 프레임 재시도하므로 예약 만료 시간의 영향을 받지 않는다. 잠금이 풀리기 전에 놓으면 나중에 실행하지 않는다. 다른 일반 입력은 실행 중 홀딩을 자동 취소하지 않는다. 홀딩이 완료·취소되어 비실행 상태가 된 뒤에도 Held가 유지되면 기존 자격에 따라 다시 시작할 수 있다.
+
+실행 단계(Stage)는 입력 처리와 별개다. ADS는 BeforeMotor를 유지하고 홀딩도 기존 CanStart·선딜/후딜/쿨타임·생존/구성/자원 검사를 그대로 따른다. 병행·행동 제한은 BlocksCore, 이동·새 점프 제한은 CanMove로 정한다. RepeatWhileHeld는 일반 액션의 반복 요청이며 홀딩에는 추가 요청을 만들지 않는다. PlayerCombat.IsBufferBlocked는 일반 딜레이 대기 중인 유효한 예약을 보존하고 지속 제한이 금지한 슬롯만 폐기한다.
+
+Controller의 홀딩 처리는 Soilder·SecondaryFire·IPlayerAimAction 구체 분기에 의존하지 않는다. 공통 슬롯 입력 매핑과 combat.IsAiming 상호작용 조회는 유지하며 캐릭터별 Controller 상속은 추가하지 않는다. 중앙 트리거 계획은 계속 미구현이다. 이번 검증은 `Logs/HeldInput_20261111/`에 기록하며 이전 분류 정책의 2026-11-10 검증(746개, `Logs/ActionInputPolicy_20261110/`)과 합산하지 않는다.
+
+2026-11-10 확정 후속 상호작용 계획(아직 미구현): G는 범용 `Interact` 입력을 유지한다. 추후 BeforeStage의 씬 중앙 트리거가 상호작용을 받아 GameManager를 참조하고 TryStartStage를 요청한다. 플레이어 입력 측의 상호작용 요청 전달과 대상 트리거의 스테이지 시작 책임을 분리할 예정이며, 기존 단계 이벤트 구독 수명과는 구분한다. 현재 Controller의 G 직접 호출은 유지하고 이번에는 문서만 반영했다. 트리거·인터페이스·탐색/범위 구현은 후속 작업이며 상세 계획은 [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md) 11절을 따른다.
+
+2026-11-10 G 입력 이관: StageFlowUI가 조회하던 ADS 차단 조건을 PlayerController의 G 처리로 옮겼다. Controller는 기존 PlayerCombat 참조로 같은 프레임의 ADS 확정 후 G를 판단하고, 기존 단계 구독으로 연결된 GameManager에 요청한다. StageFlowUI의 입력/전투 의존성과 G Update를 제거했으며 액션 슬롯·타이밍·단계 구독/취소·보상 UI 버튼은 유지한다. G는 별도 PlayerAction이나 예약으로 추가하지 않는다. 이번 검증은 `Logs/InteractionController_20261110/`에 기록한다.
+
+2026-11-10 ADS: `SoilderSecondaryFireAction : PlayerAction, IPlayerAimAction`은 Attack 없는 유지형 자세다. `UsesDelayLock=false`로 ADS 중 금지 행동은 CanBuffer에서도 제외하며 PrimaryFire만 허용한다. Controller는 우클릭 Held를 일반 단일 선택보다 먼저 처리하고 기본 발사는 기존 선택 경로에서 병행한다. 전환 시간·이동속도/탄퍼짐 배율은 ADS 액션에, 카메라 위치/진행값은 PlayerCamera에, 소총 정렬은 PlayerAim에 둔다. PlayerCombat·Motor·Camera는 구체 Soilder 타입 대신 IPlayerAimAction의 읽기 전용 상태를 사용한다. ADS는 기존 PlayerAction의 Release·InterruptInput·단계 구독·사망·비활성화 취소를 그대로 따른다. 상세 편집은 [플레이어 조작 가이드.md](플레이어%20조작%20가이드.md)의 ADS 절, 검증 기록은 `Logs/ADS_20261110/`에 있다.
+
 2026-11-06 스테이지 초기화 갱신: `PlayerStageReset`이 입력·이동·진행 중 액션·후딜을 정리한 뒤 `ActionBase.ResetForStage()`로 쿨타임을 초기화한다. 일반 Cancel·비활성화는 기존처럼 쿨타임을 유지한다. `Combatant.IsGameplayBlocked`는 보상 대기·종료 중 직접 액션 수락과 효과 실행도 막는다. `ActionCancelReason.StageTransition`은 기존 enum 끝에 추가했다. 상세 호출 순서·API·보상 계약은 [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md)를 참고한다.
 
 최신 공통화 기준: **2026-11-01**. PlayerAction의 타이밍·접지/이동 조건·생명주기·이벤트를 새 `ActionBase`로 이관했다. PlayerAction과 EnemyAction은 ActionBase를 직접 상속하며, 슬롯·홀딩·선입력 자격·플레이어 실행 단계는 PlayerAction에 남는다. 공통 타입은 `ActionContext / ActionPhase / ActionResult / ActionCancelReason`이고 `PlayerActionSlot / PlayerActionStage`는 유지한다. Attack.TryExecute는 ActionBase를 받으며 Combatant는 모든 ActionBase의 제한을 집계한다. 상세한 적 계열·확장 방법은 [Enemy.md](Enemy.md)를 참고한다. 이번 로그는 `Logs/Enemy_20261101/`이다. 아래 2026-10-30~31의 검증과 이관 기록은 해당 날짜의 결과다.
@@ -13,10 +49,10 @@
 | 구성 | 책임 |
 |---|---|
 | PlayerInputReader | 현재 프레임 입력·조작 가능 여부 수집 |
-| PlayerController | 이동·점프 명령, 전투 입력 선택·우선순위·한 개 예약·만료·반복·빈 탄창 자동 장전 요청 |
+| PlayerController | 이동·점프 명령, 공통 홀딩 처리·일반 전투 선택·우선순위·한 개 예약·만료·반복·빈 탄창 자동 장전, ADS 확인 후 G 상호작용 요청 |
 | PlayerCombat | 슬롯/액션 바인딩, 명령 전달·배율/조준 준비, 슬롯별 실행 가능 조회·탄창·외부 이벤트 |
 | ActionBase | 공통 설정과 생명주기. 접지 자격·이동 허용·선딜·실행·유지·후딜·쿨타임·취소 |
-| PlayerAction | 플레이어 슬롯·홀딩·해제·선입력 자격·실행 단계와 Motor/Combat 연결 |
+| PlayerAction | 플레이어 슬롯·RequiresHeldInput·홀딩/해제·선입력 자격·실행 단계와 Motor/Combat 연결 |
 | PlayerAttackAction | Attack을 사용하는 액션의 공통 어댑터. Attack 연결·기본 Origin 조회와 요청별 최신 공격 정보 전달 |
 | Soilder…Action | 행동별 슬롯·조건·자원·효과 실행과 유지 갱신 |
 | Attack 계열 | 기본 Origin Transform 보관과 호출받은 시점의 원점 보정·판정·피해·투사체 생성·결과 반환 |
@@ -31,8 +67,8 @@
 PlayerAction
 ├─ PlayerAttackAction
 │  ├─ SoilderPrimaryFireAction
-│  ├─ SoilderSecondaryFireAction
 │  └─ SoilderSkill1Action
+├─ SoilderSecondaryFireAction (IPlayerAimAction, 홀드형 ADS)
 ├─ SoilderSkill2Action
 ├─ SoilderUltimateAction
 ├─ SoilderDashAction
@@ -87,6 +123,7 @@ PlayerActionBinding의 저장 필드는 `slot + action`이다. Attack 프로퍼�
 | WindupTime / RecoveryTime / Cooldown / RepeatWhileHeld | 읽기 전용 설정 |
 | RequiresGrounded / CanMove | 읽기 전용 접지 필요·일반 이동/점프 허용 설정 |
 | BlocksMovement | 이동 금지 설정이며 선딜·Active·후딜 또는 실행 프레임 잠금이 남았는지 |
+| RequiresHeldInput | 기본 false. true이면 공통 홀딩 처리·해제 수명을 사용하고 일반 선택·예약에서 제외 |
 | Phase | Ready / Windup / Active / Recovery |
 | CooldownRemaining / RecoveryRemaining | 게임 시간 기준 잔여 시간 |
 | CanBuffer | 현재 공격·대시 딜레이만 제외한 예약 자격. 상태 변경·소모 없음 |
@@ -126,16 +163,18 @@ Cooldown은 별도 Phase가 아니며 실행 성공부터 Active·Recovery와 �
 
 | 현재 행동 | 새 행동 제한 |
 |---|---|
-| 현재 공격의 선딜·후딜·실행 프레임 | 다른 전투 액션. 이동·지상 점프·시점 유지 |
+| 현재 공격의 선딜·후딜·실행 프레임 | ADS를 포함한 다른 전투 액션의 새 진입을 차단. 이동·지상 점프·시점 유지 |
 | 대시 이동·후딜 | 다른 전투 액션. 일반 이동·점프는 이동 구간만 거절 |
-| 장전 Active | 기본·보조 발사·중복 장전. 대시·스킬은 취소 규칙으로 허용 |
-| 향후 줌 같은 유지형 행동 | 파생 클래스에서 비차단 또는 슬롯별 차단 지정 |
+| 장전 Active | 기본 사격·ADS·중복 장전. 대시·스킬은 취소 규칙으로 허용 |
+| ADS Active | PrimaryFire 외 전투 액션·예약 차단. PrimaryFire는 카메라 전환 완료 후 허용. 이동·시점·점프 허용, G도 차단 |
+| ADS 카메라 진입·해제·반전 | SoilderPrimaryFireAction의 수신·직접 시작·실행 자격 차단. 전환 중 PrimaryFire 예약 없음 |
+| 다른 유지형 행동 | 파생 클래스에서 비차단 또는 슬롯별 차단 지정 |
 
 비차단 유지형 액션은 RequiresHeldInput=true, UsesDelayLock=false, BlocksCore=false를 사용하고 ExecuteCore에서 Running을 반환한다. Release와 조작 중단은 Cleanup을 통해 자기 유지 효과를 정리한다. 같은 유지형 액션의 중복 시작은 CanStart에서 거절한다.
 
 CanMove=false인 액션은 선딜·Active·후딜 동안 일반 이동과 새 점프를 막는다. Combatant.IsMovementLocked가 바인딩 없는 액션까지 집계하고 Motor가 이동 속도를 0으로 처리하며 CanJump에서 같은 제한을 확인한다. 중력·시점 회전·충돌과 대시의 별도 이동은 기존 Motor 책임이다. 예약만 된 액션은 이동을 막지 않고, 동시에 실행 중인 액션 중 하나라도 이동을 막으면 제한을 유지한다. 비활성화·사망·취소·완료 후에는 살아 있는 다른 액션의 제한만 남는다.
 
-RepeatWhileHeld는 새로운 실행을 반복 요청하는 설정이다. 줌처럼 한 번 시작한 동작을 누르는 동안 유지하는 것과 구분한다. 버튼 해제는 다른 행동의 잠금 중에도 전달하며, 예약된 유지형 입력을 놓으면 실행 전에 버린다. 짧게 누른 발사·수류탄에는 이 해제 정책을 적용하지 않는다.
+RepeatWhileHeld는 일반 액션의 새로운 실행을 반복 요청하는 설정이다. 한 번 시작한 동작을 누르는 동안 유지하려면 RequiresHeldInput=true와 Running을 사용한다. 모든 홀딩 입력은 예약을 만들지 않고 현재 Held만 검사한다. 버튼 해제는 다른 행동의 잠금 중에도 전달한다. 짧게 누른 일반 발사·수류탄에는 이 해제 정책을 적용하지 않는다.
 
 버프의 효과 지속 시간·중첩·해제는 버프 담당 기능에 맡길 수 있다. 발동 액션이 끝난 뒤 버프가 남아 있다고 전투 전체를 잠글 필요는 없다. 실제 줌·버프 효과는 이번 리팩토링 범위에서 추가하지 않았다.
 
@@ -162,7 +201,7 @@ PlayerCombat의 CurrentAmmo/MaxAmmo/IsReloading/ReloadRemaining/CanReload/TryRel
 | 단계 | 처리 |
 |---|---|
 | Update -200 / -100 / -75 | Reader / Camera Yaw / Stamina 회복 |
-| Update -50 | Controller 입력·해제·예약·선택, PlayerCombat 경유 대시 시작 |
+| Update -50 | Controller 입력·해제·공통 홀딩 시작·일반 예약/선택, PlayerCombat 경유 대시 시작 |
 | Update 0 / 50 | Motor 실제 이동 / Animation 갱신 |
 | LateUpdate -100 / 75 | Camera 최종 배치 / Aim 상체·총구·IK |
 | LateUpdate 100 | PlayerCombat 명령 소비·배율 준비, ReloadAction 작업 |

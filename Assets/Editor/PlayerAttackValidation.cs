@@ -100,6 +100,9 @@ namespace ProjectU.Editor
         {
             input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();
             launcher = input.GetComponent<PlayerCombat>();
+            Check(launcher.AimAction != null && launcher.GetBinding(PlayerActionSlot.SecondaryFire).Attack == null,
+                "saved secondary slot is ADS without an attack executor");
+            PlayerActionValidationUtility.UseSecondaryAttackFixture(launcher);
             aim = input.GetComponent<PlayerAim>();
             primaryAttack = launcher.GetBinding(PlayerActionSlot.PrimaryFire).Attack as HitscanAttack;
             secondaryAttack = launcher.GetBinding(PlayerActionSlot.SecondaryFire).Attack as ProjectileAttack;
@@ -113,13 +116,13 @@ namespace ProjectU.Editor
             ValidateHealthInitialization();
             Check(primaryAttack != null && secondaryAttack != null && grenadeAttack != null &&
                 secondaryAttack != grenadeAttack && input.GetComponents<Attack>().Length == 3,
-                "three distinct saved attack components");
+                "three preserved attack components for generic attack fixtures");
             Check(launcher.ActionBindings.Where(item => item.Attack != null).ToList().Count == 3 &&
                 PlayerActionValidationUtility.For(primaryAttack).RepeatWhileHeld &&
                 PlayerActionValidationUtility.For(secondaryAttack).RepeatWhileHeld &&
                 !PlayerActionValidationUtility.For(grenadeAttack).RepeatWhileHeld &&
                 launcher.GetBinding(PlayerActionSlot.Skill2).Attack == null && launcher.GetBinding(PlayerActionSlot.Ultimate).Attack == null,
-                "saved attack assets retain repeat policies and demo skills have no attack executors");
+                "attack fixtures retain repeat policies and demo skills have no attack executors");
             Check(primaryAttack.Data.name == "TempPrimaryFire" && primaryAttack.Data.Damage == 30f &&
                 secondaryAttack.Data.name == "TempSecondaryFire" && secondaryAttack.Data.Damage == 50f &&
                 grenadeAttack.Data.name == "TempGrenade" && grenadeAttack.Data.Damage == 100f,

@@ -95,6 +95,7 @@ namespace ProjectU.Editor
             Time.captureDeltaTime = 1f / 60f;
             input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();
             attacks = input.GetComponent<PlayerCombat>();
+            PlayerActionValidationUtility.UseSecondaryAttackFixture(attacks);
             stat = input.GetComponent<PlayerStat>();
             motor = input.GetComponent<PlayerMotor>();
             animator = input.GetComponentInChildren<Animator>();
