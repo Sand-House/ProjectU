@@ -13,6 +13,7 @@ namespace ProjectU
         [SerializeField] private Faction faction = Faction.Enemy;
         private Mortal mortal;
         private readonly List<ActionBase> actions = new List<ActionBase>();
+        private readonly List<MonoBehaviour> modifiers = new List<MonoBehaviour>();
 
         public Faction Faction { get => faction; set => faction = value; }
         public Mortal Mortal
@@ -26,6 +27,31 @@ namespace ProjectU
         public bool IsAlive => isActiveAndEnabled && Mortal != null && !Mortal.isDead;
         public bool IsGameplayBlocked { get; private set; }
         public void SetGameplayBlocked(bool blocked) => IsGameplayBlocked = blocked;
+        public float MovementSpeedMultiplier
+        {
+            get
+            {
+                GetComponents(modifiers);
+                double multiplier = 1d;
+                foreach (MonoBehaviour component in modifiers)
+                    if (component != null && component.isActiveAndEnabled && component is IMovementSpeedModifier modifier)
+                        multiplier = System.Math.Min(float.MaxValue,
+                            multiplier * AttackData.FiniteAtLeast(modifier.MovementSpeedMultiplier, 0f));
+                return (float)multiplier;
+            }
+        }
+
+        public bool IsInteractionBlocked
+        {
+            get
+            {
+                GetComponents(modifiers);
+                foreach (MonoBehaviour component in modifiers)
+                    if (component != null && component.isActiveAndEnabled && component is IInteractionBlocker blocker && blocker.BlocksInteraction)
+                        return true;
+                return false;
+            }
+        }
         public bool IsPerformingAttack
         {
             get

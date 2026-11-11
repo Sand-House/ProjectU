@@ -13,13 +13,6 @@ namespace ProjectU
         bool IsReloading { get; }
         float ReloadRemaining { get; }
     }
-    public interface IPlayerAimAction
-    {
-        bool IsAiming { get; }
-        float TransitionTime { get; }
-        float MoveSpeedMultiplier { get; }
-        float SpreadAngleMultiplier { get; }
-    }
 
     [DefaultExecutionOrder(110)]
     public abstract class PlayerAction : ActionBase, IPlayerStageSubscriber

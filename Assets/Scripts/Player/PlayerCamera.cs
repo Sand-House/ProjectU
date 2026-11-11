@@ -33,17 +33,17 @@ namespace ProjectU
             get
             {
                 if (!isActiveAndEnabled) return false;
-                bool requested = combat != null && combat.IsAiming;
+                bool requested = ads != null && ads.IsAiming;
                 // Controller can change the stance before this camera's LateUpdate.
                 return AimBlend != (requested ? 1f : 0f) &&
                     (requested != aiming ? AimTransitionTime > 0f : transitionElapsed < transitionDuration);
             }
         }
         private float pitch;
-        private PlayerCombat combat;
+        private PlayerADS ads;
         private bool aiming;
         private float transitionStart, transitionElapsed, transitionDuration;
-        private float AimTransitionTime => combat != null && combat.AimAction != null ? combat.AimAction.TransitionTime : 0f;
+        private float AimTransitionTime => ads != null ? ads.TransitionTime : 0f;
 
         private void Awake()
         {
@@ -55,7 +55,7 @@ namespace ProjectU
             }
             Yaw = target.eulerAngles.y;
             pitch = Mathf.Clamp(initialPitch, minimumPitch, maximumPitch);
-            combat = target.GetComponent<PlayerCombat>();
+            ads = target.GetComponent<PlayerADS>();
         }
 
         private void Update()
@@ -88,7 +88,7 @@ namespace ProjectU
 
         private void UpdateAimBlend()
         {
-            bool requested = combat != null && combat.IsAiming;
+            bool requested = ads != null && ads.IsAiming;
             if (requested != aiming)
             {
                 aiming = requested;

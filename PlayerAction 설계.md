@@ -1,5 +1,15 @@
 # PlayerAction 및 공통 ActionBase 구현 설계
 
+## 2026-11-11 PlayerADS 분리와 공용 슬롯 의존성 점검
+
+ADS는 선택적 `PlayerADS` 컴포넌트가 상태와 전환 시간·이동/탄퍼짐 배율을 제공한다. PlayerCombat의 AimAction/IsAiming/AimMoveSpeedMultiplier/AimSpreadAngleMultiplier와 IPlayerAimAction을 제거했으며 SecondaryFire에서 ADS를 찾지 않는다. SoilderSecondaryFireAction은 기존 수락 시점(OnAccepted)에 PlayerADS.TryBegin(this)를 요청하고 Cleanup에서 End(this)를 호출한다. 수락한 선딜 중 적용 시점도 유지하고, 다른 액션은 현재 요청자의 ADS를 해제하거나 덮어쓸 수 없다. 기능 비활성화는 요청 액션을 취소하며 다른 슬롯의 액션도 같은 기능을 사용할 수 있다.
+
+PlayerADS는 IMovementSpeedModifier와 IInteractionBlocker를 구현한다. Combatant가 활성 컴포넌트의 이동 배율을 곱하고 상호작용 차단을 합산하며, Motor와 Controller는 이 공통 결과를 조회한다. 기본 능력치·다른 이동 효과·다른 상호작용 제한을 보존한다. PlayerCamera는 선택적 PlayerADS를 읽어 기존 LateUpdate 보간을 처리하고 PlayerAim은 기존 총 정렬을 유지한다. SoilderPrimaryFireAction은 PlayerADS의 탄퍼짐 배율과 기존 카메라 전환 잠금을 사용한다. SampleScene의 Player에 PlayerADS를 저장하고 액션의 설정 세 값을 같은 값으로 이관했다. 편집 위치는 Player → Player ADS다. 아래 날짜별 IPlayerAimAction/Combat ADS 조회 설명은 이전 구조다.
+
+이번 Unity 6000.3.25f1 직접 검증은 ADS 104개·공통 액션/홀딩 60개·선입력 85개·딜레이 110개·조건 39개·공격 59개·장전 40개·대시 70개·진행 132개·저장 씬 22개·재시작 56개, 총 **777개**, 11종 모두 종료 코드 0이다. ADS 없는 캐릭터의 다른 보조 액션, Skill1 ADS와 별도 SecondaryFire 병행, 소유자 보호, 이동 효과 병행·개별 해제·기본 속도 변경, 선딜 중 취소·기능 비활성화, 기존 전환/발사/보상/사망을 검사했다. C# 오류·경고와 예외는 최종 로그에서 0이다. 로그는 `Logs/ADSComponent_20261111/`이며 ADSFinal.log의 104개만 최종 집계한다. 앞선 103개와 이전 날짜 결과를 합산하지 않는다. -nographics로 실행해 새 이미지·실제 키/마우스 수동 플레이·전체 실행 파일 빌드는 수행하지 않았다.
+
+공용 코드의 나머지 슬롯 가정은 [공통 컴포넌트 슬롯 의존성 점검](공통%20컴포넌트%20슬롯%20의존성%20점검.md)에 정리했다. PlayerAttackAction의 탄약/장전 정책·PlayerAnimation의 투척/사격 매핑·Controller의 입력 우선순위/자동 장전·Motor의 Dash 조회가 남아 있다. 이번에는 ADS 분리와 점검을 수행했으며 이 정책들을 일괄 변경하지 않았다.
+
 ## 2026-11-11 ADS 전환 중 PrimaryFire 제한
 
 이번 직접 검증은 Unity 6000.3.25f1에서 ADS 88개·공통 액션/홀딩 60개·선입력 85개·행동 딜레이 110개·공격 59개·장전 40개·재시작 56개, 총 498개를 7종 모두 종료 코드 0으로 통과했다. C# 오류·경고 0이며 시작 파일 354개 중 런타임 2개·기존 검증기 1개만 변경하고 351개와 씬·meta·데이터·패키지를 보존했다. 전체 Assets와 검증 복사본 해시가 같고 문서 링크 90개·git diff --check를 확인했다. 로그는 `Logs/ADSTransitionFireLock_20261111/`이며 이전 작업과 합산하지 않는다. 새 렌더·수동 플레이·전체 실행 파일 빌드는 수행하지 않았다.
@@ -28,7 +38,7 @@ RequiresHeldInput=false인 일반 액션은 기존 Pressed 선택·우선순위�
 
 실행 단계(Stage)는 입력 처리와 별개다. ADS는 BeforeMotor를 유지하고 홀딩도 기존 CanStart·선딜/후딜/쿨타임·생존/구성/자원 검사를 그대로 따른다. 병행·행동 제한은 BlocksCore, 이동·새 점프 제한은 CanMove로 정한다. RepeatWhileHeld는 일반 액션의 반복 요청이며 홀딩에는 추가 요청을 만들지 않는다. PlayerCombat.IsBufferBlocked는 일반 딜레이 대기 중인 유효한 예약을 보존하고 지속 제한이 금지한 슬롯만 폐기한다.
 
-Controller의 홀딩 처리는 Soilder·SecondaryFire·IPlayerAimAction 구체 분기에 의존하지 않는다. 공통 슬롯 입력 매핑과 combat.IsAiming 상호작용 조회는 유지하며 캐릭터별 Controller 상속은 추가하지 않는다. 중앙 트리거 계획은 계속 미구현이다. 이번 검증은 `Logs/HeldInput_20261111/`에 기록하며 이전 분류 정책의 2026-11-10 검증(746개, `Logs/ActionInputPolicy_20261110/`)과 합산하지 않는다.
+Controller의 홀딩 처리는 Soilder·SecondaryFire·IPlayerAimAction 구체 분기에 의존하지 않는다. 공통 슬롯 입력 매핑과 Combatant.IsInteractionBlocked 상호작용 조회를 사용하며 캐릭터별 Controller 상속은 추가하지 않는다. 중앙 트리거 계획은 계속 미구현이다. 이번 검증은 `Logs/HeldInput_20261111/`에 기록하며 이전 분류 정책의 2026-11-10 검증(746개, `Logs/ActionInputPolicy_20261110/`)과 합산하지 않는다.
 
 2026-11-10 확정 후속 상호작용 계획(아직 미구현): G는 범용 `Interact` 입력을 유지한다. 추후 BeforeStage의 씬 중앙 트리거가 상호작용을 받아 GameManager를 참조하고 TryStartStage를 요청한다. 플레이어 입력 측의 상호작용 요청 전달과 대상 트리거의 스테이지 시작 책임을 분리할 예정이며, 기존 단계 이벤트 구독 수명과는 구분한다. 현재 Controller의 G 직접 호출은 유지하고 이번에는 문서만 반영했다. 트리거·인터페이스·탐색/범위 구현은 후속 작업이며 상세 계획은 [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md) 11절을 따른다.
 
@@ -49,7 +59,7 @@ Controller의 홀딩 처리는 Soilder·SecondaryFire·IPlayerAimAction 구체 �
 | 구성 | 책임 |
 |---|---|
 | PlayerInputReader | 현재 프레임 입력·조작 가능 여부 수집 |
-| PlayerController | 이동·점프 명령, 공통 홀딩 처리·일반 전투 선택·우선순위·한 개 예약·만료·반복·빈 탄창 자동 장전, ADS 확인 후 G 상호작용 요청 |
+| PlayerController | 이동·점프 명령, 공통 홀딩 처리·일반 전투 선택·우선순위·한 개 예약·만료·반복·빈 탄창 자동 장전, 공통 상호작용 차단 확인 후 G 요청 |
 | PlayerCombat | 슬롯/액션 바인딩, 명령 전달·배율/조준 준비, 슬롯별 실행 가능 조회·탄창·외부 이벤트 |
 | ActionBase | 공통 설정과 생명주기. 접지 자격·이동 허용·선딜·실행·유지·후딜·쿨타임·취소 |
 | PlayerAction | 플레이어 슬롯·RequiresHeldInput·홀딩/해제·선입력 자격·실행 단계와 Motor/Combat 연결 |
@@ -57,7 +67,8 @@ Controller의 홀딩 처리는 Soilder·SecondaryFire·IPlayerAimAction 구체 �
 | Soilder…Action | 행동별 슬롯·조건·자원·효과 실행과 유지 갱신 |
 | Attack 계열 | 기본 Origin Transform 보관과 호출받은 시점의 원점 보정·판정·피해·투사체 생성·결과 반환 |
 | AttackData 계열 | 피해·치명타·대상 규칙·마스크·탄퍼짐·사거리·투사체·근접 범위 |
-| PlayerMotor | 이동·회전·중력·접지·충돌과 실제 대시 이동 |
+| PlayerADS | 슬롯과 독립적인 ADS 상태·설정, 이동 배율과 상호작용 차단 제공 |
+| PlayerMotor | 공통 이동 배율을 반영한 이동·회전·중력·접지·충돌과 실제 대시 이동 |
 | PlayerStamina / PlayerStat | 자원·능력치 원본 |
 | PlayerAim / PlayerCamera / PlayerAnimation | 조준·시점·시각 자세·이벤트 기반 애니메이션 |
 
@@ -68,7 +79,7 @@ PlayerAction
 ├─ PlayerAttackAction
 │  ├─ SoilderPrimaryFireAction
 │  └─ SoilderSkill1Action
-├─ SoilderSecondaryFireAction (IPlayerAimAction, 홀드형 ADS)
+├─ SoilderSecondaryFireAction (PlayerADS에 시작/종료 요청, 홀드형 ADS)
 ├─ SoilderSkill2Action
 ├─ SoilderUltimateAction
 ├─ SoilderDashAction

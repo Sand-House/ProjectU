@@ -86,7 +86,7 @@ namespace ProjectU
         private void HandleInteraction()
         {
             if (game == null || !game.isActiveAndEnabled || !input.Interact.Pressed ||
-                (combat != null && combat.IsAiming)) return;
+                (combatant != null && combatant.IsInteractionBlocked)) return;
             if (game.IsSpawnFailed) game.TryRetrySpawn();
             else if (game.State == StageState.BeforeStage) game.TryStartStage();
             else if (game.State == StageState.AfterStage) game.TryOpenReward();

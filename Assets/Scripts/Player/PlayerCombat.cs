@@ -43,10 +43,6 @@ namespace ProjectU
         public event Action OnReloadCompleted;
         public IReadOnlyList<PlayerActionBinding> ActionBindings => actionBindings;
         public Camera AimCamera => aimCamera;
-        public IPlayerAimAction AimAction => GetAction(PlayerActionSlot.SecondaryFire) as IPlayerAimAction;
-        public bool IsAiming => AimAction != null && AimAction.IsAiming;
-        public float AimMoveSpeedMultiplier => IsAiming ? AimAction.MoveSpeedMultiplier : 1f;
-        public float AimSpreadAngleMultiplier => IsAiming ? AimAction.SpreadAngleMultiplier : 1f;
         public int CurrentAmmo => Mathf.Min(currentAmmo, MaxAmmo);
         public int MaxAmmo => Stat.MaxMagazine;
         private PlayerStat Stat => stat != null ? stat : (stat = GetComponent<PlayerStat>());

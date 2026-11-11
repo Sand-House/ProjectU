@@ -24,7 +24,7 @@ namespace ProjectU.Editor
         // Replace only their unsaved Play-mode binding; the saved scene keeps ADS.
         public static void UseSecondaryAttackFixture(PlayerCombat combat)
         {
-            if (!(combat.GetAction(PlayerActionSlot.SecondaryFire) is IPlayerAimAction)) return;
+            if (!(combat.GetAction(PlayerActionSlot.SecondaryFire) is SoilderSecondaryFireAction)) return;
             bool wasEnabled = combat.enabled;
             combat.enabled = false;
             ProjectileAttack attack = combat.GetComponents<ProjectileAttack>()

@@ -57,7 +57,7 @@ namespace ProjectU
 
         public bool IsGrounded => controller != null && controller.isGrounded;
         public float VerticalSpeed => verticalSpeed;
-        public float MoveSpeed => playerStat.MoveSpeed * (combat != null ? combat.AimMoveSpeedMultiplier : 1f);
+        public float MoveSpeed => playerStat.MoveSpeed * (combatant != null ? combatant.MovementSpeedMultiplier : 1f);
         public Vector3 HorizontalVelocity { get; private set; }
         public bool IsDashing => dashRemaining > 0f;
         public bool IsDashPostDelay => DashAction != null && DashAction.Phase == ActionPhase.Recovery;

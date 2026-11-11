@@ -1,5 +1,9 @@
 # 플레이어 입력·선입력 설계
 
+## 2026-11-11 ADS 기능 분리
+
+PlayerCombat의 슬롯 기반 ADS 조회와 IPlayerAimAction을 제거했다. 선택적 PlayerADS의 시작/해제는 액션이 소유한다. Controller의 공통 Held/Pressed/예약 경로는 유지하며 G는 Combatant.IsInteractionBlocked를 검사한다. IMovementSpeedModifier/IInteractionBlocker 구현 컴포넌트를 통해 다른 캐릭터의 이동 효과·상호작용 제한도 처리할 수 있다. ADS 없는 보조 액션과 Skill1 ADS/별도 SecondaryFire의 병행을 실제로 검사했다. 설정은 Player → Player ADS에서 편집하며 상세 계약·이번 777개 직접 검증은 [PlayerAction 설계](PlayerAction%20설계.md)의 최신 절, 슬롯별 가정은 [슬롯 의존성 점검](공통%20컴포넌트%20슬롯%20의존성%20점검.md)을 따른다. 로그는 Logs/ADSComponent_20261111/이고 아래 날짜별 ADS 구조는 이전 기록이다.
+
 ## 2026-11-11 ADS 전환 중 기본 발사 차단
 
 이번 직접 검증은 ADS 88개·공통 액션/홀딩 60개·선입력 85개·행동 딜레이 110개·플레이어 공격 59개·장전 40개·재시작 56개, 총 498개와 7종 모두 종료 코드 0이다. C# 오류·경고 0이며 로그는 `Logs/ADSTransitionFireLock_20261111/`에 이전 작업과 분리한다. 새 이미지 렌더·수동 플레이·전체 실행 파일 빌드는 수행하지 않았다.
@@ -23,7 +27,7 @@ Selected/IndependentHold 분류와 PlayerActionInputMode·InputMode를 제거했
 
 RequiresHeldInput은 공통 홀딩 입력 경로와 해제 수명을 함께 정한다. RepeatWhileHeld는 RequiresHeldInput=false인 일반 액션의 반복 요청이며, 켜져 있어도 홀딩 액션에 별도 요청을 추가하지 않는다. Stage는 실제 실행 시점, BlocksCore는 다른 행동 허용 범위, CanMove는 이동·새 점프 허용 여부다. 홀딩 처리는 선딜·후딜·쿨타임·구성·자원·행동 잠금을 그대로 검사한다.
 
-Controller는 ADS나 SecondaryFire 구체 타입으로 홀딩을 판단하지 않는다. 모든 바인딩에 같은 규칙을 적용하므로 다른 슬롯·캐릭터에도 공용으로 사용한다. 기본 SecondaryFire 매핑은 ReadInput에만 남고 일반 보조 공격은 기존 누름 입력을 사용한다. G의 combat.IsAiming 게이트와 미구현 중앙 트리거 계획은 유지한다.
+Controller는 ADS나 SecondaryFire 구체 타입으로 홀딩을 판단하지 않는다. 모든 바인딩에 같은 규칙을 적용하므로 다른 슬롯·캐릭터에도 공용으로 사용한다. 기본 SecondaryFire 매핑은 ReadInput에만 남고 일반 보조 공격은 기존 누름 입력을 사용한다. G는 Combatant.IsInteractionBlocked를 조회하며 미구현 중앙 트리거 계획은 유지한다.
 
 기존 일반 예약은 만료·현재 바인딩의 RequiresHeldInput·지속 제한을 재검사한다. PlayerCombat.IsBufferBlocked는 일반 딜레이를 제외한 공통 제한으로 금지된 슬롯만 지운다. 허용된 일반 예약은 홀딩과 병행할 수 있고, 홀딩이 그 예약 슬롯을 막으면 폐기한다. 수신 시 CanBuffer 자격 검사와 실행 직전 재검사도 유지한다. 이번 검증 기록은 `Logs/HeldInput_20261111/`이며 이전 분류 정책의 2026-11-10 검증(746개, `Logs/ActionInputPolicy_20261110/`)과 구분한다.
 
@@ -47,7 +51,7 @@ Controller는 ADS나 SecondaryFire 구체 타입으로 홀딩을 판단하지 �
 
 ## 2026-11-10 ADS 입력
 
-우클릭 SecondaryFire의 ADS 액션은 Attack 없는 `IPlayerAimAction`이며 RequiresHeldInput=true를 선언한다. Controller는 모든 홀딩 바인딩의 현재 Held를 일반 예약/선택보다 먼저 처리하고 해제는 기존 DeliverInput 경로로 전달한다. ADS는 별도 입력 예약을 두지 않는다. 같은 프레임에 좌·우클릭이 들어오면 ADS가 먼저 시작되며 0초가 아닌 카메라 전환 중에는 PrimaryFire를 거절한다. 기본 발사의 선딜·후딜과 이미 진행 중인 다른 행동은 ADS 진입을 막는다. 홀드를 계속하면 해당 행동의 딜레이가 끝난 뒤 ADS에 진입하며, 딜레이 중 해제한 우클릭을 나중에 재생하지 않는다. 쿨타임만 남으면 진입할 수 있고, 전환이 끝난 ADS에서는 기본 발사를 허용한다.
+우클릭 SecondaryFire의 ADS 액션은 Attack 없는 PlayerAction이며 RequiresHeldInput=true를 선언하고 PlayerADS에 시작/종료를 요청한다. Controller는 모든 홀딩 바인딩의 현재 Held를 일반 예약/선택보다 먼저 처리하고 해제는 기존 DeliverInput 경로로 전달한다. ADS는 별도 입력 예약을 두지 않는다. 같은 프레임에 좌·우클릭이 들어오면 ADS가 먼저 시작되며 0초가 아닌 카메라 전환 중에는 PrimaryFire를 거절한다. 기본 발사의 선딜·후딜과 이미 진행 중인 다른 행동은 ADS 진입을 막는다. 홀드를 계속하면 해당 행동의 딜레이가 끝난 뒤 ADS에 진입하며, 딜레이 중 해제한 우클릭을 나중에 재생하지 않는다. 쿨타임만 남으면 진입할 수 있고, 전환이 끝난 ADS에서는 기본 발사를 허용한다.
 
 ADS의 제한은 일반 딜레이가 아니므로 CanBuffer에서도 우회할 수 없다. ADS 진입 시 이전의 금지 행동 예약을 지우고, ADS 중 대시·장전·스킬·궁극기는 새 예약을 만들지 않는다. 0발 자동 장전도 조준을 해제한 뒤 재개한다. 이동·시점·점프와 카메라 전환 완료 후 PrimaryFire를 허용하며 G 상호작용도 조준 중에는 받지 않는다. Reader/Controller/Combat/ADS 비활성화·커서/포커스 상실·보상/사망 게이트는 기존 중단 경로로 상태를 정리한다. 아래의 일반 액션 우선순위는 ADS 홀드 처리 이후에 적용한다. 상세 설정은 [플레이어 조작 가이드.md](플레이어%20조작%20가이드.md)의 ADS 절, 최초 로그는 `Logs/ADS_20261110/`이다.
 
@@ -56,10 +60,11 @@ ADS의 제한은 일반 딜레이가 아니므로 CanBuffer에서도 우회할 �
 | 클래스 | 책임 | 상태 원본 |
 |---|---|---|
 | ButtonInputState / PlayerInputReader | 프레임별 Pressed·Held·Released, 커서·포커스·입력 가능 여부 | 현재 입력 스냅샷 |
-| PlayerController | 카메라 기준 이동·점프 명령, 전투 선택·우선순위·한 개 예약·만료·반복·자동 장전, ADS 확인 후 G 요청 | maxInputBufferTime·예약 슬롯·만료 시각·구독으로 받은 GameManager |
+| PlayerController | 카메라 기준 이동·점프 명령, 전투 선택·우선순위·한 개 예약·만료·반복·자동 장전, 공통 상호작용 차단 확인 후 G 요청 | maxInputBufferTime·예약 슬롯·만료 시각·구독으로 받은 GameManager |
 | PlayerCombat | 슬롯/액션 연결, 실행 가능 조회·한 프레임 명령·조준/배율·탄창·외부 이벤트 | 한 프레임 명령·탄창 |
 | PlayerAction / PlayerAttackAction | 공통 접지·이동 허용·타이밍·단계·검증·취소 / 공격 실행 어댑터 | 액션별 접지 필요·이동 허용·선딜·유지·후딜·쿨타임·반복 |
-| Soilder…Action | 기본 사격·ADS·스킬·궁극기·대시·장전 구현 | 개별 조건·자원·효과와 장전 작업량, ADS 전환 시간·배율 |
+| Soilder…Action | 기본 사격·ADS·스킬·궁극기·대시·장전 구현 | 개별 조건·자원·효과와 장전 작업량, ADS 요청 수명 |
+| PlayerADS | 선택적 ADS 기능과 공통 이동/상호작용 효과 제공 | 전환 시간·이동/탄퍼짐 배율·요청 소유자 |
 | PlayerActionBinding | PlayerActionSlot과 PlayerAction 연결 | 씬/프리팹 참조 |
 | Attack / Combatant | 기본 Origin 보관·동기 공격 효과 / 같은 소유자의 액션 제한 집계·진영·생존 | 기본 Origin·공격 결과·공통 제한 조회 |
 | PlayerMotor | 실제 이동·점프·중력·충돌·대시 이동 | 접지·속도·대시 이동 상태 |

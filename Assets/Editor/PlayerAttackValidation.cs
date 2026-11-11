@@ -100,7 +100,7 @@ namespace ProjectU.Editor
         {
             input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();
             launcher = input.GetComponent<PlayerCombat>();
-            Check(launcher.AimAction != null && launcher.GetBinding(PlayerActionSlot.SecondaryFire).Attack == null,
+            Check(launcher.GetComponent<PlayerADS>() != null && launcher.GetBinding(PlayerActionSlot.SecondaryFire).Attack == null,
                 "saved secondary slot is ADS without an attack executor");
             PlayerActionValidationUtility.UseSecondaryAttackFixture(launcher);
             aim = input.GetComponent<PlayerAim>();

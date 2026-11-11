@@ -291,7 +291,7 @@ namespace ProjectU.Editor
             bindings[(int)PlayerActionSlot.Skill1] = binding;
             PlayerActionValidationUtility.Set(combat, "actionBindings", bindings);
             combat.enabled = true;
-            Check(stance.RequiresHeldInput && !((PlayerAction)stance is IPlayerAimAction) && !stance.RepeatWhileHeld,
+            Check(stance.RequiresHeldInput && !input.GetComponent<PlayerADS>().IsAiming && !stance.RepeatWhileHeld,
                 "RequiresHeldInput supplies held lifetime without ADS or repeat-fire traits");
 
             int shotsBefore = shots;
@@ -300,7 +300,7 @@ namespace ProjectU.Editor
             yield return null;
             yield return null;
             Check(stance.Phase == ActionPhase.Active && stance.Starts == 1 && shots == shotsBefore + 1 &&
-                controller.BufferedAction == PlayerActionSlot.None && !combat.IsAiming,
+                controller.BufferedAction == PlayerActionSlot.None && !input.GetComponent<PlayerADS>().IsAiming,
                 "held-only Skill1 starts alongside a same-frame primary shot");
             PlayerActionValidationUtility.Set(stance, "repeatWhileHeld", true);
             yield return new WaitForSeconds(0.25f);
@@ -353,7 +353,7 @@ namespace ProjectU.Editor
             Check(controller.BufferedAction == PlayerActionSlot.Ultimate, "ordinary action retains delay buffering");
             extraHeld = Skill1Input;
             yield return new WaitForSeconds(0.25f);
-            Check(stance.IsActive && !combat.IsAiming && controller.BufferedAction == PlayerActionSlot.None &&
+            Check(stance.IsActive && !input.GetComponent<PlayerADS>().IsAiming && controller.BufferedAction == PlayerActionSlot.None &&
                 !combat.GetAction(PlayerActionSlot.Ultimate).IsActive,
                 "non-ADS persistent restriction discards its blocked buffered slot");
             primaryPress = true;

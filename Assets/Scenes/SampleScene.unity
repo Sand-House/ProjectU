@@ -2220,6 +2220,7 @@ GameObject:
   - component: {fileID: 1295477715}
   - component: {fileID: 1295477716}
   - component: {fileID: 1295477717}
+  - component: {fileID: 1295477718}
   m_Layer: 2
   m_Name: Player
   m_TagString: Player
@@ -2578,6 +2579,18 @@ MonoBehaviour:
   requiresGrounded: 0
   canMove: 1
   repeatWhileHeld: 0
+--- !u!114 &1295477718
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1295477691}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 380d57396cf5445ebc395ba08bad7180, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerADS
   transitionTime: 0.25
   moveSpeedMultiplier: 0.5
   spreadAngleMultiplier: 0.5

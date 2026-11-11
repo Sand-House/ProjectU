@@ -6,6 +6,8 @@ namespace ProjectU
     {
         public override PlayerActionSlot Slot => PlayerActionSlot.PrimaryFire;
         private PlayerCamera aimView;
+        private PlayerADS ads;
+        private PlayerADS ADS => ads != null ? ads : (ads = GetComponent<PlayerADS>());
 
         protected override bool CheckRequirements(in ActionContext request)
         {
@@ -19,7 +21,7 @@ namespace ProjectU
         {
             if (!(Attack is HitscanAttack hitscan)) return base.ExecuteCore(request);
             float previous = hitscan.SpreadAngleMultiplier;
-            hitscan.SpreadAngleMultiplier = previous * (Combat != null ? Combat.AimSpreadAngleMultiplier : 1f);
+            hitscan.SpreadAngleMultiplier = previous * (ADS != null && ADS.IsAiming ? ADS.SpreadAngleMultiplier : 1f);
             try { return base.ExecuteCore(request); }
             finally { hitscan.SpreadAngleMultiplier = previous; }
         }

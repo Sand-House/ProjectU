@@ -6,6 +6,16 @@ namespace ProjectU
     public enum ActionResult { Failed, Completed, Running }
     public enum ActionCancelReason { Explicit, Released, InputInterrupted, Disabled, Death, TargetLost, StageTransition }
 
+    public interface IMovementSpeedModifier
+    {
+        float MovementSpeedMultiplier { get; }
+    }
+
+    public interface IInteractionBlocker
+    {
+        bool BlocksInteraction { get; }
+    }
+
     // One request's execution anchors. Input history and AI selection remain outside the action.
     public readonly struct ActionContext
     {
