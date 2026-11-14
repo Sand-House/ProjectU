@@ -461,6 +461,112 @@ namespace ProjectU.Editor
             yield return new WaitForSeconds(0.1f);
             Check(blockedTarget.Mortal.HP == 100 && blockedSpawn.z < muzzleWall.GetComponent<Collider>().bounds.min.z &&
                 !blockedBullet.LastProjectile.IsActive, "projectile also spawns before wall and returns on impact");
+
+            Combatant lineSource = Unit("Runtime Line", Vector3.right * 200f, Faction.Player);
+            lineSource.gameObject.layer = 31;
+            HitscanAttackData lineData = Data<HitscanAttackData>(10f);
+            Set(lineData, "spreadAngle", 0f);
+            Set(lineData, "maxDistance", 10f);
+            HitscanAttack lineAttack = Attack<HitscanAttack>(lineSource, lineData);
+            Set(lineAttack, "debugLineDuration", 0.5f);
+            Set(lineAttack, "debugLineWidth", 0.08f);
+            PlayerAttackActionBase lineAction = PlayerActionValidationUtility.For(lineAttack);
+            Check(lineAction.TryStart(), "runtime line shot accepted");
+            yield return null;
+            LineRenderer[] lines = lineAttack.GetComponentsInChildren<LineRenderer>();
+            Check(lines.Length == 1 && lines[0].enabled && lines[0].useWorldSpace &&
+                Vector3.Distance(lines[0].GetPosition(0), lineAttack.LastAttackPosition) < 0.001f &&
+                Vector3.Distance(lines[0].GetPosition(1), lineAttack.LastShotEndPoint) < 0.001f,
+                "runtime line matches actual hitscan endpoints");
+            Check(lines[0].startColor == Color.yellow && Mathf.Abs(lines[0].widthMultiplier - 0.08f) < 0.001f &&
+                lines[0].sharedMaterial.shader == Resources.Load<Shader>("HitscanDebugLine"),
+                "runtime line uses configured color width and included shader");
+            if (SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null)
+                Check(RenderRuntimeLine(lineSource.transform.position + Vector3.forward * 5f),
+                    "camera renders yellow trajectory pixels without drawing gizmos");
+            Vector3 firstStart = lines[0].GetPosition(0);
+            Vector3 firstEnd = lines[0].GetPosition(1);
+            lineSource.transform.position += Vector3.right;
+            lineSource.transform.rotation = Quaternion.Euler(0f, 15f, 0f);
+            Check(lineAction.TryStart(), "second overlapping runtime line shot accepted");
+            yield return null;
+            lines = lineAttack.GetComponentsInChildren<LineRenderer>();
+            Check(lines.Length == 2 && lines[0].enabled && lines[1].enabled &&
+                lines[0].GetPosition(0) == firstStart && lines[0].GetPosition(1) == firstEnd,
+                "consecutive shots coexist and old trajectory stays fixed when owner moves");
+            Time.timeScale = 0f;
+            yield return new WaitForSecondsRealtime(0.55f);
+            Check(lines[0].enabled && lines[1].enabled, "pause freezes runtime line lifetime");
+            Time.timeScale = 1f;
+            yield return new WaitForSeconds(0.55f);
+            Check(!lines[0].enabled && !lines[1].enabled, "runtime lines expire after configured game time");
+            Check(lineAction.TryStart(), "expired runtime line can be reused");
+            yield return null;
+            Check(lineAttack.GetComponentsInChildren<LineRenderer>().Length == 2 && lines[0].enabled,
+                "expired line renderer is reused without allocating another object");
+            lineAttack.enabled = false;
+            Check(!lines[0].enabled && !lines[1].enabled, "disabling hitscan immediately clears runtime lines");
+            lineAttack.enabled = true;
+            Set(lineAttack, "drawDebugLine", false);
+            Check(lineAction.TryStart(), "debug display disabled still accepts attacks");
+            yield return null;
+            Check(!lines[0].enabled && !lines[1].enabled, "debug display toggle suppresses runtime lines");
+            Set(lineAttack, "drawDebugLine", true);
+            Set(lineAttack, "debugLineDuration", 0f);
+            bool zeroDurationVisible = false;
+            lineAttack.OnExecuted += () => zeroDurationVisible = lines[0].enabled;
+            Check(lineAction.TryStart(), "zero duration runtime line shot accepted");
+            yield return null;
+            yield return null;
+            Check(zeroDurationVisible && !lines[0].enabled, "zero duration line displays firing frame then expires");
+            Material lineMaterial = lines[0].sharedMaterial;
+            Destroy(lineAttack);
+            yield return null;
+            yield return null;
+            Check(lines[0] == null && lines[1] == null && lineMaterial == null,
+                "destroying hitscan releases its renderers and runtime material");
+        }
+
+        private bool RenderRuntimeLine(Vector3 center)
+        {
+            var observer = new GameObject("Runtime Line Camera");
+            observer.transform.SetParent(root.transform, false);
+            Camera camera = observer.AddComponent<Camera>();
+            camera.enabled = false;
+            camera.transform.position = center + Vector3.up * 10f;
+            camera.transform.LookAt(center, Vector3.forward);
+            camera.orthographic = true;
+            camera.orthographicSize = 6f;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = Color.black;
+            camera.cullingMask = 1 << 31;
+            var texture = new RenderTexture(256, 256, 24);
+            var pixels = new Texture2D(256, 256, TextureFormat.RGB24, false);
+            RenderTexture previous = RenderTexture.active;
+            try
+            {
+                camera.targetTexture = texture;
+                camera.Render(); // Camera.Render does not request Editor gizmo rendering.
+                RenderTexture.active = texture;
+                pixels.ReadPixels(new Rect(0, 0, 256, 256), 0, 0);
+                pixels.Apply();
+                const string folder = "Logs/HitscanRuntimeLine_20261114";
+                System.IO.Directory.CreateDirectory(folder);
+                System.IO.File.WriteAllBytes(folder + "/RuntimeLine.png", pixels.EncodeToPNG());
+                int yellowPixels = 0;
+                foreach (Color32 pixel in pixels.GetPixels32())
+                    if (pixel.r > 180 && pixel.g > 180 && pixel.b < 60) yellowPixels++;
+                return yellowPixels > 16;
+            }
+            finally
+            {
+                camera.targetTexture = null;
+                RenderTexture.active = previous;
+                texture.Release();
+                Destroy(texture);
+                Destroy(pixels);
+                Destroy(observer);
+            }
         }
 
         private Transform Origin(Combatant source, Vector3 localPosition)

@@ -11,6 +11,9 @@ namespace ProjectU
         [SerializeField] private bool drawDebugLine = true;
         [SerializeField] private Color debugLineColor = Color.yellow;
         [SerializeField, Min(0f)] private float debugLineDuration = 1f;
+        [SerializeField, Min(0.001f)] private float debugLineWidth = 0.02f;
+        private readonly List<DebugShot> debugShots = new List<DebugShot>();
+        private Material debugLineMaterial;
         private int consecutiveShots;
         private double lastShotAt = double.NegativeInfinity;
         private float spreadAngleMultiplier = 1f;
@@ -66,9 +69,78 @@ namespace ProjectU
                 }
             }
             LastShotEndPoint = endPoint;
-            if (drawDebugLine)
-                Debug.DrawLine(origin, endPoint, debugLineColor, debugLineDuration, false);
+            if (drawDebugLine) DrawShotLine(origin, endPoint);
             return true; // A miss still counts as a shot.
+        }
+
+        private void DrawShotLine(Vector3 start, Vector3 end)
+        {
+            if (debugLineMaterial == null)
+            {
+                // Resources keeps this shader available in player builds as well as the Editor.
+                Shader shader = Resources.Load<Shader>("HitscanDebugLine");
+                if (shader == null) return;
+                debugLineMaterial = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+            }
+
+            DebugShot shot = debugShots.Find(item => !item.Renderer.enabled);
+            if (shot == null)
+            {
+                var lineObject = new GameObject("Hitscan Debug Line")
+                {
+                    layer = gameObject.layer,
+                    hideFlags = HideFlags.DontSave
+                };
+                lineObject.transform.SetParent(transform, false);
+                var line = lineObject.AddComponent<LineRenderer>();
+                line.useWorldSpace = true;
+                line.positionCount = 2;
+                line.sharedMaterial = debugLineMaterial;
+                line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                line.receiveShadows = false;
+                line.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+                line.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+                line.allowOcclusionWhenDynamic = false;
+                shot = new DebugShot { Renderer = line };
+                debugShots.Add(shot);
+            }
+
+            shot.Renderer.SetPosition(0, start);
+            shot.Renderer.SetPosition(1, end);
+            shot.Renderer.startColor = shot.Renderer.endColor = debugLineColor;
+            shot.Renderer.widthMultiplier = AttackDataBase.FiniteAtLeast(debugLineWidth, 0.001f);
+            shot.Renderer.enabled = true;
+            shot.ExpiresAt = Time.timeAsDouble + AttackDataBase.FiniteAtLeast(debugLineDuration, 0f);
+            shot.Frame = Time.frameCount;
+        }
+
+        private void Update()
+        {
+            foreach (DebugShot shot in debugShots)
+            {
+                // A zero duration still displays the firing frame, like Debug.DrawLine.
+                if (!drawDebugLine || (shot.Frame != Time.frameCount && Time.timeAsDouble >= shot.ExpiresAt))
+                    shot.Renderer.enabled = false;
+            }
+        }
+
+        private void OnDisable()
+        {
+            foreach (DebugShot shot in debugShots) shot.Renderer.enabled = false;
+        }
+
+        private void OnDestroy()
+        {
+            foreach (DebugShot shot in debugShots)
+                if (shot.Renderer != null) Destroy(shot.Renderer.gameObject);
+            if (debugLineMaterial != null) Destroy(debugLineMaterial);
+        }
+
+        private sealed class DebugShot
+        {
+            public LineRenderer Renderer;
+            public double ExpiresAt;
+            public int Frame;
         }
     }
 }
