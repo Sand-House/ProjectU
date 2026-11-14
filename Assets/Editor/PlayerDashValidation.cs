@@ -49,7 +49,7 @@ namespace ProjectU.Editor
         private PlayerInputReader input;
         private PlayerMotor motor;
         private PlayerStamina stamina;
-        private PlayerAnimation animationController;
+        private SoilderAnimation animationController;
         private PlayerCombat attacks;
         private PlayerCamera cameraController;
         private Vector2 movement;
@@ -100,7 +100,7 @@ namespace ProjectU.Editor
             input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();
             motor = input.GetComponent<PlayerMotor>();
             stamina = input.GetComponent<PlayerStamina>();
-            animationController = input.GetComponent<PlayerAnimation>();
+            animationController = input.GetComponent<SoilderAnimation>();
             attacks = input.GetComponent<PlayerCombat>();
             PlayerActionValidationUtility.UseSecondaryAttackFixture(attacks);
             cameraController = UnityEngine.Object.FindFirstObjectByType<PlayerCamera>();
@@ -203,7 +203,7 @@ namespace ProjectU.Editor
             yield return null;
             yield return null;
             Check(animationController.IsReloading, "reload begins before dash");
-            Attack primary = attacks.GetBinding(PlayerActionSlot.PrimaryFire).Attack;
+            AttackBase primary = attacks.GetBinding(PlayerActionSlot.PrimaryFire).Attack;
             var windupData = Instantiate((HitscanAttackData)primary.Data);
             SetField(windupData, "windupTime", 0.1f);
             SetField(primary, "data", windupData);
@@ -281,7 +281,7 @@ namespace ProjectU.Editor
                 "insufficient stamina rejects dash without displacement or event");
 
             // Isolate visual interruption from the saved grenade's recovery/cooldown.
-            Attack grenade = attacks.GetBinding(PlayerActionSlot.Skill1).Attack;
+            AttackBase grenade = attacks.GetBinding(PlayerActionSlot.Skill1).Attack;
             var visualGrenadeData = Instantiate((ProjectileAttackData)grenade.Data);
             SetField(visualGrenadeData, "recoveryTime", 0f);
             SetField(visualGrenadeData, "cooldown", 0f);

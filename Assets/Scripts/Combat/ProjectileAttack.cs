@@ -2,14 +2,14 @@ using UnityEngine;
 
 namespace ProjectU
 {
-    public sealed class ProjectileAttack : Attack
+    public sealed class ProjectileAttack : AttackBase
     {
         [SerializeField] private ProjectileAttackData data;
         [SerializeField] private ProjectilePool pool;
 
-        public override AttackData Data => data;
+        public override AttackDataBase Data => data;
         public ProjectilePool Pool { get => pool; set => pool = value; }
-        public Projectile LastProjectile { get; private set; }
+        public ProjectileBase LastProjectile { get; private set; }
         protected override bool IsConfigured => data != null && data.ProjectilePrefab != null && pool != null && pool.isActiveAndEnabled;
 
         protected override bool ExecuteAttack(Vector3 origin, Vector3 direction, in DamageContext context)

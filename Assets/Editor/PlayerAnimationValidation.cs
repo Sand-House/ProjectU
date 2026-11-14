@@ -112,7 +112,7 @@ namespace ProjectU.Editor
         private PlayerInputReader input;
         private PlayerMotor motor;
         private PlayerCamera cameraController;
-        private PlayerAnimation animationController;
+        private SoilderAnimation animationController;
         private PlayerAim aim;
         private PlayerCombat launcher;
         private HitscanAttackData alignmentAttackData;
@@ -148,7 +148,7 @@ namespace ProjectU.Editor
                 input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();
                 motor = input.GetComponent<PlayerMotor>();
                 cameraController = UnityEngine.Object.FindFirstObjectByType<PlayerCamera>();
-                animationController = input.GetComponent<PlayerAnimation>();
+                animationController = input.GetComponent<SoilderAnimation>();
                 aim = input.GetComponent<PlayerAim>();
                 launcher = input.GetComponent<PlayerCombat>();
                 pool = UnityEngine.Object.FindFirstObjectByType<ProjectilePool>();
@@ -165,7 +165,7 @@ namespace ProjectU.Editor
                     "Visuals must not add self-colliders.");
                 // Isolate pose/origin alignment from the saved weapon's spread and fire interval.
                 // PlayerAttackValidation covers the actual saved data and attack timing separately.
-                Attack primary = launcher.GetBinding(PlayerActionSlot.PrimaryFire).Attack;
+                AttackBase primary = launcher.GetBinding(PlayerActionSlot.PrimaryFire).Attack;
                 alignmentAttackData = Instantiate((HitscanAttackData)primary.Data);
                 var alignmentData = new SerializedObject(alignmentAttackData);
                 alignmentData.FindProperty("spreadAngle").floatValue = 0f;
@@ -257,7 +257,8 @@ namespace ProjectU.Editor
                     }
                     if (elapsed > 0.40f && !shotRequested)
                     {
-                        Check(animationController.IsReloading, "Reload is active before testing blocked fire.");
+                        Check(animationController.IsReloading && !animationController.CanApplyAimPose,
+                            "Reload blocks procedural aim before testing blocked fire.");
                         SetInput("PrimaryFire", Pressed());
                         shotRequested = true;
                     }
@@ -361,7 +362,8 @@ namespace ProjectU.Editor
                     }
                     if (elapsed > 0.35f && pauseFrames == 0)
                     {
-                        Check(animationController.IsThrowingGrenade, "Grenade animation started before pause.");
+                        Check(animationController.IsThrowingGrenade && !animationController.CanApplyAimPose,
+                            "Grenade animation blocks procedural aim before pause.");
                         Time.timeScale = 0f;
                         pauseFrames = 1;
                     }

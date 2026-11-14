@@ -228,8 +228,8 @@ namespace ProjectU.Editor
             yield return null;
             Check(front.Mortal.HP == 80 && side.Mortal.HP == 90 && back.Mortal.HP == 90 && high.Mortal.HP == 100, "circle attack");
 
-            Projectile bulletPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Projectiles/Bullet.prefab").GetComponent<Projectile>();
-            Projectile grenadePrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Projectiles/Grenade.prefab").GetComponent<Projectile>();
+            ProjectileBase bulletPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Projectiles/Bullet.prefab").GetComponent<ProjectileBase>();
+            ProjectileBase grenadePrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Projectiles/Grenade.prefab").GetComponent<ProjectileBase>();
             ProjectilePool pool = Pool(bulletPrefab, grenadePrefab);
             Combatant projectileSource = Unit("Projectile Source", Vector3.right * 60f, Faction.Player);
             Combatant projectileFriendly = Unit("Projectile Friendly", new Vector3(60f, 0f, 1f), Faction.Player);
@@ -246,7 +246,7 @@ namespace ProjectU.Editor
             Physics.SyncTransforms();
             PlayerActionValidationUtility.For(projectileAttack).TryStart(projectileSource.transform.position + Vector3.forward * 20f);
             yield return null;
-            Projectile shotInstance = projectileAttack.LastProjectile;
+            ProjectileBase shotInstance = projectileAttack.LastProjectile;
             Check(shotInstance != null && shotInstance.HasAttackData &&
                 Vector3.Distance(shotInstance.transform.localScale, bulletPrefab.transform.localScale * 2f) < 0.001f, "projectile executes and scales");
             projectileSource.Faction = Faction.Enemy;
@@ -257,7 +257,7 @@ namespace ProjectU.Editor
             Check(!shotInstance.IsActive && behindWall.Mortal.HP == 100, "wall stops piercing projectile");
             Check(!Physics.GetIgnoreCollision(shotInstance.GetComponent<Collider>(), projectileNear.GetComponent<Collider>()), "piercing collision exclusions restored");
             projectileSource.Faction = Faction.Player;
-            Projectile legacy = pool.Spawn(bulletPrefab, projectileSource.gameObject, projectileSource.transform.position, Vector3.forward);
+            ProjectileBase legacy = pool.Spawn(bulletPrefab, projectileSource.gameObject, projectileSource.transform.position, Vector3.forward);
             Check(!legacy.HasAttackData && Vector3.Distance(legacy.transform.localScale, bulletPrefab.transform.localScale) < 0.001f, "legacy spawn resets payload and scale");
             legacy.Despawn();
             Set(projectile, "piercesEnemies", false);
@@ -265,8 +265,8 @@ namespace ProjectU.Editor
             PlayerActionValidationUtility.For(projectileAttack).TryStart();
             yield return new WaitForSeconds(0.15f + 2f / bulletPrefab.Speed);
             Check(projectileNear.Mortal.HP == 80 && projectileFar.Mortal.HP == 90 && !projectileAttack.LastProjectile.IsActive, "nonpiercing projectile stops at first target");
-            var first = pool.Spawn(bulletPrefab, null, root.transform.position + Vector3.up * 100f, Vector3.forward);
-            var second = pool.Spawn(bulletPrefab, null, root.transform.position + Vector3.up * 110f, Vector3.forward);
+            ProjectileBase first = pool.Spawn(bulletPrefab, null, root.transform.position + Vector3.up * 100f, Vector3.forward);
+            ProjectileBase second = pool.Spawn(bulletPrefab, null, root.transform.position + Vector3.up * 110f, Vector3.forward);
             int failed = 0;
             PlayerActionValidationUtility.For(projectileAttack).OnFailed += () => failed++;
             Check(PlayerActionValidationUtility.For(projectileAttack).TryStart(), "capacity failure accepts windup request");
@@ -416,7 +416,7 @@ namespace ProjectU.Editor
 
             Transform defaultMuzzle = Origin(missingSource, Vector3.up);
             Set(missingAttack, "origin", defaultMuzzle);
-            PlayerAttackAction defaultAction = PlayerActionValidationUtility.For(missingAttack);
+            PlayerAttackActionBase defaultAction = PlayerActionValidationUtility.For(missingAttack);
             Check(defaultAction.TryStart(), "parameterless action uses the Attack's configured default origin");
             defaultMuzzle.localPosition += Vector3.right * 0.3f;
             yield return new WaitForSeconds(0.08f);
@@ -471,7 +471,7 @@ namespace ProjectU.Editor
             return origin;
         }
 
-        private T Data<T>(float damage) where T : AttackData
+        private T Data<T>(float damage) where T : AttackDataBase
         {
             var data = ScriptableObject.CreateInstance<T>();
             assets.Add(data);
@@ -482,7 +482,7 @@ namespace ProjectU.Editor
             return data;
         }
 
-        private T Attack<T>(Combatant unit, AttackData data) where T : Attack
+        private T Attack<T>(Combatant unit, AttackDataBase data) where T : AttackBase
         {
             T attack = unit.gameObject.AddComponent<T>();
             Set(attack, "data", data);
@@ -517,7 +517,7 @@ namespace ProjectU.Editor
             Set(child.AddComponent<Hitbox>(), "isCritical", critical);
         }
 
-        private ProjectilePool Pool(params Projectile[] prefabs)
+        private ProjectilePool Pool(params ProjectileBase[] prefabs)
         {
             var item = new GameObject("Validation Pool");
             item.SetActive(false);

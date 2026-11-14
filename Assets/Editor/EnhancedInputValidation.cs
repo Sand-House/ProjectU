@@ -111,7 +111,7 @@ namespace ProjectU.Editor
             }
             foreach (PlayerActionBinding binding in bindings)
             {
-                AttackData data = Instantiate(binding.Attack.Data);
+                AttackDataBase data = Instantiate(binding.Attack.Data);
                 SetField(data, "windupTime", 0.12f);
                 SetField(data, "recoveryTime", 0.18f);
                 SetField(data, "cooldown", 0f);

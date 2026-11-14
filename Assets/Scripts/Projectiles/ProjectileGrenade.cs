@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace ProjectU
 {
-    public sealed class ProjectileGrenade : Projectile
+    public sealed class ProjectileGrenade : ProjectileBase
     {
         [SerializeField, Min(0.1f)] private float explosionRadius = 4f;
         [SerializeField] private Transform explosionVisual;

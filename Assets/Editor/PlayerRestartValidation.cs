@@ -175,7 +175,7 @@ namespace ProjectU.Editor
             controller.enabled = true;
             Check(Vector3.Distance(player.transform.position, startingPosition) > 4f, "fixture moves away from saved spawn");
             ProjectilePool pool = FindFirstObjectByType<ProjectilePool>();
-            Projectile prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Projectiles/Grenade.prefab").GetComponent<Projectile>();
+            ProjectileBase prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Projectiles/Grenade.prefab").GetComponent<ProjectileBase>();
             Check(pool.Spawn(prefab, player.gameObject, new Vector3(0f, 8f, 0f), Vector3.up) != null, "fixture has a live projectile before death");
             int deaths = 0;
             health.OnDead += attacker => deaths++;

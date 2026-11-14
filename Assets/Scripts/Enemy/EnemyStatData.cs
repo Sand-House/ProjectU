@@ -14,9 +14,9 @@ namespace ProjectU
         private float attackSpeed = 1f;
 
         public int MaxHealth => Mathf.Max(1, maxHealth);
-        public float MoveSpeed => AttackData.FiniteAtLeast(moveSpeed, 0f);
-        public float AttackMultiplier => AttackData.FiniteAtLeast(attackMultiplier, 0f);
-        public float AttackSpeed => AttackData.FiniteAtLeast(attackSpeed, 0.01f);
+        public float MoveSpeed => AttackDataBase.FiniteAtLeast(moveSpeed, 0f);
+        public float AttackMultiplier => AttackDataBase.FiniteAtLeast(attackMultiplier, 0f);
+        public float AttackSpeed => AttackDataBase.FiniteAtLeast(attackSpeed, 0.01f);
 
         private void OnValidate()
         {

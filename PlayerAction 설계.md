@@ -1,4 +1,31 @@
-# PlayerAction 및 공통 ActionBase 구현 설계
+# PlayerActionBase 및 공통 ActionBase 구현 설계
+
+## 2026-11-13 추상 클래스 Base 접미사 통일
+
+| 이전 클래스 | 현재 클래스 |
+|---|---|
+| Attack | [AttackBase](Assets/Scripts/Combat/AttackBase.cs) |
+| AttackData | [AttackDataBase](Assets/Scripts/Combat/Data/AttackDataBase.cs) |
+| Projectile | [ProjectileBase](Assets/Scripts/Projectiles/ProjectileBase.cs) |
+| PlayerAction | [PlayerActionBase](Assets/Scripts/Player/PlayerActionBase.cs) |
+| PlayerAttackAction | [PlayerAttackActionBase](Assets/Scripts/Player/PlayerAttackActionBase.cs) |
+| EnemyAction | [EnemyActionBase](Assets/Scripts/Enemy/EnemyActionBase.cs) |
+
+ActionBase·EnemyStateBase·PlayerAnimationBase는 기존 이름을 유지한다. 타입 참조·상속·스크립트 파일명만 통일하며 Attack 프로퍼티·action/attack/data/projectilePrefab 등 직렬화 필드명·기존 .meta GUID와 씬/에셋/프리팹 저장값은 유지한다. 과거 로그 파일명과 문서 파일 경로는 유지하고 본문의 해당 타입 표기는 현재 이름으로 동기화한다. 이번 직접 검증은 Logs/BaseClassNaming_20261113/에 분리한다.
+
+**2026-11-13 이번 직접 검증:** Unity **6000.3.25f1**에서 상속 **20개**·공통 액션 **60개**·선입력 **85개**·공통 공격 **75개**·적 **95개**·플레이어 공격 **59개**·ADS **104개**·진행 **132개**·저장 씬 **22개**·사망 재시작 **56개**(실제 씬 재로드 2회), 총 **708개**와 투사체 수명/풀·애니메이션 **17발·이동·점프·IK·장전·투척·벽·정지**를 **12종 모두 종료 코드 0**으로 확인했다. C# 컴파일 오류·경고 0이다. 최종 결과는 Logs/BaseClassNaming_20261113/Results.Final.json이며 이전 애니메이션 분리의 503개 등 과거 결과와 합산하지 않는다. 기존 UnityEditor.Search 시작 인덱스 예외 12건은 기능 검사와 구분했고 다른 C# 예외는 없었다. -nographics로 새 이미지 렌더·실제 키/마우스 수동 플레이·전체 실행 파일 빌드는 수행하지 않았다.
+
+이번 이름 변경은 C# **56개 파일의 타입명 248곳**과 스크립트/meta 이름 이동이다. 변경 전후 전체 C# **100개**를 대조해 해당 타입 식별자 외 문자열·멤버명·로직·서식을 보존했으며, 기존 **260개 비 C# 파일**도 이름을 옮긴 meta를 포함해 모두 시작 SHA256과 같다. 총 360개 파일을 유지하고 새 에셋을 추가하지 않았다. 기존 씬·프리팹·공격 데이터·애니메이션·Animator Controller·Font·NavMesh·패키지·설정 바이트와 모든 meta GUID를 보존했다. 씬은 391블록 전체가 같다. GUID 중복 0, 문서 링크 150개 오류 0이다. 상세 증거는 SemanticRename.json과 Integrity.json에 기록했다.
+
+## 2026-11-13 애니메이션 분리 직접 검증
+
+Unity **6000.3.25f1**의 별도 프로젝트에서 상속 구조 **20개**·ADS **104개**·플레이어 공격 **59개**·장전 **40개**·대시 **70개**·진행 **132개**·저장 씬 **22개**·사망 재시작 **56개**(실제 씬 재로드 2회), 총 **503개**와 애니메이션 **17발·이동·점프·양팔 IK·장전·투척·벽·정지**를 **9종 모두 종료 코드 0**으로 직접 확인했다. C# 컴파일 오류·경고 0이다. 다른 파생 클래스의 비 Humanoid·단일 레이어·이동 파라미터만 있는 Animator, 공통 이벤트 전달·비활성화·반복 재활성화의 단일 구독, 정지·복구, 부모를 통한 시각 초기화와 PlayerAim의 다형적 조준 허용/차단을 검사했다. 실제 Soldier의 장전/투척 중 조준 차단과 재활성화 시 누락 클리어 보완 후 진행 중 장전 시각 복구도 통과했다. 최종 집계는 Results.Final.json과 InheritanceFinal.log이며 샌드박스 라이선스 초기화 실패·실행 순서 Inspector 명시값과 기본 속성의 구분을 보완하기 전 검증 실패는 합산하지 않는다. 기존 UnityEditor.Search 시작 인덱스 예외 9건은 기능 검사와 구분하고 다른 C# 예외는 없었다. -nographics로 새 이미지 렌더·실제 키/마우스 수동 플레이·전체 실행 파일 빌드는 수행하지 않았다.
+
+시작 Assets/Packages/ProjectSettings **356개 중 348개**를 SHA256으로 보존했다. 기존 애니메이션 코드/meta는 SoilderAnimation으로 이관하며 meta 바이트·GUID를 보존했고, PlayerAim·기존 검증기 4개·씬 타입명 한 줄을 수정했다. 부모 코드/meta와 상속 검증기/meta 4개를 추가했다. 씬 **391블록 중 390개 보존**, 변경 블록도 타입명 외 모든 필드와 참조를 유지했다. 기존 데이터·프리팹·애니메이션·Animator Controller·Font·NavMesh·패키지는 보존했다. GUID 중복·씬 내부 참조 누락 0, 문서 링크 136개 오류 0과 git diff --check를 확인했다. 상세 기록은 Logs/AnimationInheritance_20261113/Integrity.json이다.
+
+## 2026-11-13 캐릭터별 애니메이션 분리
+
+PlayerAnimationBase가 공통 이동/점프·Animator 정지/복구·공격 이벤트 전달·스테이지 구독 수명을 소유하고, SoilderAnimation이 실제 슬롯별 사격/투척 매핑과 장전/대시 상체 시각을 담당한다. PlayerAim은 부모의 CanApplyAimPose만 조회한다. SampleScene은 기존 스크립트 GUID·fileID와 직렬화 설정을 유지한 SoilderAnimation 하나를 사용한다. PrimaryFire와 Skill1만 각각 사격·투척에 매핑하고 SecondaryFire는 ADS다. Action/Combat/ADS의 실행·자원 정책은 유지한다. 상세 확장 메서드와 Inspector 위치는 [플레이어 조작 가이드.md](플레이어%20조작%20가이드.md)의 캐릭터별 애니메이션 절이다. 이번 검증은 Logs/AnimationInheritance_20261113/에 분리한다. 아래 PlayerAnimation의 공용 슬롯 가정은 분리 전 기록이다.
 
 ## 2026-11-11 PlayerADS 분리와 공용 슬롯 의존성 점검
 
@@ -8,7 +35,7 @@ PlayerADS는 IMovementSpeedModifier와 IInteractionBlocker를 구현한다. Comb
 
 이번 Unity 6000.3.25f1 직접 검증은 ADS 104개·공통 액션/홀딩 60개·선입력 85개·딜레이 110개·조건 39개·공격 59개·장전 40개·대시 70개·진행 132개·저장 씬 22개·재시작 56개, 총 **777개**, 11종 모두 종료 코드 0이다. ADS 없는 캐릭터의 다른 보조 액션, Skill1 ADS와 별도 SecondaryFire 병행, 소유자 보호, 이동 효과 병행·개별 해제·기본 속도 변경, 선딜 중 취소·기능 비활성화, 기존 전환/발사/보상/사망을 검사했다. C# 오류·경고와 예외는 최종 로그에서 0이다. 로그는 `Logs/ADSComponent_20261111/`이며 ADSFinal.log의 104개만 최종 집계한다. 앞선 103개와 이전 날짜 결과를 합산하지 않는다. -nographics로 실행해 새 이미지·실제 키/마우스 수동 플레이·전체 실행 파일 빌드는 수행하지 않았다.
 
-공용 코드의 나머지 슬롯 가정은 [공통 컴포넌트 슬롯 의존성 점검](공통%20컴포넌트%20슬롯%20의존성%20점검.md)에 정리했다. PlayerAttackAction의 탄약/장전 정책·PlayerAnimation의 투척/사격 매핑·Controller의 입력 우선순위/자동 장전·Motor의 Dash 조회가 남아 있다. 이번에는 ADS 분리와 점검을 수행했으며 이 정책들을 일괄 변경하지 않았다.
+공용 코드의 나머지 슬롯 가정은 [공통 컴포넌트 슬롯 의존성 점검](공통%20컴포넌트%20슬롯%20의존성%20점검.md)에 정리했다. 당시 남은 가정은 PlayerAttackActionBase의 탄약/장전 정책·PlayerAnimation의 투척/사격 매핑·Controller의 입력 우선순위/자동 장전·Motor의 Dash 조회였다. 애니메이션 매핑은 2026-11-13 SoilderAnimation으로 분리했고 나머지 정책은 유지한다.
 
 ## 2026-11-11 ADS 전환 중 PrimaryFire 제한
 
@@ -25,7 +52,7 @@ PlayerCamera에 읽기 전용 IsAimTransitioning을 추가해 실제 카메라 �
 Selected/IndependentHold 분류 enum과 InputMode를 제거하고 기존 RequiresHeldInput으로 모든 홀딩 입력을 통일했다. 기본값은 false이며 홀딩 액션만 true를 오버라이드한다. Inspector 필드·씬 직렬화는 추가하지 않는다.
 
 ```csharp
-// PlayerAction의 기본 입력 수명
+// PlayerActionBase의 기본 입력 수명
 public virtual bool RequiresHeldInput => false;
 
 // SoilderSecondaryFireAction의 선언
@@ -42,17 +69,17 @@ Controller의 홀딩 처리는 Soilder·SecondaryFire·IPlayerAimAction 구체 �
 
 2026-11-10 확정 후속 상호작용 계획(아직 미구현): G는 범용 `Interact` 입력을 유지한다. 추후 BeforeStage의 씬 중앙 트리거가 상호작용을 받아 GameManager를 참조하고 TryStartStage를 요청한다. 플레이어 입력 측의 상호작용 요청 전달과 대상 트리거의 스테이지 시작 책임을 분리할 예정이며, 기존 단계 이벤트 구독 수명과는 구분한다. 현재 Controller의 G 직접 호출은 유지하고 이번에는 문서만 반영했다. 트리거·인터페이스·탐색/범위 구현은 후속 작업이며 상세 계획은 [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md) 11절을 따른다.
 
-2026-11-10 G 입력 이관: StageFlowUI가 조회하던 ADS 차단 조건을 PlayerController의 G 처리로 옮겼다. Controller는 기존 PlayerCombat 참조로 같은 프레임의 ADS 확정 후 G를 판단하고, 기존 단계 구독으로 연결된 GameManager에 요청한다. StageFlowUI의 입력/전투 의존성과 G Update를 제거했으며 액션 슬롯·타이밍·단계 구독/취소·보상 UI 버튼은 유지한다. G는 별도 PlayerAction이나 예약으로 추가하지 않는다. 이번 검증은 `Logs/InteractionController_20261110/`에 기록한다.
+2026-11-10 G 입력 이관: StageFlowUI가 조회하던 ADS 차단 조건을 PlayerController의 G 처리로 옮겼다. Controller는 기존 PlayerCombat 참조로 같은 프레임의 ADS 확정 후 G를 판단하고, 기존 단계 구독으로 연결된 GameManager에 요청한다. StageFlowUI의 입력/전투 의존성과 G Update를 제거했으며 액션 슬롯·타이밍·단계 구독/취소·보상 UI 버튼은 유지한다. G는 별도 PlayerActionBase이나 예약으로 추가하지 않는다. 이번 검증은 `Logs/InteractionController_20261110/`에 기록한다.
 
-2026-11-10 ADS: `SoilderSecondaryFireAction : PlayerAction, IPlayerAimAction`은 Attack 없는 유지형 자세다. `UsesDelayLock=false`로 ADS 중 금지 행동은 CanBuffer에서도 제외하며 PrimaryFire만 허용한다. Controller는 우클릭 Held를 일반 단일 선택보다 먼저 처리하고 기본 발사는 기존 선택 경로에서 병행한다. 전환 시간·이동속도/탄퍼짐 배율은 ADS 액션에, 카메라 위치/진행값은 PlayerCamera에, 소총 정렬은 PlayerAim에 둔다. PlayerCombat·Motor·Camera는 구체 Soilder 타입 대신 IPlayerAimAction의 읽기 전용 상태를 사용한다. ADS는 기존 PlayerAction의 Release·InterruptInput·단계 구독·사망·비활성화 취소를 그대로 따른다. 상세 편집은 [플레이어 조작 가이드.md](플레이어%20조작%20가이드.md)의 ADS 절, 검증 기록은 `Logs/ADS_20261110/`에 있다.
+2026-11-10 ADS: `SoilderSecondaryFireAction : PlayerActionBase, IPlayerAimAction`은 Attack 없는 유지형 자세다. `UsesDelayLock=false`로 ADS 중 금지 행동은 CanBuffer에서도 제외하며 PrimaryFire만 허용한다. Controller는 우클릭 Held를 일반 단일 선택보다 먼저 처리하고 기본 발사는 기존 선택 경로에서 병행한다. 전환 시간·이동속도/탄퍼짐 배율은 ADS 액션에, 카메라 위치/진행값은 PlayerCamera에, 소총 정렬은 PlayerAim에 둔다. PlayerCombat·Motor·Camera는 구체 Soilder 타입 대신 IPlayerAimAction의 읽기 전용 상태를 사용한다. ADS는 기존 PlayerActionBase의 Release·InterruptInput·단계 구독·사망·비활성화 취소를 그대로 따른다. 상세 편집은 [플레이어 조작 가이드.md](플레이어%20조작%20가이드.md)의 ADS 절, 검증 기록은 `Logs/ADS_20261110/`에 있다.
 
 2026-11-06 스테이지 초기화 갱신: `PlayerStageReset`이 입력·이동·진행 중 액션·후딜을 정리한 뒤 `ActionBase.ResetForStage()`로 쿨타임을 초기화한다. 일반 Cancel·비활성화는 기존처럼 쿨타임을 유지한다. `Combatant.IsGameplayBlocked`는 보상 대기·종료 중 직접 액션 수락과 효과 실행도 막는다. `ActionCancelReason.StageTransition`은 기존 enum 끝에 추가했다. 상세 호출 순서·API·보상 계약은 [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md)를 참고한다.
 
-최신 공통화 기준: **2026-11-01**. PlayerAction의 타이밍·접지/이동 조건·생명주기·이벤트를 새 `ActionBase`로 이관했다. PlayerAction과 EnemyAction은 ActionBase를 직접 상속하며, 슬롯·홀딩·선입력 자격·플레이어 실행 단계는 PlayerAction에 남는다. 공통 타입은 `ActionContext / ActionPhase / ActionResult / ActionCancelReason`이고 `PlayerActionSlot / PlayerActionStage`는 유지한다. Attack.TryExecute는 ActionBase를 받으며 Combatant는 모든 ActionBase의 제한을 집계한다. 상세한 적 계열·확장 방법은 [Enemy.md](Enemy.md)를 참고한다. 이번 로그는 `Logs/Enemy_20261101/`이다. 아래 2026-10-30~31의 검증과 이관 기록은 해당 날짜의 결과다.
+최신 공통화 기준: **2026-11-01**. PlayerActionBase의 타이밍·접지/이동 조건·생명주기·이벤트를 새 `ActionBase`로 이관했다. PlayerActionBase과 EnemyActionBase은 ActionBase를 직접 상속하며, 슬롯·홀딩·선입력 자격·플레이어 실행 단계는 PlayerActionBase에 남는다. 공통 타입은 `ActionContext / ActionPhase / ActionResult / ActionCancelReason`이고 `PlayerActionSlot / PlayerActionStage`는 유지한다. AttackBase.TryExecute는 ActionBase를 받으며 Combatant는 모든 ActionBase의 제한을 집계한다. 상세한 적 계열·확장 방법은 [Enemy.md](Enemy.md)를 참고한다. 이번 로그는 `Logs/Enemy_20261101/`이다. 아래 2026-10-30~31의 검증과 이관 기록은 해당 날짜의 결과다.
 
-기준 날짜: **2026-11-01**. 공통 부모는 `ActionBase`, 플레이어 전용 부모는 `PlayerAction`, 캐릭터별 클래스 접두사는 **Soilder**다. 공통 접지 조건·이동 허용과 Skill2/Ultimate 검증용 동작은 유지한다. 2026-10-31의 결과는 11절, 앞선 리팩토링은 9절, 이번 적·공통화 결과는 12절과 `Logs/Enemy_20261101/`에 기록한다.
+기준 날짜: **2026-11-01**. 공통 부모는 `ActionBase`, 플레이어 전용 부모는 `PlayerActionBase`, 캐릭터별 클래스 접두사는 **Soilder**다. 공통 접지 조건·이동 허용과 Skill2/Ultimate 검증용 동작은 유지한다. 2026-10-31의 결과는 11절, 앞선 리팩토링은 9절, 이번 적·공통화 결과는 12절과 `Logs/Enemy_20261101/`에 기록한다.
 
-같은 날 후속 변경으로 기본 Origin의 저장 위치를 Attack으로 옮겼다. 현재 구조는 아래 본문에 반영했으며, 이번 Origin 이관의 직접 검증은 10절과 `Logs/AttackOrigin_20261030/`에 기록한다. 9절의 466개 검사는 앞선 PlayerAction 리팩토링 당시의 결과다.
+같은 날 후속 변경으로 기본 Origin의 저장 위치를 Attack으로 옮겼다. 현재 구조는 아래 본문에 반영했으며, 이번 Origin 이관의 직접 검증은 10절과 `Logs/AttackOrigin_20261030/`에 기록한다. 9절의 466개 검사는 앞선 PlayerActionBase 리팩토링 당시의 결과다.
 
 ## 1. 책임과 실제 파일
 
@@ -62,21 +89,21 @@ Controller의 홀딩 처리는 Soilder·SecondaryFire·IPlayerAimAction 구체 �
 | PlayerController | 이동·점프 명령, 공통 홀딩 처리·일반 전투 선택·우선순위·한 개 예약·만료·반복·빈 탄창 자동 장전, 공통 상호작용 차단 확인 후 G 요청 |
 | PlayerCombat | 슬롯/액션 바인딩, 명령 전달·배율/조준 준비, 슬롯별 실행 가능 조회·탄창·외부 이벤트 |
 | ActionBase | 공통 설정과 생명주기. 접지 자격·이동 허용·선딜·실행·유지·후딜·쿨타임·취소 |
-| PlayerAction | 플레이어 슬롯·RequiresHeldInput·홀딩/해제·선입력 자격·실행 단계와 Motor/Combat 연결 |
-| PlayerAttackAction | Attack을 사용하는 액션의 공통 어댑터. Attack 연결·기본 Origin 조회와 요청별 최신 공격 정보 전달 |
+| PlayerActionBase | 플레이어 슬롯·RequiresHeldInput·홀딩/해제·선입력 자격·실행 단계와 Motor/Combat 연결 |
+| PlayerAttackActionBase | Attack을 사용하는 액션의 공통 어댑터. Attack 연결·기본 Origin 조회와 요청별 최신 공격 정보 전달 |
 | Soilder…Action | 행동별 슬롯·조건·자원·효과 실행과 유지 갱신 |
-| Attack 계열 | 기본 Origin Transform 보관과 호출받은 시점의 원점 보정·판정·피해·투사체 생성·결과 반환 |
-| AttackData 계열 | 피해·치명타·대상 규칙·마스크·탄퍼짐·사거리·투사체·근접 범위 |
+| AttackBase 계열 | 기본 Origin Transform 보관과 호출받은 시점의 원점 보정·판정·피해·투사체 생성·결과 반환 |
+| AttackDataBase 계열 | 피해·치명타·대상 규칙·마스크·탄퍼짐·사거리·투사체·근접 범위 |
 | PlayerADS | 슬롯과 독립적인 ADS 상태·설정, 이동 배율과 상호작용 차단 제공 |
 | PlayerMotor | 공통 이동 배율을 반영한 이동·회전·중력·접지·충돌과 실제 대시 이동 |
 | PlayerStamina / PlayerStat | 자원·능력치 원본 |
-| PlayerAim / PlayerCamera / PlayerAnimation | 조준·시점·시각 자세·이벤트 기반 애니메이션 |
+| PlayerAim / PlayerCamera / PlayerAnimationBase·SoilderAnimation | 조준·시점·시각 자세·이벤트 기반 애니메이션 |
 
-공통 부모·컨텍스트·생명주기 타입은 `Assets/Scripts/Combat/ActionBase.cs`와 `ActionTypes.cs`, 플레이어 슬롯·실행 단계는 `Assets/Scripts/Player/PlayerAction.cs`, 공격 어댑터는 `PlayerAttackAction.cs`, 직렬화 연결은 `PlayerActionBinding.cs`에 있다. 캐릭터별 일곱 클래스는 `Assets/Scripts/Player/Actions/`에 있다. 별도 PlayerActionController와 두 번째 입력 버퍼는 없다.
+공통 부모·컨텍스트·생명주기 타입은 `Assets/Scripts/Combat/ActionBase.cs`와 `ActionTypes.cs`, 플레이어 슬롯·실행 단계는 `Assets/Scripts/Player/PlayerActionBase.cs`, 공격 어댑터는 `PlayerAttackActionBase.cs`, 직렬화 연결은 `PlayerActionBinding.cs`에 있다. 캐릭터별 일곱 클래스는 `Assets/Scripts/Player/Actions/`에 있다. 별도 PlayerActionController와 두 번째 입력 버퍼는 없다.
 
 ```text
-PlayerAction
-├─ PlayerAttackAction
+PlayerActionBase
+├─ PlayerAttackActionBase
 │  ├─ SoilderPrimaryFireAction
 │  └─ SoilderSkill1Action
 ├─ SoilderSecondaryFireAction (PlayerADS에 시작/종료 요청, 홀드형 ADS)
@@ -86,19 +113,19 @@ PlayerAction
 └─ SoilderReloadAction
 ```
 
-현재 세 공격의 중복 연결·실행 코드를 PlayerAttackAction에 모았다. 이후 공격 없는 스킬·줌은 PlayerAction을 직접 상속하거나 해당 슬롯의 액션 구현을 교체할 수 있다.
+현재 세 공격의 중복 연결·실행 코드를 PlayerAttackActionBase에 모았다. 이후 공격 없는 스킬·줌은 PlayerActionBase을 직접 상속하거나 해당 슬롯의 액션 구현을 교체할 수 있다.
 
-SampleScene은 일곱 액션을 연결한다. Skill2·Ultimate는 PlayerAction을 직접 상속하며 Attack 없이 선딜·후딜과 실행 로그를 사용한다. Skill2는 지면 전용·이동 허용, Ultimate는 공중 사용 가능·이동 금지로 설정했다. 실제 스킬 피해·효과·궁극기 자원과 애니메이션은 후속 작업이다.
+SampleScene은 일곱 액션을 연결한다. Skill2·Ultimate는 PlayerActionBase을 직접 상속하며 Attack 없이 선딜·후딜과 실행 로그를 사용한다. Skill2는 지면 전용·이동 허용, Ultimate는 공중 사용 가능·이동 금지로 설정했다. 실제 스킬 피해·효과·궁극기 자원과 애니메이션은 후속 작업이다.
 
 ## 2. 설정과 상태의 단일 원본
 
 | 내용 | 원본 |
 |---|---|
-| damage / canCritical / criticalMultiplier / targetRule / hitMask | AttackData 유지 |
+| damage / canCritical / criticalMultiplier / targetRule / hitMask | AttackDataBase 유지 |
 | spreadAngle / spreadStartShot / spreadResetDelay / enemyPenetrationCount / maxDistance | HitscanAttackData 유지 |
-| 투사체·관통·크기·폭발 배율·발사각, 근접 범위·모양·오프셋 | 각 전용 AttackData 유지 |
+| 투사체·관통·크기·폭발 배율·발사각, 근접 범위·모양·오프셋 | 각 전용 AttackDataBase 유지 |
 | windupTime / recoveryTime / cooldown | ActionBase의 직렬화 필드 |
-| repeatWhileHeld | PlayerAction의 직렬화 필드 |
+| repeatWhileHeld | PlayerActionBase의 직렬화 필드 |
 | requiresGrounded / canMove | ActionBase의 직렬화 필드. 기본 false / true |
 | pending / Active / 실행 시각 / 후딜·쿨타임 종료 시각 / 실행 프레임 잠금 | ActionBase 인스턴스 |
 | 연속 발사 수·마지막 발사 시각 | HitscanAttack 인스턴스 |
@@ -109,7 +136,7 @@ SampleScene은 일곱 액션을 연결한다. Skill2·Ultimate는 PlayerAction�
 | 탄창 현재량 | PlayerCombat |
 | 기본 origin Transform | Attack의 직렬화 필드. 액션·바인딩의 Origin은 이 참조를 조회 |
 
-같은 AttackData를 사용해도 액션별 시간·반복 설정과 쿨타임 상태는 독립적이다. 별도 PlayerActionData SO는 추가하지 않았다. `spreadResetDelay`는 탄퍼짐 초기화 규칙이며, 수류탄의 비행·폭발 대기·연출은 투사체 생명주기로 유지한다.
+같은 AttackDataBase를 사용해도 액션별 시간·반복 설정과 쿨타임 상태는 독립적이다. 별도 PlayerActionData SO는 추가하지 않았다. `spreadResetDelay`는 탄퍼짐 초기화 규칙이며, 수류탄의 비행·폭발 대기·연출은 투사체 생명주기로 유지한다.
 
 ## 3. 슬롯과 연결
 
@@ -123,7 +150,7 @@ public enum PlayerActionSlot
 }
 ```
 
-PlayerActionBinding의 저장 필드는 `slot + action`이다. Attack 프로퍼티는 공격 액션의 참조를, Origin 프로퍼티는 연결된 Attack.Origin을 조회하는 편의 API이며 바인딩에 중복 저장하지 않는다. PlayerAttackAction.Origin도 Attack.Origin을 조회한다. Inspector에서는 액션에 Attack을, Attack 컴포넌트에 Origin을 연결한다. 같은 슬롯·같은 액션 인스턴스·다른 액션의 동일 Attack 실행기 공유는 바인딩 검증에서 거절한다. 같은 AttackData 공유는 허용한다.
+PlayerActionBinding의 저장 필드는 `slot + action`이다. Attack 프로퍼티는 공격 액션의 참조를, Origin 프로퍼티는 연결된 AttackBase.Origin을 조회하는 편의 API이며 바인딩에 중복 저장하지 않는다. PlayerAttackActionBase.Origin도 AttackBase.Origin을 조회한다. Inspector에서는 액션에 Attack을, Attack 컴포넌트에 Origin을 연결한다. 같은 슬롯·같은 액션 인스턴스·다른 액션의 동일 Attack 실행기 공유는 바인딩 검증에서 거절한다. 같은 AttackDataBase 공유는 허용한다.
 
 슬롯의 정수 값으로 우선순위를 판단하지 않는다. 동일 프레임 선택은 기존 **Dash → 비기본 공격의 바인딩 순서 → Reload → PrimaryFire**를 유지한다.
 
@@ -170,7 +197,7 @@ Cooldown은 별도 Phase가 아니며 실행 성공부터 Active·Recovery와 �
 
 ## 5. 공존·제한·유지 입력
 
-여러 액션이 동시에 Active일 수 있다. Combatant가 같은 오브젝트의 PlayerAction을 모아 슬롯별 제한을 조회하므로 바인딩 없이 직접 요청한 액션도 같은 제한을 받는다. Controller도 예약 슬롯을 실제로 막는 딜레이가 있는지 확인한다.
+여러 액션이 동시에 Active일 수 있다. Combatant가 같은 오브젝트의 PlayerActionBase을 모아 슬롯별 제한을 조회하므로 바인딩 없이 직접 요청한 액션도 같은 제한을 받는다. Controller도 예약 슬롯을 실제로 막는 딜레이가 있는지 확인한다.
 
 | 현재 행동 | 새 행동 제한 |
 |---|---|
@@ -191,9 +218,9 @@ RepeatWhileHeld는 일반 액션의 새로운 실행을 반복 요청하는 설�
 
 ## 6. 공격·대시·장전 흐름
 
-공격은 Controller 선택 → PlayerCombat 준비 → PlayerAction 선딜 → 최신 Origin/조준점 확인 → Attack 즉시 실행 → 성공 상태·자원·이벤트 확정 순서다. 기본 Origin의 저장 원본은 Attack이다. PlayerAttackAction은 수락 시 Attack.Origin 또는 요청별 Origin Transform을 선딜 동안 보관하므로 실제 실행 프레임의 위치를 읽고, 삭제됐으면 실패한다. Transform·고정 월드 좌표를 넘기는 TryStart 오버로드는 기본 Origin을 덮어쓰지 않고 해당 요청에만 적용한다.
+공격은 Controller 선택 → PlayerCombat 준비 → PlayerActionBase 선딜 → 최신 Origin/조준점 확인 → Attack 즉시 실행 → 성공 상태·자원·이벤트 확정 순서다. 기본 Origin의 저장 원본은 Attack이다. PlayerAttackActionBase은 수락 시 AttackBase.Origin 또는 요청별 Origin Transform을 선딜 동안 보관하므로 실제 실행 프레임의 위치를 읽고, 삭제됐으면 실패한다. Transform·고정 월드 좌표를 넘기는 TryStart 오버로드는 기본 Origin을 덮어쓰지 않고 해당 요청에만 적용한다.
 
-Attack의 public TryAttack·선딜·후딜·쿨타임·독립 LateUpdate는 제거했다. 내부 TryExecute는 현재 실행 중인 같은 소유자의 PlayerAction만 호출할 수 있다. 외부 진입점은 PlayerCombat.TryStartAction 또는 PlayerAction.TryStart다. 빗나간 히트스캔은 성공한 한 발이며 풀 대여 실패는 실행 실패다. 원점 장애물 보정·치명타·진영·관통·탄퍼짐·투사체의 발사 시점 피해 복사는 기존 Attack/피해/투사체 계층이 처리한다.
+Attack의 public TryAttack·선딜·후딜·쿨타임·독립 LateUpdate는 제거했다. 내부 TryExecute는 현재 실행 중인 같은 소유자의 PlayerActionBase만 호출할 수 있다. 외부 진입점은 PlayerCombat.TryStartAction 또는 PlayerActionBase.TryStart다. 빗나간 히트스캔은 성공한 한 발이며 풀 대여 실패는 실행 실패다. 원점 장애물 보정·치명타·진영·관통·탄퍼짐·투사체의 발사 시점 피해 복사는 기존 Attack/피해/투사체 계층이 처리한다.
 
 대시는 수신과 실행 시 모두 접지·이동 구성·스태미나를 확인한다. Motor의 실제 이동 시작과 스태미나 소모를 함께 확정한 뒤 이벤트를 알린다. 거절은 잔량·회복 지연·이동·성공 이벤트를 바꾸지 않는다. Motor의 공개 TryDash도 SoilderDashAction을 거친다. 실제 이동 완료 시 프레임 내 남은 시간을 반영해 부모 후딜로 넘어가며 마지막 이동·후딜 프레임의 잠금을 유지한다.
 
@@ -201,7 +228,7 @@ Attack의 public TryAttack·선딜·후딜·쿨타임·독립 LateUpdate는 제�
 
 PlayerCombat의 CurrentAmmo/MaxAmmo/IsReloading/ReloadRemaining/CanReload/TryReload/CancelReload는 유지하되 장전 상태와 작업은 SoilderReloadAction에 위임한다. 완료 프레임의 기본 발사는 다음 조준 갱신 이후 재개한다.
 
-공통 PlayerCombat는 IPlayerReloadAction으로 장전 상태를 읽고 PlayerAction으로 시작·취소한다. Motor는 PlayerAction과 슬롯 연결만 사용하며 현재 이동 소유자의 공통 완료/중단 경로를 호출한다. 두 공통 컴포넌트는 Soilder 구체 타입에 의존하지 않는다. Motor 비활성화는 진행 중 이동과 이미 이동이 끝난 후딜 잠금도 해제하고 획득한 쿨타임은 초기화하지 않는다.
+공통 PlayerCombat는 IPlayerReloadAction으로 장전 상태를 읽고 PlayerActionBase으로 시작·취소한다. Motor는 PlayerActionBase과 슬롯 연결만 사용하며 현재 이동 소유자의 공통 완료/중단 경로를 호출한다. 두 공통 컴포넌트는 Soilder 구체 타입에 의존하지 않는다. Motor 비활성화는 진행 중 이동과 이미 이동이 끝난 후딜 잠금도 해제하고 획득한 쿨타임은 초기화하지 않는다.
 
 ## 7. 입력·프레임 순서·이벤트
 
@@ -216,7 +243,7 @@ PlayerCombat의 CurrentAmmo/MaxAmmo/IsReloading/ReloadRemaining/CanReload/TryRel
 | Update 0 / 50 | Motor 실제 이동 / Animation 갱신 |
 | LateUpdate -100 / 75 | Camera 최종 배치 / Aim 상체·총구·IK |
 | LateUpdate 100 | PlayerCombat 명령 소비·배율 준비, ReloadAction 작업 |
-| LateUpdate 110 | PlayerAction 선딜 완료와 Attack 동기 실행 |
+| LateUpdate 110 | PlayerActionBase 선딜 완료와 Attack 동기 실행 |
 
 BeforeMotor 액션은 Controller와 Motor의 단계 진입점에서 처리하되 부모의 프레임 중복 방지로 한 번만 진행한다. Controller가 꺼져도 Motor가 켜져 있으면 이미 시작한 대시는 진행한다.
 
@@ -239,11 +266,11 @@ GetAimPoint는 공격을 사용하는 액션들의 HitMask 합집합을 사용�
 | SampleScene 대시 | 0 | 0.3 | 0 | false | SoilderDashAction. 실제 이동 0.2초 별도 |
 | SampleScene 장전 | 0 | 0 | 0 | false | SoilderReloadAction. 기본 작업 3.3초 별도 |
 
-AttackData 여섯 에셋의 네 필드는 제거했고, 연결 없는 예제의 옛 타이밍은 이 표와 `Logs/PlayerAction_20261030/TimingMigration.json`에 보존했다. 기존 세 Attack·Data·Origin/Muzzle·GUID와 공격 속성은 보존하고 씬에 액션 일곱 개를 추가했다. PlayerAttackBinding의 meta GUID는 PlayerActionBinding으로 이어받았다.
+AttackDataBase 여섯 에셋의 네 필드는 제거했고, 연결 없는 예제의 옛 타이밍은 이 표와 `Logs/PlayerAction_20261030/TimingMigration.json`에 보존했다. 기존 세 Attack·Data·Origin/Muzzle·GUID와 공격 속성은 보존하고 씬에 액션 일곱 개를 추가했다. PlayerAttackBinding의 meta GUID는 PlayerActionBinding으로 이어받았다.
 
-## 9. 앞선 PlayerAction 리팩토링 검증과 남은 작업
+## 9. 앞선 PlayerActionBase 리팩토링 검증과 남은 작업
 
-새 검증 진입점은 `ProjectU.Editor.PlayerActionValidation.Run`, 메뉴는 **ProjectU → Validation → Validate Player Actions**다. 기존 전투 검증은 액션 요청과 공격 효과 검증으로 연결했다. PlayerActionValidationUtility의 타이밍 프리셋은 검증용 액션 구성에만 사용하며 AttackData나 런타임에 타이밍을 되살리지 않는다.
+새 검증 진입점은 `ProjectU.Editor.PlayerActionValidation.Run`, 메뉴는 **ProjectU → Validation → Validate Player Actions**다. 기존 전투 검증은 액션 요청과 공격 효과 검증으로 연결했다. PlayerActionValidationUtility의 타이밍 프리셋은 검증용 액션 구성에만 사용하며 AttackDataBase나 런타임에 타이밍을 되살리지 않는다.
 
 이번 원본 프로젝트의 Unity **6000.3.25f1**에서 다음 9종 검증이 모두 종료 코드 0으로 통과했다. 아래 수치형 검사 **466개**와 애니메이션·스태미나 검증은 이번 직접 실행 결과다.
 
@@ -271,9 +298,9 @@ Skill2·Ultimate 효과와 발동 조건, 실제 줌·버프, 손 투척 지점�
 
 ## 10. 기본 Origin의 Attack 이관 — 2026-10-30
 
-`[SerializeField] Transform origin`과 읽기 전용 Origin 프로퍼티의 원본을 Attack으로 옮겼다. PlayerAttackAction에는 Attack 참조와 요청별 위치 상태를 유지하며, Origin 프로퍼티는 Attack.Origin을 조회한다. PlayerActionBinding도 같은 Attack.Origin을 조회한다. SampleScene의 히트스캔·Bullet·Grenade 세 Attack에 기존 Muzzle(fileID 962656585)을 옮겼고, 액션의 이전 origin 저장값 다섯 개를 제거했다. 피해·시간·배율·GUID·투사체·조준 및 애니메이션 연결은 보존했다.
+`[SerializeField] Transform origin`과 읽기 전용 Origin 프로퍼티의 원본을 Attack으로 옮겼다. PlayerAttackActionBase에는 Attack 참조와 요청별 위치 상태를 유지하며, Origin 프로퍼티는 AttackBase.Origin을 조회한다. PlayerActionBinding도 같은 AttackBase.Origin을 조회한다. SampleScene의 히트스캔·Bullet·Grenade 세 Attack에 기존 Muzzle(fileID 962656585)을 옮겼고, 액션의 이전 origin 저장값 다섯 개를 제거했다. 피해·시간·배율·GUID·투사체·조준 및 애니메이션 연결은 보존했다.
 
-기본 요청은 수락 시 Attack.Origin을 사용한다. Transform을 명시한 요청과 고정 월드 좌표 요청은 해당 요청에만 적용되며 기본 Origin을 변경하지 않는다. 선딜 중 Transform 이동 추적과 삭제 시 실패, 원점 벽 보정은 유지한다. 검증 구성 도구도 Origin을 Attack에 설정하도록 변경했다.
+기본 요청은 수락 시 AttackBase.Origin을 사용한다. Transform을 명시한 요청과 고정 월드 좌표 요청은 해당 요청에만 적용되며 기본 Origin을 변경하지 않는다. 선딜 중 Transform 이동 추적과 삭제 시 실패, 원점 벽 보정은 유지한다. 검증 구성 도구도 Origin을 Attack에 설정하도록 변경했다.
 
 이번 원본 프로젝트의 Unity **6000.3.25f1**에서 다음 검증을 직접 실행했다.
 
@@ -291,7 +318,7 @@ Skill2·Ultimate 효과와 발동 조건, 실제 줌·버프, 손 투척 지점�
 
 ## 11. 공통 접지·이동 조건과 검증용 스킬 — 2026-10-31
 
-PlayerAction에 `requiresGrounded`(기본 false)·`canMove`(기본 true)를 추가했다. Inspector의 Requires Grounded·Can Move로 조절하고 외부에서는 RequiresGrounded·CanMove·BlocksMovement로 읽는다. CanBuffer·CanStart와 선딜 완료의 공통 검사에서 접지 조건을 확인하므로 파생 클래스의 CheckRequirements 구현이 공통 조건을 빠뜨리지 않는다. PlayerMotor.CanDashIgnoringActionLock의 IsGrounded 검사는 제거하고 대시의 RequiresGrounded를 씬에 true로 저장했다. Motor는 접지 상태와 실제 이동을 제공한다.
+PlayerActionBase에 `requiresGrounded`(기본 false)·`canMove`(기본 true)를 추가했다. Inspector의 Requires Grounded·Can Move로 조절하고 외부에서는 RequiresGrounded·CanMove·BlocksMovement로 읽는다. CanBuffer·CanStart와 선딜 완료의 공통 검사에서 접지 조건을 확인하므로 파생 클래스의 CheckRequirements 구현이 공통 조건을 빠뜨리지 않는다. PlayerMotor.CanDashIgnoringActionLock의 IsGrounded 검사는 제거하고 대시의 RequiresGrounded를 씬에 true로 저장했다. Motor는 접지 상태와 실제 이동을 제공한다.
 
 Combatant.IsMovementLocked는 바인딩 없는 액션까지 집계한다. Motor는 일반 이동 속도를 0으로 처리하고 CanJump도 제한하며 중력·충돌·회전은 유지한다. 선딜·Active·후딜·실행 프레임에서 제한하고, 예약 전용 상태·완료·취소·비활성화·사망에는 남아 있는 다른 액션의 잠금만 반영한다. 최종 스킬 효과를 구현할 때도 같은 bool 설정을 사용할 수 있다.
 
@@ -302,7 +329,7 @@ Combatant.IsMovementLocked는 바인딩 없는 액션까지 집계한다. Motor�
 | Dash (Shift) | true | true | 기존 0초 / 0.3초 / 0초 |
 | 기본·보조 발사 / Skill1 / Reload | false | true | 기존 값 유지 |
 
-Skill2·Ultimate는 PlayerAction을 직접 상속한다. 선딜이 끝나 실제 효과를 실행하면 각각 `[Player Action] Skill2 (F): Executed`, `[Player Action] Ultimate (Q): Executed`를 한 번 출력하고 ActionExecuted를 알린다. AttackExecuted·피해·탄약 소모는 없고, 수락 시 장전 취소는 유지한다. 실전 스킬 효과·궁극기 자원·전용 애니메이션은 후속 작업이다. 기존 다섯 공격 슬롯 회귀 검증에는 별도의 에디터 전용 PlayerActionAttackProbe를 사용해 검증용 스킬과 분리했다.
+Skill2·Ultimate는 PlayerActionBase을 직접 상속한다. 선딜이 끝나 실제 효과를 실행하면 각각 `[Player Action] Skill2 (F): Executed`, `[Player Action] Ultimate (Q): Executed`를 한 번 출력하고 ActionExecuted를 알린다. AttackExecuted·피해·탄약 소모는 없고, 수락 시 장전 취소는 유지한다. 실전 스킬 효과·궁극기 자원·전용 애니메이션은 후속 작업이다. 기존 다섯 공격 슬롯 회귀 검증에는 별도의 에디터 전용 PlayerActionAttackProbe를 사용해 검증용 스킬과 분리했다.
 
 이번 원본 프로젝트에서 Unity **6000.3.25f1**로 다음 검증을 직접 실행했다. 9·10절의 이전 결과와 별도다.
 
@@ -323,11 +350,11 @@ Skill2·Ultimate는 PlayerAction을 직접 상속한다. 선딜이 끝나 실제
 
 ## 12. 2026-11-01 공통 ActionBase와 적 액션
 
-공통 시간·생명주기·접지 자격·이동 제한·취소·이벤트를 ActionBase로 옮겼다. PlayerAction과 EnemyAction은 공통 부모를 직접 상속한다. 기존 직렬화 필드명과 플레이어 스크립트 GUID·씬 바인딩을 보존하고, repeatWhileHeld는 PlayerAction에 유지했다. 선입력 저장소·PlayerActionSlot·PlayerActionStage와 조준 이후 실행 순서는 플레이어 계열의 책임이다.
+공통 시간·생명주기·접지 자격·이동 제한·취소·이벤트를 ActionBase로 옮겼다. PlayerActionBase과 EnemyActionBase은 공통 부모를 직접 상속한다. 기존 직렬화 필드명과 플레이어 스크립트 GUID·씬 바인딩을 보존하고, repeatWhileHeld는 PlayerActionBase에 유지했다. 선입력 저장소·PlayerActionSlot·PlayerActionStage와 조준 이후 실행 순서는 플레이어 계열의 책임이다.
 
-공통 타입 이름은 ActionContext·ActionPhase·ActionResult·ActionCancelReason으로 정리했다. Combatant는 ActionBase 목록으로 잠금을 집계하고 PlayerAction의 슬롯별 허용 정책을 연결한다. Attack.TryExecute는 ActionBase의 소유자와 효과 실행 중 여부를 검사한다. 적 액션에도 플레이어 컴포넌트나 슬롯을 요구하지 않는다.
+공통 타입 이름은 ActionContext·ActionPhase·ActionResult·ActionCancelReason으로 정리했다. Combatant는 ActionBase 목록으로 잠금을 집계하고 PlayerActionBase의 슬롯별 허용 정책을 연결한다. AttackBase.TryExecute는 ActionBase의 소유자와 효과 실행 중 여부를 검사한다. 적 액션에도 플레이어 컴포넌트나 슬롯을 요구하지 않는다.
 
-EnemyCombat은 액션을 선택하고 요청하며 타이머를 복제하지 않는다. EnemyAttackAction은 Melee/Hitscan/ProjectileAttack을 참조하는 공통 어댑터다. 공격 없는 지속 행동도 EnemyAction에서 Running·TickActive·FinishActive·Cleanup을 사용한다. 현재 TempEnemy와 상태·NavMesh·사망 수명 및 새 적 작성 방법은 [Enemy.md](Enemy.md)를 참고한다.
+EnemyCombat은 액션을 선택하고 요청하며 타이머를 복제하지 않는다. EnemyAttackAction은 Melee/Hitscan/ProjectileAttack을 참조하는 공통 어댑터다. 공격 없는 지속 행동도 EnemyActionBase에서 Running·TickActive·FinishActive·Cleanup을 사용한다. 현재 TempEnemy와 상태·NavMesh·사망 수명 및 새 적 작성 방법은 [Enemy.md](Enemy.md)를 참고한다.
 
 이번 직접 실행 결과는 `Logs/Enemy_20261101/RegressionResults.json`과 각 검증 로그에 기록하며, 이전 절의 날짜별 결과와 구분한다. 기존 플레이어 검증은 데모 적만 실행 중 비활성화하고, 적과 실제 플레이어의 상호 피해·사망은 EnemyValidation에서 검증한다.
 

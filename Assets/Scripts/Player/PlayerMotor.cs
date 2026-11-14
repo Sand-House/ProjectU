@@ -29,7 +29,7 @@ namespace ProjectU
         private Vector3 dashDirection;
         private float dashSpeed;
         private float dashRemaining;
-        private PlayerAction movementAction;
+        private PlayerActionBase movementAction;
         private PlayerCombat combat;
         private PlayerStageSubscription stageEvents;
         private PlayerStageSubscription StageEvents => stageEvents ?? (stageEvents = new PlayerStageSubscription(
@@ -42,14 +42,14 @@ namespace ProjectU
             if (StageEvents.IsCurrent(state) && state != StageState.OnStage) ResetMovementState();
         }
         private void HandleGameplayEnabledChanged(bool enabled) { if (!enabled) ResetMovementState(); }
-        private PlayerAction DashAction
+        private PlayerActionBase DashAction
         {
             get
             {
                 if (combat == null) combat = GetComponent<PlayerCombat>();
-                PlayerAction bound = combat != null ? combat.GetAction(PlayerActionSlot.Dash) : null;
+                PlayerActionBase bound = combat != null ? combat.GetAction(PlayerActionSlot.Dash) : null;
                 if (bound != null) return bound;
-                foreach (PlayerAction action in GetComponents<PlayerAction>())
+                foreach (PlayerActionBase action in GetComponents<PlayerActionBase>())
                     if (action.Slot == PlayerActionSlot.Dash) return action;
                 return null;
             }
@@ -107,7 +107,7 @@ namespace ProjectU
         public bool TryDash(Vector3 worldDirection)
             => DashAction != null && DashAction.TryStart(ActionContext.Move(worldDirection));
 
-        internal bool BeginDashMovement(PlayerAction action, Vector3 worldDirection)
+        internal bool BeginDashMovement(PlayerActionBase action, Vector3 worldDirection)
         {
             worldDirection.y = 0f;
             if (action == null || !action.IsExecuting || action.gameObject != gameObject ||
@@ -178,7 +178,7 @@ namespace ProjectU
             HorizontalVelocity = Vector3.zero;
             dashRemaining = 0f;
             movementAction?.CancelFromDependency();
-            PlayerAction dash = DashAction;
+            PlayerActionBase dash = DashAction;
             if (dash != movementAction) dash?.CancelFromDependency();
             ClearCommands();
         }
@@ -189,7 +189,7 @@ namespace ProjectU
         {
             jumpHeight = Mathf.Max(0f, jumpHeight);
             gravity = Mathf.Max(0.1f, gravity);
-            dashDuration = AttackData.FiniteAtLeast(dashDuration, 0.01f);
+            dashDuration = AttackDataBase.FiniteAtLeast(dashDuration, 0.01f);
         }
 
         private static bool IsPositiveFinite(float value) => value > 0f && !float.IsInfinity(value);

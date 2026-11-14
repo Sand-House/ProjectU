@@ -56,10 +56,10 @@ namespace ProjectU
         private void OnEnable() => nextScan = 0d;
         private void OnValidate()
         {
-            viewDistance = AttackData.FiniteAtLeast(viewDistance, 0f);
-            viewAngle = Mathf.Clamp(AttackData.FiniteAtLeast(viewAngle, 0f), 0f, 360f);
-            scanInterval = AttackData.FiniteAtLeast(scanInterval, 0.02f);
-            if (!AttackData.IsFinite(eyeOffset)) eyeOffset = Vector3.up * 1.5f;
+            viewDistance = AttackDataBase.FiniteAtLeast(viewDistance, 0f);
+            viewAngle = Mathf.Clamp(AttackDataBase.FiniteAtLeast(viewAngle, 0f), 0f, 360f);
+            scanInterval = AttackDataBase.FiniteAtLeast(scanInterval, 0.02f);
+            if (!AttackDataBase.IsFinite(eyeOffset)) eyeOffset = Vector3.up * 1.5f;
         }
         private void OnDrawGizmosSelected()
         {

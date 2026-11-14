@@ -2429,7 +2429,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b24310faed979b0459a5e117d7abad17, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.PlayerAnimation
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectU.SoilderAnimation
   animator: {fileID: 220890195}
   movementDampTime: 0.08
 --- !u!114 &1295477702

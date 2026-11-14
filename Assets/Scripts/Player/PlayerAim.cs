@@ -4,7 +4,7 @@ namespace ProjectU
 {
     // Runs after camera and Animator, before Launcher requests attacks and Attack executes.
     [DefaultExecutionOrder(75)]
-    [RequireComponent(typeof(PlayerAnimation), typeof(PlayerCombat))]
+    [RequireComponent(typeof(PlayerCombat))]
     public sealed class PlayerAim : MonoBehaviour
     {
         [SerializeField] private Animator animator;
@@ -19,7 +19,7 @@ namespace ProjectU
         [SerializeField, Tooltip("Weapon grip position relative to the camera at full ADS. The existing iron sight sits above this grip.")]
         private Vector3 aimWeaponPosition = new Vector3(0f, -0.16f, 0.35f);
 
-        private PlayerAnimation animationController;
+        private PlayerAnimationBase animationController;
         private PlayerCombat launcher;
         private PlayerCamera playerCamera;
         private Transform spine;
@@ -36,10 +36,11 @@ namespace ProjectU
 
         private void Awake()
         {
-            animationController = GetComponent<PlayerAnimation>();
+            animationController = GetComponent<PlayerAnimationBase>();
             launcher = GetComponent<PlayerCombat>();
             playerCamera = launcher.AimCamera != null ? launcher.AimCamera.GetComponent<PlayerCamera>() : null;
-            if (animator == null || !animator.isHuman || weapon == null || leftGrip == null || muzzle == null)
+            if (animationController == null || animator == null || !animator.isHuman ||
+                weapon == null || leftGrip == null || muzzle == null)
             {
                 FailConfiguration();
                 return;
@@ -59,7 +60,7 @@ namespace ProjectU
 
         private void FailConfiguration()
         {
-            Debug.LogError("PlayerAim requires Humanoid bones, a weapon, a left grip and a muzzle.", this);
+            Debug.LogError("PlayerAim requires PlayerAnimationBase, Humanoid bones, a weapon, a left grip and a muzzle.", this);
             enabled = false;
         }
 
@@ -68,7 +69,7 @@ namespace ProjectU
             if (Time.deltaTime <= 0f)
                 return;
             AimPoint = launcher.GetAimPoint();
-            bool aim = !animationController.IsThrowingGrenade && !animationController.IsReloading;
+            bool aim = animationController.CanApplyAimPose;
             if (aim)
             {
                 Vector3 bodyDirection = AimPoint - chest.position;
@@ -116,7 +117,7 @@ namespace ProjectU
 
         private void OnValidate()
         {
-            if (!AttackData.IsFinite(aimWeaponPosition)) aimWeaponPosition = new Vector3(0f, -0.16f, 0.35f);
+            if (!AttackDataBase.IsFinite(aimWeaponPosition)) aimWeaponPosition = new Vector3(0f, -0.16f, 0.35f);
         }
 
         private void SolveArm(Transform upperArm, Transform forearm, Transform hand,

@@ -40,7 +40,7 @@ namespace ProjectU.Editor
     }
 
     // An attack-free, nonblocking held action exercises the extension contract.
-    public sealed class PlayerActionHoldProbe : PlayerAction
+    public sealed class PlayerActionHoldProbe : PlayerActionBase
     {
         public override PlayerActionSlot Slot => PlayerActionSlot.Skill2;
         public PlayerActionStage ExecutionStage { get; set; } = PlayerActionStage.AfterAim;
@@ -60,7 +60,7 @@ namespace ProjectU.Editor
     }
 
     // A non-ADS stance on an ordinary skill slot exercises generic input routing.
-    public sealed class PlayerActionStanceProbe : PlayerAction
+    public sealed class PlayerActionStanceProbe : PlayerActionBase
     {
         public override PlayerActionSlot Slot => PlayerActionSlot.Skill1;
         public override PlayerActionStage Stage => PlayerActionStage.BeforeMotor;
@@ -76,7 +76,7 @@ namespace ProjectU.Editor
     }
 
     // Selective blocking must not turn every action into an exclusive current action.
-    public sealed class PlayerActionSelectiveProbe : PlayerAction
+    public sealed class PlayerActionSelectiveProbe : PlayerActionBase
     {
         public override PlayerActionSlot Slot => PlayerActionSlot.Ultimate;
         protected override bool BlocksCore(PlayerActionSlot slot) => slot == PlayerActionSlot.Skill1;
@@ -91,7 +91,7 @@ namespace ProjectU.Editor
         private PlayerInputReader input;
         private PlayerController controller;
         private PlayerCombat combat;
-        private PlayerAttackAction primary;
+        private PlayerAttackActionBase primary;
         private PlayerActionHoldProbe hold;
         private bool primaryPress, holdPress, holdHeld, holdRelease;
         private int extraPressed, extraHeld;
@@ -129,7 +129,7 @@ namespace ProjectU.Editor
             input = UnityEngine.Object.FindFirstObjectByType<PlayerInputReader>();
             controller = input.GetComponent<PlayerController>();
             combat = input.GetComponent<PlayerCombat>();
-            primary = (PlayerAttackAction)combat.GetAction(PlayerActionSlot.PrimaryFire);
+            primary = (PlayerAttackActionBase)combat.GetAction(PlayerActionSlot.PrimaryFire);
             controller.enabled = false;
             Check(combat.ActionBindings.Count == 7, "saved scene binds seven action slots");
             string[] names = { "SoilderPrimaryFireAction", "SoilderSecondaryFireAction", "SoilderSkill1Action",
@@ -138,13 +138,13 @@ namespace ProjectU.Editor
                 Check(combat.GetAction((PlayerActionSlot)index).GetType().Name == names[index], names[index] + " is wired");
             foreach (string field in new[] { "windupTime", "recoveryTime", "cooldown", "repeatWhileHeld" })
             {
-                Check(typeof(AttackData).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic) == null,
+                Check(typeof(AttackDataBase).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic) == null,
                     field + " removed from attack data");
-                Type fieldOwner = field == "repeatWhileHeld" ? typeof(PlayerAction) : typeof(ActionBase);
+                Type fieldOwner = field == "repeatWhileHeld" ? typeof(PlayerActionBase) : typeof(ActionBase);
                 Check(fieldOwner.GetField(field, BindingFlags.Instance | BindingFlags.NonPublic) != null,
                     field + " belongs to " + fieldOwner.Name);
             }
-            Check(typeof(Attack).GetMethod("TryAttack") == null && typeof(Attack).GetMethod("LateUpdate",
+            Check(typeof(AttackBase).GetMethod("TryAttack") == null && typeof(AttackBase).GetMethod("LateUpdate",
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) == null,
                 "attack has no public scheduling API or independent timer loop");
             Check(combat.GetAction(PlayerActionSlot.Skill2) is SoilderSkill2Action &&
@@ -393,7 +393,7 @@ namespace ProjectU.Editor
             yield return new WaitForSeconds(0.25f);
 
             PlayerActionValidationUtility.UseSecondaryAttackFixture(combat);
-            PlayerAction secondary = combat.GetAction(PlayerActionSlot.SecondaryFire);
+            PlayerActionBase secondary = combat.GetAction(PlayerActionSlot.SecondaryFire);
             PlayerActionValidationUtility.Set(secondary, "repeatWhileHeld", false);
             int secondaryExecutions = 0;
             Action secondaryListener = () => secondaryExecutions++;

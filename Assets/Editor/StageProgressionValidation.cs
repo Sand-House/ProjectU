@@ -136,10 +136,10 @@ namespace ProjectU.Editor
             var stageHandlers = ((Delegate)typeof(GameManager).GetField("OnStageStateChanged", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(game)).GetInvocationList();
             var stageTargets = stageHandlers.Select(handler => handler.Target).ToArray();
             Check(stageTargets.Contains(player.GetComponent<PlayerController>()) && stageTargets.Contains(player.GetComponent<PlayerMotor>()) &&
-                stageTargets.Contains(player.GetComponent<PlayerCombat>()) && stageTargets.Contains(player.GetComponent<PlayerAnimation>()) &&
+                stageTargets.Contains(player.GetComponent<PlayerCombat>()) && stageTargets.Contains(player.GetComponent<PlayerAnimationBase>()) &&
                 stageTargets.Contains(player.GetComponent<PlayerInputReader>()) && stageTargets.Contains(player),
                 "player components subscribe their own handlers directly to the stage event");
-            Check(player.GetComponents<PlayerAction>().All(action => stageTargets.Contains(action)),
+            Check(player.GetComponents<PlayerActionBase>().All(action => stageTargets.Contains(action)),
                 "each player action owns its own stage reset subscription");
             int protectedHP = health.HP;
             health.TakeDamage(int.MaxValue, null);
@@ -286,7 +286,7 @@ namespace ProjectU.Editor
             for (int frame = 0; frame < 40 && combat.GetAction(PlayerActionSlot.PrimaryFire).IsActive; frame++) yield return null;
             Check(combat.TryReload() && combat.IsReloading, "reload is active when stage clears");
             ProjectilePool pool = FindFirstObjectByType<ProjectilePool>();
-            Projectile prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Projectiles/Grenade.prefab").GetComponent<Projectile>();
+            ProjectileBase prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Projectiles/Grenade.prefab").GetComponent<ProjectileBase>();
             Check(pool.Spawn(prefab, player.gameObject, new Vector3(0f, 8f, 0f), Vector3.up) != null, "hazard exists before stage cleanup");
             health.IsInvincible = false;
             health.TakeDamage(37, null);
@@ -471,7 +471,7 @@ namespace ProjectU.Editor
             Check(combat.TryStartAction(PlayerActionSlot.Skill1), "fixture earns a real grenade cooldown");
             for (int frame = 0; frame < 3; frame++) yield return null;
             Check(grenade.CooldownRemaining > 0f, "cooldown exists before action unsubscribe");
-            PlayerAnimation animation = player.GetComponent<PlayerAnimation>();
+            PlayerAnimationBase animation = player.GetComponent<PlayerAnimationBase>();
             animation.enabled = false;
             grenade.enabled = false;
             foreach (EnemyAI enemy in Enemies()) enemy.GetComponent<Mortal>().Dead();

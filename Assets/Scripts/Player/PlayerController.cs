@@ -153,13 +153,13 @@ namespace ProjectU
 
         private bool CanKeepBufferedAction()
         {
-            PlayerAction action = combat != null && combat.isActiveAndEnabled ? combat.GetAction(bufferedAction) : null;
+            PlayerActionBase action = combat != null && combat.isActiveAndEnabled ? combat.GetAction(bufferedAction) : null;
             return action != null && !action.RequiresHeldInput && !combat.IsBufferBlocked(bufferedAction);
         }
 
         private bool CanAcceptAction(PlayerActionSlot slot)
         {
-            PlayerAction action = combat != null ? combat.GetAction(slot) : null;
+            PlayerActionBase action = combat != null ? combat.GetAction(slot) : null;
             return action != null && !action.RequiresHeldInput && combat.CanBuffer(slot);
         }
         private bool WantsRepeat(PlayerActionBinding binding) => binding != null && binding.Action != null &&
@@ -187,6 +187,6 @@ namespace ProjectU
         private void OnDisable() { stageEvents?.Disable(); ClearActions(); }
         private void OnApplicationFocus(bool focused) { if (!focused) ClearActions(); }
 
-        private void OnValidate() => maxInputBufferTime = AttackData.FiniteAtLeast(maxInputBufferTime, 0f);
+        private void OnValidate() => maxInputBufferTime = AttackDataBase.FiniteAtLeast(maxInputBufferTime, 0f);
     }
 }

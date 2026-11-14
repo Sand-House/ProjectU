@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace ProjectU
 {
-    public sealed class HitscanAttack : Attack
+    public sealed class HitscanAttack : AttackBase
     {
         [SerializeField] private HitscanAttackData data;
         [Header("Debug")]
@@ -15,7 +15,7 @@ namespace ProjectU
         private double lastShotAt = double.NegativeInfinity;
         private float spreadAngleMultiplier = 1f;
 
-        public override AttackData Data => data;
+        public override AttackDataBase Data => data;
         public int ConsecutiveShots => data == null || Time.timeAsDouble - lastShotAt >= data.SpreadResetDelay ? 0 : consecutiveShots;
         public Vector3 LastShotDirection { get; private set; }
         public Vector3 LastShotEndPoint { get; private set; }
@@ -24,7 +24,7 @@ namespace ProjectU
         public float SpreadAngleMultiplier
         {
             get => spreadAngleMultiplier;
-            set => spreadAngleMultiplier = Mathf.Clamp01(AttackData.FiniteAtLeast(value, 0f));
+            set => spreadAngleMultiplier = Mathf.Clamp01(AttackDataBase.FiniteAtLeast(value, 0f));
         }
 
         protected override bool ExecuteAttack(Vector3 origin, Vector3 direction, in DamageContext context)
@@ -48,7 +48,7 @@ namespace ProjectU
             Vector3 endPoint = origin + direction * data.MaxDistance;
             foreach (RaycastHit hit in hits)
             {
-                if (hit.collider.GetComponentInParent<Projectile>() != null) continue;
+                if (hit.collider.GetComponentInParent<ProjectileBase>() != null) continue;
                 if (Hitbox.TryResolve(hit.collider, out Combatant target, out bool critical))
                 {
                     if (!context.CanHit(target) || !visited.Add(target)) continue;

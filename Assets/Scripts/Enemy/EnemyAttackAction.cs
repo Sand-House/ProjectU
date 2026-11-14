@@ -3,9 +3,9 @@ using UnityEngine;
 namespace ProjectU
 {
     // The same adapter accepts melee, hitscan and projectile executors.
-    public class EnemyAttackAction : EnemyAction
+    public class EnemyAttackAction : EnemyActionBase
     {
-        [SerializeField] private Attack attack;
+        [SerializeField] private AttackBase attack;
         [SerializeField, Min(0f)] private float damageMultiplier = 1f;
         [SerializeField, Min(0.1f), Tooltip("Used by ranged attacks. Melee reads its actual attack volume.")]
         private float attackDistance = 10f;
@@ -13,7 +13,7 @@ namespace ProjectU
         [SerializeField] private LayerMask obstructionMask = ~0;
         private Vector3 committedDirection;
         private EnemyStat stat;
-        public Attack Attack => attack;
+        public AttackBase Attack => attack;
         public override bool IsAttackAction => true;
 
         protected virtual void Awake()
@@ -55,9 +55,9 @@ namespace ProjectU
         protected override void OnValidate()
         {
             base.OnValidate();
-            damageMultiplier = AttackData.FiniteAtLeast(damageMultiplier, 0f);
-            attackDistance = AttackData.FiniteAtLeast(attackDistance, 0.1f);
-            facingTolerance = Mathf.Clamp(AttackData.FiniteAtLeast(facingTolerance, 0f), 0f, 180f);
+            damageMultiplier = AttackDataBase.FiniteAtLeast(damageMultiplier, 0f);
+            attackDistance = AttackDataBase.FiniteAtLeast(attackDistance, 0.1f);
+            facingTolerance = Mathf.Clamp(AttackDataBase.FiniteAtLeast(facingTolerance, 0f), 0f, 180f);
         }
     }
 }

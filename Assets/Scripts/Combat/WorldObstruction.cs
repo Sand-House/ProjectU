@@ -18,6 +18,6 @@ namespace ProjectU
 
         private static bool IsWorld(Collider collider)
             => collider != null && !Hitbox.TryResolve(collider, out _, out _) &&
-                collider.GetComponentInParent<Projectile>() == null;
+                collider.GetComponentInParent<ProjectileBase>() == null;
     }
 }

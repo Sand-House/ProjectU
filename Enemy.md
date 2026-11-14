@@ -1,5 +1,7 @@
 # Enemy 구현 가이드
 
+2026-11-13 추상 부모 이름 통일: EnemyAction은 EnemyActionBase로, 공통 공격/데이터/투사체 부모는 AttackBase·AttackDataBase·ProjectileBase로 변경했다. ActionBase와 EnemyStateBase는 유지한다. EnemyAttackAction 등 구체 클래스와 기존 프리팹·씬·meta GUID·저장된 설정을 보존했다. 전체 변경표는 [PlayerAction 설계.md](PlayerAction%20설계.md)의 추상 클래스 Base 접미사 통일 절, 이번 검증은 Logs/BaseClassNaming_20261113/을 따른다.
+
 기준 날짜: **2026-11-06, 스테이지 진행 연결**. 이 문서는 현재 실행 코드·프리팹·SampleScene을 기준으로 적의 능력치, 상태, 행동, 이동, 공격, 사망과 새 적 추가 방법을 설명한다. 검증 결과는 11절, 스폰 구조 요약은 13절, 상세 규칙과 데이터 작성법은 [스폰 규칙.md](스폰%20규칙.md), 진행 클래스의 책임은 [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md)에 기록한다.
 
 2026-11-06 직접 회귀: EnemyValidation 95개·EnemySpawnerValidation 90개·StageDataDictionaryValidation 42개를 다시 종료 코드 0으로 확인했다. 새 진행·자동 시작·전체 전투 회귀와 플레이어 컴파일 결과는 [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md) 10절 및 `Logs/StageProgression_20261106/`에 기록하며 이전 날짜 결과에 합산하지 않는다.
@@ -11,7 +13,7 @@
 - 최대 HP·이동속도·공격력 배율·공격속도 배율은 `EnemyStatData` ScriptableObject에서 설정한다. `EnemyStat`이 생성 시 값을 복사해 적용하며 현재 HP는 적마다 Mortal이 관리한다.
 - 시각 감지 또는 실제 피격으로 플레이어를 인식하고, NavMesh로 추격한 뒤 근접 피해를 준다.
 - `Mortal`의 HP가 소진되면 `OnDead`에서 Dead 상태로 전환하고 `Destroy(gameObject)`를 호출한다. 실제 제거는 Unity의 프레임 종료 시점에 일어난다.
-- 플레이어·적은 `ActionBase`의 행동 생명주기를 공유한다. 공격 종류는 `Attack` 컴포넌트로 지정한다.
+- 플레이어·적은 `ActionBase`의 행동 생명주기를 공유한다. 공격 종류는 `AttackBase` 컴포넌트로 지정한다.
 - 적 전용 애니메이션, 수색·귀환, 보스 패턴과 돌진형 적은 아직 구현하지 않았다.
 
 ## 2. 파일과 책임
@@ -36,7 +38,7 @@
 | `Assets/Scripts/Enemy/EnemySensor.cs` | 시야 거리·수평 시야각·장애물 검사, 플레이어 후보 참조 |
 | `Assets/Scripts/Enemy/EnemyMotor.cs` | NavMeshAgent의 목적지·정지·회전, 접지와 경로 조회 |
 | `Assets/Scripts/Enemy/EnemyCombat.cs` | 액션 목록·우선순위·시작 요청·취소. 타이머는 보유하지 않음 |
-| `Assets/Scripts/Enemy/EnemyAction.cs` | 적 전용 실행 조건·대상·Motor/Combat 연결, 대상 무효화 처리 |
+| `Assets/Scripts/Enemy/EnemyActionBase.cs` | 적 전용 실행 조건·대상·Motor/Combat 연결, 대상 무효화 처리 |
 | `Assets/Scripts/Enemy/EnemyAttackAction.cs` | Attack 참조·공격 가능 위치·방향·피해 배율과 실행 |
 | `Assets/Scripts/Enemy/States/EnemyStateBase.cs` | 네 상태의 추상 부모, `Enter / Tick / Exit` 계약 |
 | 같은 폴더의 `EnemyIdleState / EnemyChaseState / EnemyCombatState / EnemyDeadState` | 상태별 실제 행동 |
@@ -62,7 +64,7 @@ Project 창에서 `Create > ProjectU > Enemy > Stat Data`로 에셋을 만들고
 | Attack Multiplier | 1 | 각 EnemyAttackAction의 피해 배율에 추가로 곱함 |
 | Attack Speed | 1 | 각 EnemyAttackAction의 선딜·후딜·쿨타임을 나누는 배율 |
 
-최대 HP는 최소 1, 이동속도·공격력 배율은 최소 0, 공격속도 배율은 최소 0.01이다. 음수와 NaN·Infinity는 각 최소값으로 보정한다. 에셋에는 현재 HP·대상·쿨타임 등의 실행 상태를 저장하지 않는다. 공격의 기본 피해·범위·투사체 설정은 AttackData, 기본 타이밍은 액션, 가속도·반경·정지 거리는 NavMeshAgent, 회전 속도는 EnemyMotor, 시야 설정은 EnemySensor에서 관리한다.
+최대 HP는 최소 1, 이동속도·공격력 배율은 최소 0, 공격속도 배율은 최소 0.01이다. 음수와 NaN·Infinity는 각 최소값으로 보정한다. 에셋에는 현재 HP·대상·쿨타임 등의 실행 상태를 저장하지 않는다. 공격의 기본 피해·범위·투사체 설정은 AttackDataBase, 기본 타이밍은 액션, 가속도·반경·정지 거리는 NavMeshAgent, 회전 속도는 EnemyMotor, 시야 설정은 EnemySensor에서 관리한다.
 
 `EnemyStat.Awake`는 실행 순서 -150으로 AI·공격 액션보다 먼저 데이터를 각 인스턴스의 읽기 전용 속성에 복사한다. 에셋 또는 Data 참조를 실행 중 바꿔도 이미 생성한 적에는 재적용하지 않는다. 이후 생성한 적부터 변경값을 사용한다. 오브젝트나 컴포넌트를 껐다 켜도 현재 HP를 회복하거나 사망 상태를 되돌리지 않는다. 런타임 강화·감속·웨이브 배율과 풀 재생성 API는 후속 작업이다.
 
@@ -132,14 +134,14 @@ Player를 움직이지 않는 검증 외에는 기존 PlayerMotor가 플레이�
 
 ```text
 ActionBase : MonoBehaviour
-├─ PlayerAction
-│  ├─ PlayerAttackAction → 기존 Soilder 기본·보조 발사·Skill1
+├─ PlayerActionBase
+│  ├─ PlayerAttackActionBase → 기존 Soilder 기본·보조 발사·Skill1
 │  └─ 기존 Soilder Skill2·Ultimate·Dash·Reload
-└─ EnemyAction
+└─ EnemyActionBase
    └─ EnemyAttackAction → 연결한 MeleeAttack / HitscanAttack / ProjectileAttack
 ```
 
-ActionBase에 `windupTime / recoveryTime / cooldown / requiresGrounded / canMove`를 저장한다. 공통 시간·상태는 이곳에만 있다. `repeatWhileHeld`, PlayerActionSlot, 선입력 자격, 버튼 해제, 플레이어 실행 단계는 PlayerAction에 남아 있다.
+ActionBase에 `windupTime / recoveryTime / cooldown / requiresGrounded / canMove`를 저장한다. 공통 시간·상태는 이곳에만 있다. `repeatWhileHeld`, PlayerActionSlot, 선입력 자격, 버튼 해제, 플레이어 실행 단계는 PlayerActionBase에 남아 있다.
 
 공통 상태는 `Ready → Windup → Active(선택적) → Recovery → Ready`다. 실제 효과 실행은 `ExecuteCore(in ActionContext)`가 담당하고 다음 중 하나를 반환한다.
 
@@ -151,19 +153,19 @@ ActionBase에 `windupTime / recoveryTime / cooldown / requiresGrounded / canMove
 
 `ActionContext`에는 실행 위치·Transform·조준점·방향·대상 참조를 전달한다. 플레이어 입력 스냅샷이나 AI 상태를 저장하지 않는다. `CanStartWithContext`는 조회, `TryStart`는 최종 조건 검사와 수락, `Cancel`은 선딜·Active 중단이다. 의존 컴포넌트 중단·사망에서는 후딜 잠금까지 정리한다. 획득한 쿨타임은 취소로 초기화하지 않는다.
 
-`OnStarted / OnExecuted / OnCompleted / OnFailed / OnCancelled`를 제공한다. Attack이 없는 행동도 이 이벤트를 사용한다. `Combatant`는 같은 오브젝트의 모든 ActionBase를 모아 이동·행동 제한을 집계하고, 플레이어 슬롯별 제한은 PlayerAction에서 해석한다.
+`OnStarted / OnExecuted / OnCompleted / OnFailed / OnCancelled`를 제공한다. Attack이 없는 행동도 이 이벤트를 사용한다. `Combatant`는 같은 오브젝트의 모든 ActionBase를 모아 이동·행동 제한을 집계하고, 플레이어 슬롯별 제한은 PlayerActionBase에서 해석한다.
 
-플레이어의 기존 실행 순서를 유지한다. 적은 EnemyAI Update 80 → EnemyMotor Update 90에서 선택·이동을 요청하고 EnemyAction LateUpdate 110에서 액션을 진행한다. PlayerAction의 BeforeMotor·CombatLateUpdate·AfterAim 구분은 공통 부모에 플레이어 의존성을 만들지 않고 PlayerAction에서 처리한다.
+플레이어의 기존 실행 순서를 유지한다. 적은 EnemyAI Update 80 → EnemyMotor Update 90에서 선택·이동을 요청하고 EnemyActionBase LateUpdate 110에서 액션을 진행한다. PlayerActionBase의 BeforeMotor·CombatLateUpdate·AfterAim 구분은 공통 부모에 플레이어 의존성을 만들지 않고 PlayerActionBase에서 처리한다.
 
 ## 7. 적 액션 선택과 공격
 
 EnemyCombat의 `Actions` 배열은 위에서부터 우선순위다. `TryStartAvailable(target)`는 현재 실행 가능한 첫 액션을 시작한다. 같은 적의 다른 액션이 제한 중이면 시작하지 않는다. 같은 액션·Attack 실행기를 배열에 중복 연결하거나 다른 오브젝트의 액션을 연결하면 구성을 거절한다.
 
-EnemyAction은 `ActionBase`를 직접 상속하며 `CanStartFor(target) / TryStartFor(target) / IsInPosition(target)`를 제공한다. EnemyCombat은 시간 계산을 하지 않는다. 타이밍과 정리는 해당 액션 및 ActionBase의 책임이다.
+EnemyActionBase은 `ActionBase`를 직접 상속하며 `CanStartFor(target) / TryStartFor(target) / IsInPosition(target)`를 제공한다. EnemyCombat은 시간 계산을 하지 않는다. 타이밍과 정리는 해당 액션 및 ActionBase의 책임이다.
 
 EnemyAttackAction의 Attack 필드에는 세 공격 종류를 모두 연결할 수 있다.
 
-EnemyStat이 있는 적은 `AttackData.Damage × EnemyStat.AttackMultiplier × EnemyAttackAction.damageMultiplier`를 피해 계산에 전달한다. 치명타와 정수 반올림은 기존 DamageResolver 규칙을 따른다. `EnemyStat.AttackSpeed`는 공격 액션의 `SpeedMultiplier`에 적용한다. 예를 들어 2이면 기본 선딜 0.5초·후딜 0.8초·쿨타임 1.2초가 각각 0.25초·0.4초·0.6초가 된다. 공격 없는 EnemyAction에는 공격속도를 적용하지 않는다. EnemyStat 없이 단독 사용하는 공격 어댑터는 기존 배율 1을 사용한다.
+EnemyStat이 있는 적은 `AttackDataBase.Damage × EnemyStat.AttackMultiplier × EnemyAttackAction.damageMultiplier`를 피해 계산에 전달한다. 치명타와 정수 반올림은 기존 DamageResolver 규칙을 따른다. `EnemyStat.AttackSpeed`는 공격 액션의 `SpeedMultiplier`에 적용한다. 예를 들어 2이면 기본 선딜 0.5초·후딜 0.8초·쿨타임 1.2초가 각각 0.25초·0.4초·0.6초가 된다. 공격 없는 EnemyActionBase에는 공격속도를 적용하지 않는다. EnemyStat 없이 단독 사용하는 공격 어댑터는 기존 배율 1을 사용한다.
 
 | 연결한 공격 | 시작 위치 판정 | 실행 |
 |---|---|---|
@@ -173,9 +175,9 @@ EnemyStat이 있는 적은 `AttackData.Damage × EnemyStat.AttackMultiplier × E
 
 근접 공격은 시작할 때 사거리 안이었어도 선딜 중 피할 수 있다. 타격 시점에 고정된 방향의 실제 범위에 없는 대상은 맞지 않으며 후딜은 진행한다. 대상 자체가 사망·삭제·비활성화되면 대기 행동을 취소한다. 타격 한 번으로 여러 Collider가 같은 유닛을 중복 타격하지 않는다.
 
-현재 TempEnemy는 `StrikerMeleeAttack.asset`을 사용한다. **피해 15·반경 2m·전방 90도·높이 2m·OriginOffset (0,1,0)**이며 Attack.Origin은 적 루트다. 액션의 **선딜 0.5초·후딜 0.8초·쿨타임 1.2초·접지 필요·이동 금지**를 저장했다. Damage Multiplier는 1이다. 범위와 정지 거리는 다른 설정이므로, 정지 거리가 실제 공격 가능 거리보다 길면 접근 후 공격하지 못할 수 있다.
+현재 TempEnemy는 `StrikerMeleeAttack.asset`을 사용한다. **피해 15·반경 2m·전방 90도·높이 2m·OriginOffset (0,1,0)**이며 AttackBase.Origin은 적 루트다. 액션의 **선딜 0.5초·후딜 0.8초·쿨타임 1.2초·접지 필요·이동 금지**를 저장했다. Damage Multiplier는 1이다. 범위와 정지 거리는 다른 설정이므로, 정지 거리가 실제 공격 가능 거리보다 길면 접근 후 공격하지 못할 수 있다.
 
-`Attack.TryExecute(ActionBase, ...)`는 같은 소유자의 실행 중인 액션만 수락한다. 피해는 기존 `DamageContext → DamageResolver → Mortal.TakeDamage`를 사용한다. 실제 피해와 타이밍을 새 AI 쪽에 중복 구현하지 않는다.
+`AttackBase.TryExecute(ActionBase, ...)`는 같은 소유자의 실행 중인 액션만 수락한다. 피해는 기존 `DamageContext → DamageResolver → Mortal.TakeDamage`를 사용한다. 실제 피해와 타이밍을 새 AI 쪽에 중복 구현하지 않는다.
 
 ## 8. 모든 근접 공격의 벽 가림
 
@@ -214,7 +216,7 @@ EnemyAI는 Awake에서 OnDead를 구독하고 OnDestroy에서 해제한다. AI �
 3. `Capsule Visual` 자식을 새 메시로 교체한다. 적 루트는 발밑 기준이고 이동 Collider는 루트에서 관리한다. 모델 애니메이션의 루트 이동과 NavMeshAgent 이동을 동시에 적용하지 않는다.
 4. `Create > ProjectU > Enemy > Stat Data`로 능력치 에셋을 만들고 EnemyStat.Data에 연결한다. 최대 HP·이동속도·공격력/공격속도 배율은 이 에셋에서, Agent의 가속도·반경·정지 거리와 Sensor의 시야·거리·눈 위치는 해당 컴포넌트에서 편집한다.
 5. 개별 밸런스가 필요하면 `Create > ProjectU > Combat > Melee Attack`으로 데이터를 만들거나 기존 에셋을 복제한다. Damage·Range·Height·SectorAngle·OriginOffset·마스크를 설정하고 MeleeAttack.Data에 연결한다.
-6. Attack.Origin을 루트 또는 공격 기준 Transform에 연결한다. 이미 가슴 높이 Origin을 사용한다면 OriginOffset.y를 다시 더하지 않도록 조정한다.
+6. AttackBase.Origin을 루트 또는 공격 기준 Transform에 연결한다. 이미 가슴 높이 Origin을 사용한다면 OriginOffset.y를 다시 더하지 않도록 조정한다.
 7. EnemyAttackAction.Attack과 EnemyCombat.Actions를 연결하고 선딜·후딜·쿨타임·RequiresGrounded·CanMove를 설정한다.
 8. 베이크된 NavMesh 위에 배치하고 Player 참조를 연결한다. 런타임 생성 시에도 유효한 NavMesh 위치에서 생성하고 SetPlayer로 대상을 전달한다.
 
@@ -223,7 +225,7 @@ EnemyAI는 Awake에서 OnDead를 구독하고 OnDestroy에서 해제한다. AI �
 ### B. 원거리 공격을 사용하는 적
 
 1. EnemyAttackAction은 그대로 사용하고 HitscanAttack 또는 ProjectileAttack을 연결한다.
-2. 해당 AttackData와 Origin을 지정한다. ProjectileAttack에는 투사체 프리팹이 등록된 ProjectilePool도 연결한다.
+2. 해당 AttackDataBase와 Origin을 지정한다. ProjectileAttack에는 투사체 프리팹이 등록된 ProjectilePool도 연결한다.
 3. EnemyAttackAction의 Attack Distance·Facing Tolerance·Obstruction Mask를 설정한다. HitscanAttackData의 실제 사거리와 공격 시작 거리를 일치시킨다.
 4. 기존 근접 Attack을 더 이상 사용하지 않으면 제거하고 EnemyCombat의 액션 연결을 확인한다.
 
@@ -231,11 +233,11 @@ EnemyAI는 Awake에서 OnDead를 구독하고 OnDestroy에서 해제한다. AI �
 
 ### C. 공격 외 행동이나 다른 실행 흐름
 
-공격 없는 이동·방어·소환은 `EnemyAction`을 상속한다. `IsInPosition`으로 선택 가능한 위치, `CheckRequirements`로 시작 조건, `ExecuteCore`로 실제 효과를 구현한다. 선딜이 끝날 때 별도의 재검사가 필요하면 `CheckExecutionRequirements`를 재정의한다.
+공격 없는 이동·방어·소환은 `EnemyActionBase`을 상속한다. `IsInPosition`으로 선택 가능한 위치, `CheckRequirements`로 시작 조건, `ExecuteCore`로 실제 효과를 구현한다. 선딜이 끝날 때 별도의 재검사가 필요하면 `CheckExecutionRequirements`를 재정의한다.
 
 지속 행동은 `Running`을 반환하고 `TickActive`에서 진행한 뒤 `FinishActive()`를 호출한다. `Cleanup`에서는 이동 요청·임시 효과 등 소유한 상태를 정리한다. 이후 EnemyCombat.Actions에 연결하면 공통 선택과 타이밍을 사용한다.
 
-돌진처럼 공격과 이동 흐름을 함께 바꾸는 경우에는 필요에 따라 EnemyAction 또는 EnemyAttackAction의 파생 클래스를 만든다. 단순히 근접/투사체 종류가 다르다는 이유로 EnemyMeleeAction·EnemyProjectileAction을 각각 만들지는 않는다. 보스의 단계별 액션 선택·확률·연속 패턴과 Active 중 반복 피해는 그 패턴 구현 시 명시적으로 추가해야 한다.
+돌진처럼 공격과 이동 흐름을 함께 바꾸는 경우에는 필요에 따라 EnemyActionBase 또는 EnemyAttackAction의 파생 클래스를 만든다. 단순히 근접/투사체 종류가 다르다는 이유로 EnemyMeleeAction·EnemyProjectileAction을 각각 만들지는 않는다. 보스의 단계별 액션 선택·확률·연속 패턴과 Active 중 반복 피해는 그 패턴 구현 시 명시적으로 추가해야 한다.
 
 ## 11. 씬 도구와 검증
 

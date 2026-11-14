@@ -43,7 +43,7 @@ namespace ProjectU.Editor
     }
 
     // Alternate-character fixtures have no Soldier slot or attack assumptions.
-    public sealed class PlayerADSCompositionProbe : PlayerAction
+    public sealed class PlayerADSCompositionProbe : PlayerActionBase
     {
         public PlayerActionSlot ActionSlot { get; set; } = PlayerActionSlot.Skill1;
         public bool UseADS { get; set; } = true;
@@ -130,7 +130,7 @@ namespace ProjectU.Editor
             ads = combat.GetAction(PlayerActionSlot.SecondaryFire) as SoilderSecondaryFireAction;
             stance = input.GetComponent<PlayerADS>();
             rifle = combat.GetBinding(PlayerActionSlot.PrimaryFire).Attack as HitscanAttack;
-            PlayerAction primary = combat.GetAction(PlayerActionSlot.PrimaryFire);
+            PlayerActionBase primary = combat.GetAction(PlayerActionSlot.PrimaryFire);
             fov = view.GetComponent<Camera>().fieldOfView;
             baseSpread = ((HitscanAttackData)rifle.Data).SpreadAngle;
             Check(stance != null && typeof(PlayerCombat).GetProperty("AimAction") == null &&
@@ -517,8 +517,8 @@ namespace ProjectU.Editor
 
             PlayerActionBinding skillBinding = combat.GetBinding(PlayerActionSlot.Skill1);
             PlayerActionBinding secondaryBinding = combat.GetBinding(PlayerActionSlot.SecondaryFire);
-            PlayerAction savedSkill = skillBinding.Action;
-            PlayerAction savedSecondary = secondaryBinding.Action;
+            PlayerActionBase savedSkill = skillBinding.Action;
+            PlayerActionBase savedSecondary = secondaryBinding.Action;
             var alternate = input.gameObject.AddComponent<PlayerADSCompositionProbe>();
             var alternateSecondary = input.gameObject.AddComponent<PlayerADSCompositionProbe>();
             alternateSecondary.ActionSlot = PlayerActionSlot.SecondaryFire;

@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace ProjectU
 {
-    public sealed class SoilderDashAction : PlayerAction
+    public sealed class SoilderDashAction : PlayerActionBase
     {
         [SerializeField, Min(0f)] private float staminaCost = 25f;
         private PlayerStamina stamina;
@@ -11,11 +11,11 @@ namespace ProjectU
         public override PlayerActionSlot Slot => PlayerActionSlot.Dash;
         public override PlayerActionStage Stage => PlayerActionStage.BeforeMotor;
         protected override bool WaitForRecoveryTick => true;
-        public float StaminaCost => AttackData.FiniteAtLeast(staminaCost, 0f);
+        public float StaminaCost => AttackDataBase.FiniteAtLeast(staminaCost, 0f);
 
         protected override bool CheckRequirements(in ActionContext request)
             => Motor != null && Motor.CanDashIgnoringActionLock &&
-                (!request.HasDirection || (AttackData.IsFinite(request.Direction) &&
+                (!request.HasDirection || (AttackDataBase.IsFinite(request.Direction) &&
                     new Vector2(request.Direction.x, request.Direction.z).sqrMagnitude > 0.0001f)) &&
                 (StaminaCost == 0f || (Stamina != null && Stamina.isActiveAndEnabled && Stamina.CanConsume(StaminaCost)));
 

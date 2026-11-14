@@ -123,9 +123,9 @@ namespace ProjectU.Editor
                 else if (slot == PlayerActionSlot.SecondaryFire) secondaryShots++;
                 else skills++;
             };
-            Attack primary = attacks.GetBinding(PlayerActionSlot.PrimaryFire).Attack;
-            Attack secondary = attacks.GetBinding(PlayerActionSlot.SecondaryFire).Attack;
-            Attack grenade = attacks.GetBinding(PlayerActionSlot.Skill1).Attack;
+            AttackBase primary = attacks.GetBinding(PlayerActionSlot.PrimaryFire).Attack;
+            AttackBase secondary = attacks.GetBinding(PlayerActionSlot.SecondaryFire).Attack;
+            AttackBase grenade = attacks.GetBinding(PlayerActionSlot.Skill1).Attack;
             var primaryData = Instantiate((HitscanAttackData)primary.Data);
             SetField(primaryData, "recoveryTime", 0f);
             SetField(primaryData, "spreadAngle", 0f);

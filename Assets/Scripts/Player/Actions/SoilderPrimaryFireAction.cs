@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace ProjectU
 {
-    public sealed class SoilderPrimaryFireAction : PlayerAttackAction
+    public sealed class SoilderPrimaryFireAction : PlayerAttackActionBase
     {
         public override PlayerActionSlot Slot => PlayerActionSlot.PrimaryFire;
         private PlayerCamera aimView;

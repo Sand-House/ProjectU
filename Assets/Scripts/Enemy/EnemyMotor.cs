@@ -57,9 +57,9 @@ namespace ProjectU
         private void OnDisable() => Stop();
         private void OnValidate()
         {
-            repathInterval = AttackData.FiniteAtLeast(repathInterval, 0.02f);
-            sampleDistance = AttackData.FiniteAtLeast(sampleDistance, 0.1f);
-            turnSpeed = AttackData.FiniteAtLeast(turnSpeed, 0f);
+            repathInterval = AttackDataBase.FiniteAtLeast(repathInterval, 0.02f);
+            sampleDistance = AttackDataBase.FiniteAtLeast(sampleDistance, 0.1f);
+            turnSpeed = AttackDataBase.FiniteAtLeast(turnSpeed, 0f);
         }
     }
 }

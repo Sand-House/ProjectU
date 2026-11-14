@@ -15,7 +15,7 @@ namespace ProjectU
     }
 
     [DefaultExecutionOrder(110)]
-    public abstract class PlayerAction : ActionBase, IPlayerStageSubscriber
+    public abstract class PlayerActionBase : ActionBase, IPlayerStageSubscriber
     {
         [SerializeField] private bool repeatWhileHeld;
         private PlayerCombat combat;
@@ -58,7 +58,7 @@ namespace ProjectU
         public bool Blocks(PlayerActionSlot slot) => HasActionLock && BlocksCore(slot);
         protected virtual bool BlocksCore(PlayerActionSlot slot) => true;
         protected override bool BlocksCore(ActionBase requested)
-            => requested is PlayerAction player ? BlocksCore(player.Slot) : base.BlocksCore(requested);
+            => requested is PlayerActionBase player ? BlocksCore(player.Slot) : base.BlocksCore(requested);
         internal void Process(PlayerActionStage stage)
         {
             if (stage == Stage) ProcessAction();

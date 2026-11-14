@@ -12,34 +12,34 @@ namespace ProjectU
         private float moveSpeedMultiplier = 0.5f;
         [SerializeField, Range(0f, 1f), Tooltip("Fraction of the primary fire spread angle while aiming. 0.5 means half the spread.")]
         private float spreadAngleMultiplier = 0.5f;
-        private PlayerAction source;
+        private PlayerActionBase source;
 
         public bool IsAiming => isActiveAndEnabled && source != null && source.isActiveAndEnabled && source.IsActive &&
             source.Owner != null && source.Owner.IsAlive && !source.Owner.IsGameplayBlocked;
-        public float TransitionTime => AttackData.FiniteAtLeast(transitionTime, 0f);
-        public float MoveSpeedMultiplier => Mathf.Clamp01(AttackData.FiniteAtLeast(moveSpeedMultiplier, 0f));
-        public float SpreadAngleMultiplier => Mathf.Clamp01(AttackData.FiniteAtLeast(spreadAngleMultiplier, 0f));
+        public float TransitionTime => AttackDataBase.FiniteAtLeast(transitionTime, 0f);
+        public float MoveSpeedMultiplier => Mathf.Clamp01(AttackDataBase.FiniteAtLeast(moveSpeedMultiplier, 0f));
+        public float SpreadAngleMultiplier => Mathf.Clamp01(AttackDataBase.FiniteAtLeast(spreadAngleMultiplier, 0f));
         public float MovementSpeedMultiplier => IsAiming ? MoveSpeedMultiplier : 1f;
         public bool BlocksInteraction => IsAiming;
 
-        public bool CanBegin(PlayerAction action) => isActiveAndEnabled && action != null &&
+        public bool CanBegin(PlayerActionBase action) => isActiveAndEnabled && action != null &&
             action.gameObject == gameObject && (source == null || !source.IsActive || source == action);
 
-        public bool TryBegin(PlayerAction action)
+        public bool TryBegin(PlayerActionBase action)
         {
             if (!CanBegin(action) || !action.isActiveAndEnabled || !action.IsActive) return false;
             source = action;
             return true;
         }
 
-        public void End(PlayerAction action)
+        public void End(PlayerActionBase action)
         {
             if (source == action) source = null;
         }
 
         private void OnDisable()
         {
-            PlayerAction previous = source;
+            PlayerActionBase previous = source;
             source = null;
             if (previous != null) previous.CancelFromDependency();
         }

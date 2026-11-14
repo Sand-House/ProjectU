@@ -4,11 +4,11 @@ using UnityEngine;
 namespace ProjectU
 {
     [RequireComponent(typeof(Combatant))]
-    public abstract class Attack : MonoBehaviour
+    public abstract class AttackBase : MonoBehaviour
     {
         [SerializeField] private Transform origin;
         private Combatant owner;
-        public abstract AttackData Data { get; }
+        public abstract AttackDataBase Data { get; }
         public Transform Origin => origin;
         public Combatant Owner => owner != null ? owner : (owner = GetComponent<Combatant>());
         public Vector3 WorldAttackPosition { get; private set; }
@@ -23,13 +23,13 @@ namespace ProjectU
         {
             if (action == null || !action.IsExecuting || action.Owner != Owner ||
                 !IsConfiguredForExecution || Time.timeScale <= 0f ||
-                !AttackData.IsFinite(position) || !AttackData.IsFinite(worldAimPoint)) return false;
+                !AttackDataBase.IsFinite(position) || !AttackDataBase.IsFinite(worldAimPoint)) return false;
             WorldAttackPosition = position;
             Vector3 origin = GetExecutionOrigin(position);
             LastAttackPosition = origin;
             Vector3 direction = worldAimPoint - origin;
             if (direction.sqrMagnitude < 0.0001f) direction = transform.forward;
-            var context = new DamageContext(Owner, Data, AttackData.FiniteAtLeast(damageMultiplier, 0f));
+            var context = new DamageContext(Owner, Data, AttackDataBase.FiniteAtLeast(damageMultiplier, 0f));
             if (!ExecuteAttack(origin, direction.normalized, context)) return false;
             OnExecuted?.Invoke();
             return true;
@@ -48,7 +48,7 @@ namespace ProjectU
             Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
             foreach (RaycastHit hit in hits)
             {
-                if (hit.transform.IsChildOf(transform) || hit.collider.GetComponentInParent<Projectile>() != null ||
+                if (hit.transform.IsChildOf(transform) || hit.collider.GetComponentInParent<ProjectileBase>() != null ||
                     hit.collider.GetComponentInParent<Combatant>() != null) continue;
                 return hit.point - offset / distance * Mathf.Min(0.2f, hit.distance);
             }

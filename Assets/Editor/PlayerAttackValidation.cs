@@ -56,7 +56,7 @@ namespace ProjectU.Editor
         private PlayerInputReader alternativeInput;
         private int alternativePressMask;
         private int alternativeHeldMask;
-        private PlayerAnimation animationController;
+        private SoilderAnimation animationController;
         private PlayerStat stat;
         private ProjectilePool pool;
         private GameObject root;
@@ -107,7 +107,7 @@ namespace ProjectU.Editor
             primaryAttack = launcher.GetBinding(PlayerActionSlot.PrimaryFire).Attack as HitscanAttack;
             secondaryAttack = launcher.GetBinding(PlayerActionSlot.SecondaryFire).Attack as ProjectileAttack;
             grenadeAttack = launcher.GetBinding(PlayerActionSlot.Skill1).Attack as ProjectileAttack;
-            animationController = input.GetComponent<PlayerAnimation>();
+            animationController = input.GetComponent<SoilderAnimation>();
             stat = input.GetComponent<PlayerStat>();
             pool = UnityEngine.Object.FindFirstObjectByType<ProjectilePool>();
             Check(launcher.enabled && input.GetComponent<Combatant>().Faction == Faction.Player && input.GetComponent<Mortal>().HP == 100,
@@ -115,7 +115,7 @@ namespace ProjectU.Editor
             Check(input.GetComponent<Mortal>().HP == stat.MaxHealth, "saved player starts at PlayerStat MaxHealth");
             ValidateHealthInitialization();
             Check(primaryAttack != null && secondaryAttack != null && grenadeAttack != null &&
-                secondaryAttack != grenadeAttack && input.GetComponents<Attack>().Length == 3,
+                secondaryAttack != grenadeAttack && input.GetComponents<AttackBase>().Length == 3,
                 "three preserved attack components for generic attack fixtures");
             Check(launcher.ActionBindings.Where(item => item.Attack != null).ToList().Count == 3 &&
                 PlayerActionValidationUtility.For(primaryAttack).RepeatWhileHeld &&
@@ -241,10 +241,10 @@ namespace ProjectU.Editor
 
             // Runtime-only data copies exercise held fire with nonzero timings; never save them.
             scaledTarget.Mortal.IsInvincible = true;
-            AttackData primaryData = primaryAttack.Data;
-            AttackData secondaryData = secondaryAttack.Data;
-            AttackData timedPrimary = TimedData(primaryData, 0.12f);
-            AttackData timedSecondary = TimedData(secondaryData, 0.16f);
+            AttackDataBase primaryData = primaryAttack.Data;
+            AttackDataBase secondaryData = secondaryAttack.Data;
+            AttackDataBase timedPrimary = TimedData(primaryData, 0.12f);
+            AttackDataBase timedSecondary = TimedData(secondaryData, 0.16f);
             SetData(primaryAttack, timedPrimary);
             SetData(secondaryAttack, timedSecondary);
             var primaryTimes = new List<double>();
@@ -272,7 +272,7 @@ namespace ProjectU.Editor
             Check(RespectsTiming(primaryTimes, timedPrimary) && RespectsTiming(secondaryTimes, timedSecondary),
                 "held shots respect windup recovery and cooldown");
             // Leave a full input frame inside recovery; a cooldown-only gap legitimately permits reload.
-            PlayerAction secondaryAction = PlayerActionValidationUtility.For(secondaryAttack);
+            PlayerActionBase secondaryAction = PlayerActionValidationUtility.For(secondaryAttack);
             while (secondaryAction.Phase != ActionPhase.Recovery || secondaryAction.RecoveryRemaining < 0.03f) yield return null;
             pressMask = 8;
             yield return new WaitForSeconds(0.02f);
@@ -332,7 +332,7 @@ namespace ProjectU.Editor
             SetData(melee, meleeData);
             var rangedData = (HitscanAttackData)TimedData(primaryData, 0.1f);
             SetData(ranged, rangedData);
-            var projectileData = Instantiate(secondaryData);
+            AttackDataBase projectileData = Instantiate(secondaryData);
             SetRepeat(projectileData, false);
             SetData(projectile, projectileData);
             var serializedProjectile = new SerializedObject(projectile);
@@ -461,13 +461,13 @@ namespace ProjectU.Editor
             return marker;
         }
 
-        private static void SetBinding(SerializedProperty binding, PlayerActionSlot slot, Attack attack, Transform origin)
+        private static void SetBinding(SerializedProperty binding, PlayerActionSlot slot, AttackBase attack, Transform origin)
         {
             binding.FindPropertyRelative("slot").intValue = (int)slot;
             binding.FindPropertyRelative("action").objectReferenceValue = PlayerActionValidationUtility.Attach(attack, slot, origin);
         }
 
-        private static void SetRepeat(AttackData data, bool repeat)
+        private static void SetRepeat(AttackDataBase data, bool repeat)
         {
             var serialized = new SerializedObject(data);
             PlayerActionValidationUtility.Set(serialized.targetObject, "repeatWhileHeld", repeat);
@@ -529,9 +529,9 @@ namespace ProjectU.Editor
             .GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, null,
                 new[] { typeof(bool), typeof(bool), typeof(bool) }, null).Invoke(new object[] { pressed, held, false });
 
-        private static AttackData TimedData(AttackData source, float cooldown)
+        private static AttackDataBase TimedData(AttackDataBase source, float cooldown)
         {
-            AttackData data = Instantiate(source);
+            AttackDataBase data = Instantiate(source);
             PlayerActionValidationUtility.CopyTiming(source, data);
             var serialized = new SerializedObject(data);
             PlayerActionValidationUtility.Set(serialized.targetObject, "windupTime", 0.03f);
@@ -541,14 +541,14 @@ namespace ProjectU.Editor
             return data;
         }
 
-        private static void SetData(Attack attack, AttackData data)
+        private static void SetData(AttackBase attack, AttackDataBase data)
         {
             var serialized = new SerializedObject(attack);
             PlayerActionValidationUtility.Set(serialized.targetObject, "data", data);
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static bool RespectsTiming(List<double> times, AttackData data)
+        private static bool RespectsTiming(List<double> times, AttackDataBase data)
         {
             double interval = Math.Max(PlayerActionValidationUtility.TimingFloat(data, "recoveryTime"), PlayerActionValidationUtility.TimingFloat(data, "cooldown")) + PlayerActionValidationUtility.TimingFloat(data, "windupTime");
             for (int i = 1; i < times.Count; i++)

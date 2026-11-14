@@ -5,7 +5,7 @@ namespace ProjectU
     public enum MeleeShape { Circle, Sector }
 
     [CreateAssetMenu(menuName = "ProjectU/Combat/Melee Attack")]
-    public sealed class MeleeAttackData : AttackData
+    public sealed class MeleeAttackData : AttackDataBase
     {
         [SerializeField, Min(0.01f)] private float range = 2f;
         [SerializeField] private MeleeShape shape = MeleeShape.Sector;

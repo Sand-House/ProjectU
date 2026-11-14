@@ -12,8 +12,8 @@ namespace ProjectU
         {
             Damage = damage;
             PiercesEnemies = piercesEnemies;
-            SizeMultiplier = AttackData.FiniteAtLeast(sizeMultiplier, 0.01f);
-            ExplosionRadiusMultiplier = AttackData.FiniteAtLeast(explosionRadiusMultiplier, 0.01f);
+            SizeMultiplier = AttackDataBase.FiniteAtLeast(sizeMultiplier, 0.01f);
+            ExplosionRadiusMultiplier = AttackDataBase.FiniteAtLeast(explosionRadiusMultiplier, 0.01f);
         }
     }
 }

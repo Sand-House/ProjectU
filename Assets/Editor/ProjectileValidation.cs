@@ -10,8 +10,8 @@ namespace ProjectU.Editor
     {
         private const string Running = "ProjectU.ProjectileValidation";
         private static ProjectilePool pool;
-        private static Projectile bullet;
-        private static Projectile grenade;
+        private static ProjectileBase bullet;
+        private static ProjectileBase grenade;
         private static GameObject owner;
         private static float started;
         private static int phase;
@@ -76,7 +76,7 @@ namespace ProjectU.Editor
                     Check(pool.Spawn(prefab, owner, Vector3.zero, Vector3.forward) == null, "Pool capacity");
                     pool.ReturnAll();
                     Check(pool.ActiveCount == 0, "Return all");
-                    var reused = pool.Spawn(prefab, owner, new Vector3(0, 10, 0), Vector3.forward);
+                    ProjectileBase reused = pool.Spawn(prefab, owner, new Vector3(0, 10, 0), Vector3.forward);
                     Check(reused.IsActive && reused.Owner == owner, "Reuse resets state");
                     pool.gameObject.SetActive(false);
                     Check(pool.ActiveCount == 0 && !reused.IsActive, "Pool disable returns active instances");

@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace ProjectU
 {
-    public sealed class SoilderReloadAction : PlayerAction, IPlayerReloadAction
+    public sealed class SoilderReloadAction : PlayerActionBase, IPlayerReloadAction
     {
         private PlayerStat stat;
         private float workRemaining;

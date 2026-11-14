@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace ProjectU
 {
-    public abstract class AttackData : ScriptableObject
+    public abstract class AttackDataBase : ScriptableObject
     {
         [SerializeField, Min(0f)] private float damage = 20f;
         [SerializeField] private bool canCritical;

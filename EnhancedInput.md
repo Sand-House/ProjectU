@@ -1,5 +1,7 @@
 # 플레이어 입력·선입력 설계
 
+2026-11-13 애니메이션 분리: 공통 PlayerAnimationBase와 캐릭터별 SoilderAnimation으로 나누었다. 입력·버퍼·실제 행동 실행은 유지하며 애니메이션은 기존 성공 이벤트를 받아 시각만 재생한다. PlayerAim은 부모의 CanApplyAimPose를 조회한다. 상세 책임·확장 메서드·씬 설정은 [플레이어 조작 가이드.md](플레이어%20조작%20가이드.md)의 캐릭터별 애니메이션 절을 따른다.
+
 ## 2026-11-11 ADS 기능 분리
 
 PlayerCombat의 슬롯 기반 ADS 조회와 IPlayerAimAction을 제거했다. 선택적 PlayerADS의 시작/해제는 액션이 소유한다. Controller의 공통 Held/Pressed/예약 경로는 유지하며 G는 Combatant.IsInteractionBlocked를 검사한다. IMovementSpeedModifier/IInteractionBlocker 구현 컴포넌트를 통해 다른 캐릭터의 이동 효과·상호작용 제한도 처리할 수 있다. ADS 없는 보조 액션과 Skill1 ADS/별도 SecondaryFire의 병행을 실제로 검사했다. 설정은 Player → Player ADS에서 편집하며 상세 계약·이번 777개 직접 검증은 [PlayerAction 설계](PlayerAction%20설계.md)의 최신 절, 슬롯별 가정은 [슬롯 의존성 점검](공통%20컴포넌트%20슬롯%20의존성%20점검.md)을 따른다. 로그는 Logs/ADSComponent_20261111/이고 아래 날짜별 ADS 구조는 이전 기록이다.
@@ -35,7 +37,7 @@ Controller는 ADS나 SecondaryFire 구체 타입으로 홀딩을 판단하지 �
 
 2026-11-10 G 입력 이관: PlayerInputReader는 G의 Interact 스냅샷을 수집하고 PlayerController는 Update에서 ADS·기존 전투 선택·점프 처리 후 HandleInteraction으로 시작/보상 재열기/가능한 생성 재시도를 요청한다. 같은 프레임에 ADS와 G가 들어오면 먼저 확정한 ADS 상태로 G를 차단하며, G는 선입력 저장소에 넣지 않는다. Controller의 GameManager 참조는 기존 BindStageEvents에서 받아 같은 매니저의 UnbindStageEvents에서 비운다. Controller 자체 비활성화에서는 구독 수명만 중단하고 재활성화 시 기존 연결을 재사용한다. 새 Inspector 연결·씬 검색·이벤트는 추가하지 않는다. StageFlowUI는 PlayerInputReader/PlayerCombat 참조와 G Update 없이 표시·버튼·기존 단계 구독만 처리한다. 아래 날짜별 StageFlowUI 입력 소유 설명은 이전 기록이다. 이번 직접 검증은 저장 씬 22개·ADS 73개·진행 132개·카드 111개·재시작 56개·선입력 85개, 총 479개를 여섯 종류 모두 종료 코드 0으로 확인했다. UI 비활성 G 시작·Controller/매니저 재연결·동시 ADS/G 차단을 포함하며 C# 오류·경고 0이다. 검증은 `Logs/InteractionController_20261110/`에 별도로 기록하고 이전 결과와 합산하지 않는다.
 
-2026-11-06 분산 구독: 중앙 PlayerStageReset을 제거했다. GameManager가 OnGameplayEnabledChanged(bool)를 발행하면 Reader는 입력/커서, Controller는 예약, Motor는 이동, Combat은 요청, 각 PlayerAction은 실행 취소를 자기 안에서 처리한다. 단계 변경의 정리도 각 컴포넌트가 OnStageStateChanged를 직접 구독한다. Mortal 기반 PlayerMortal은 체력·무적만 관리한다. 구독 원본 연결과 수명 공유는 일반 C# PlayerStageSubscription이 지원하며 일괄 정리 함수는 없다. [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md) 2.1절 참고.
+2026-11-06 분산 구독: 중앙 PlayerStageReset을 제거했다. GameManager가 OnGameplayEnabledChanged(bool)를 발행하면 Reader는 입력/커서, Controller는 예약, Motor는 이동, Combat은 요청, 각 PlayerActionBase은 실행 취소를 자기 안에서 처리한다. 단계 변경의 정리도 각 컴포넌트가 OnStageStateChanged를 직접 구독한다. Mortal 기반 PlayerMortal은 체력·무적만 관리한다. 구독 원본 연결과 수명 공유는 일반 C# PlayerStageSubscription이 지원하며 일괄 정리 함수는 없다. [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md) 2.1절 참고.
 
 2026-11-06 단계 이벤트 갱신: 진행 타입은 StageState, 이벤트는 OnStageStateChanged(StageState)다. PlayerStageReset이 구독해 정상 BeforeStage/OnStage/AfterStage의 무적·입력 정책과 클리어 정리를 처리한다. 최초/재활성화 시 현재 상태를 동기화한다. 보상 선택·사망·정지·같은 단계 재시도의 게이트는 상태 전환과 별개로 유지하며, 가짜 이벤트를 발행하거나 같은 상태에 재진입해 예약/HP/쿨타임을 반복 초기화하지 않는다. [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md) 2.1절 참고.
 
@@ -45,13 +47,13 @@ Controller는 ADS나 SecondaryFire 구체 타입으로 홀딩을 판단하지 �
 
 2026-11-06 스테이지 진행 갱신: `PlayerStageReset.SetGameplayEnabled(false)`가 Reader 게임 입력 차단·커서 해제, Controller.ClearBufferedInput과 Combat.ClearRequests를 통해 예약·명령을 즉시 폐기한다. Controller는 사망·Combatant.IsGameplayBlocked 상태에서 이동·점프 명령도 보내지 않는다. Reader.SetGameplayBlocked는 재개 시 총을 누르고 있던 입력이 보상 선택 클릭과 겹치지 않도록 기본 발사를 해제까지 억제한다. 스테이지 종료의 이동·액션·회복·보상 대기 계약은 [스테이지 진행 가이드.md](스테이지%20진행%20가이드.md)를 참고한다.
 
-2026-11-01 공통 액션 갱신: PlayerAction은 ActionBase를 상속한다. 선입력·홀딩·슬롯·PlayerActionStage는 플레이어 전용으로 유지하고 공통 타이밍·조건·이벤트는 ActionBase로 옮겼다. 공통 실행 타입 이름은 ActionContext·ActionPhase·ActionResult·ActionCancelReason이다. 적의 EnemyAction은 키 입력과 선입력을 사용하지 않으며 EnemyCombat이 요청한다. 기존 입력 규칙은 유지하고 이번 회귀 로그는 `Logs/Enemy_20261101/`에 기록한다. 적 설계는 [Enemy.md](Enemy.md)를 참고한다.
+2026-11-01 공통 액션 갱신: PlayerActionBase은 ActionBase를 상속한다. 선입력·홀딩·슬롯·PlayerActionStage는 플레이어 전용으로 유지하고 공통 타이밍·조건·이벤트는 ActionBase로 옮겼다. 공통 실행 타입 이름은 ActionContext·ActionPhase·ActionResult·ActionCancelReason이다. 적의 EnemyActionBase은 키 입력과 선입력을 사용하지 않으며 EnemyCombat이 요청한다. 기존 입력 규칙은 유지하고 이번 회귀 로그는 `Logs/Enemy_20261101/`에 기록한다. 적 설계는 [Enemy.md](Enemy.md)를 참고한다.
 
-기준 날짜: **2026-10-31, 공통 접지·이동 제한 반영**. PlayerAction.RequiresGrounded가 수신·시작·효과 실행 시의 접지를 검사하며 CanMove가 행동 중 일반 이동·점프 허용 여부를 정한다. 상세 필드·상속·이번 검증은 [PlayerAction 설계](PlayerAction%20설계.md) 11절을 참고한다. 아래 날짜별 검증은 해당 작업 당시의 기록이다.
+기준 날짜: **2026-10-31, 공통 접지·이동 제한 반영**. PlayerActionBase.RequiresGrounded가 수신·시작·효과 실행 시의 접지를 검사하며 CanMove가 행동 중 일반 이동·점프 허용 여부를 정한다. 상세 필드·상속·이번 검증은 [PlayerAction 설계](PlayerAction%20설계.md) 11절을 참고한다. 아래 날짜별 검증은 해당 작업 당시의 기록이다.
 
 ## 2026-11-10 ADS 입력
 
-우클릭 SecondaryFire의 ADS 액션은 Attack 없는 PlayerAction이며 RequiresHeldInput=true를 선언하고 PlayerADS에 시작/종료를 요청한다. Controller는 모든 홀딩 바인딩의 현재 Held를 일반 예약/선택보다 먼저 처리하고 해제는 기존 DeliverInput 경로로 전달한다. ADS는 별도 입력 예약을 두지 않는다. 같은 프레임에 좌·우클릭이 들어오면 ADS가 먼저 시작되며 0초가 아닌 카메라 전환 중에는 PrimaryFire를 거절한다. 기본 발사의 선딜·후딜과 이미 진행 중인 다른 행동은 ADS 진입을 막는다. 홀드를 계속하면 해당 행동의 딜레이가 끝난 뒤 ADS에 진입하며, 딜레이 중 해제한 우클릭을 나중에 재생하지 않는다. 쿨타임만 남으면 진입할 수 있고, 전환이 끝난 ADS에서는 기본 발사를 허용한다.
+우클릭 SecondaryFire의 ADS 액션은 Attack 없는 PlayerActionBase이며 RequiresHeldInput=true를 선언하고 PlayerADS에 시작/종료를 요청한다. Controller는 모든 홀딩 바인딩의 현재 Held를 일반 예약/선택보다 먼저 처리하고 해제는 기존 DeliverInput 경로로 전달한다. ADS는 별도 입력 예약을 두지 않는다. 같은 프레임에 좌·우클릭이 들어오면 ADS가 먼저 시작되며 0초가 아닌 카메라 전환 중에는 PrimaryFire를 거절한다. 기본 발사의 선딜·후딜과 이미 진행 중인 다른 행동은 ADS 진입을 막는다. 홀드를 계속하면 해당 행동의 딜레이가 끝난 뒤 ADS에 진입하며, 딜레이 중 해제한 우클릭을 나중에 재생하지 않는다. 쿨타임만 남으면 진입할 수 있고, 전환이 끝난 ADS에서는 기본 발사를 허용한다.
 
 ADS의 제한은 일반 딜레이가 아니므로 CanBuffer에서도 우회할 수 없다. ADS 진입 시 이전의 금지 행동 예약을 지우고, ADS 중 대시·장전·스킬·궁극기는 새 예약을 만들지 않는다. 0발 자동 장전도 조준을 해제한 뒤 재개한다. 이동·시점·점프와 카메라 전환 완료 후 PrimaryFire를 허용하며 G 상호작용도 조준 중에는 받지 않는다. Reader/Controller/Combat/ADS 비활성화·커서/포커스 상실·보상/사망 게이트는 기존 중단 경로로 상태를 정리한다. 아래의 일반 액션 우선순위는 ADS 홀드 처리 이후에 적용한다. 상세 설정은 [플레이어 조작 가이드.md](플레이어%20조작%20가이드.md)의 ADS 절, 최초 로그는 `Logs/ADS_20261110/`이다.
 
@@ -62,16 +64,16 @@ ADS의 제한은 일반 딜레이가 아니므로 CanBuffer에서도 우회할 �
 | ButtonInputState / PlayerInputReader | 프레임별 Pressed·Held·Released, 커서·포커스·입력 가능 여부 | 현재 입력 스냅샷 |
 | PlayerController | 카메라 기준 이동·점프 명령, 전투 선택·우선순위·한 개 예약·만료·반복·자동 장전, 공통 상호작용 차단 확인 후 G 요청 | maxInputBufferTime·예약 슬롯·만료 시각·구독으로 받은 GameManager |
 | PlayerCombat | 슬롯/액션 연결, 실행 가능 조회·한 프레임 명령·조준/배율·탄창·외부 이벤트 | 한 프레임 명령·탄창 |
-| PlayerAction / PlayerAttackAction | 공통 접지·이동 허용·타이밍·단계·검증·취소 / 공격 실행 어댑터 | 액션별 접지 필요·이동 허용·선딜·유지·후딜·쿨타임·반복 |
+| PlayerActionBase / PlayerAttackActionBase | 공통 접지·이동 허용·타이밍·단계·검증·취소 / 공격 실행 어댑터 | 액션별 접지 필요·이동 허용·선딜·유지·후딜·쿨타임·반복 |
 | Soilder…Action | 기본 사격·ADS·스킬·궁극기·대시·장전 구현 | 개별 조건·자원·효과와 장전 작업량, ADS 요청 수명 |
 | PlayerADS | 선택적 ADS 기능과 공통 이동/상호작용 효과 제공 | 전환 시간·이동/탄퍼짐 배율·요청 소유자 |
-| PlayerActionBinding | PlayerActionSlot과 PlayerAction 연결 | 씬/프리팹 참조 |
+| PlayerActionBinding | PlayerActionSlot과 PlayerActionBase 연결 | 씬/프리팹 참조 |
 | Attack / Combatant | 기본 Origin 보관·동기 공격 효과 / 같은 소유자의 액션 제한 집계·진영·생존 | 기본 Origin·공격 결과·공통 제한 조회 |
 | PlayerMotor | 실제 이동·점프·중력·충돌·대시 이동 | 접지·속도·대시 이동 상태 |
 | PlayerStamina / PlayerStat | 스태미나·능력치 | 자원·강화 원본 |
-| PlayerAim / PlayerCamera / PlayerAnimation | 시각 조준·시점·이벤트 기반 애니메이션 | 시각 자세·시점 |
+| PlayerAim / PlayerCamera / PlayerAnimationBase·SoilderAnimation | 시각 조준·시점·이벤트 기반 애니메이션 | 시각 자세·시점 |
 
-입력 선택과 예약은 Controller 한 곳에서 담당한다. 액션은 Reader를 직접 읽지 않는다. 별도 PlayerActionController와 두 번째 선입력 저장소는 없다. 기존 PlayerAction enum·AttackSlot은 PlayerActionSlot으로 통합했다.
+입력 선택과 예약은 Controller 한 곳에서 담당한다. 액션은 Reader를 직접 읽지 않는다. 별도 PlayerActionController와 두 번째 선입력 저장소는 없다. 기존 PlayerActionBase enum·AttackSlot은 PlayerActionSlot으로 통합했다.
 
 2026-10-31 로그 변경: Controller의 Pressed·Held·Released 출력을 모두 제거했다. logInput·heldLogInterval·전용 타이머·Handle 메서드와 씬의 해당 저장값, 검증기의 옛 로그 설정 접근도 제거했다. Skill2·Ultimate의 실행 성공 로그와 버튼 스냅샷·해제 전달·선입력·홀딩 반복 동작은 유지한다.
 
@@ -85,7 +87,7 @@ ADS의 제한은 일반 딜레이가 아니므로 CanBuffer에서도 우회할 �
 6. 일반 예약은 더 나중의 유효한 Pressed로 교체한다. 동일 프레임은 Dash → 비기본 공격 바인딩 순서 → Reload → PrimaryFire다.
 7. 예약을 시도한 프레임에는 일반 선택 경로의 반복 요청·자동 장전을 추가 실행하지 않는다. 공통 홀딩 처리는 이 선택 전에 수행한다.
 
-CanBuffer는 현재 딜레이만 제외하고, CanStart는 현재 행동 제한도 포함한다. 장전 중 두 발사 금지는 두 검사에 모두 적용한다. RequiresGrounded=true인 액션은 PlayerAction에서 수신·시작·선딜 완료 시 모두 접지를 검사한다. 현재 대시와 Skill2가 해당하며 공중 입력은 예약하지 않는다. 예약 후 공중이 되면 첫 실행 기회에 폐기하고, 선딜 중 공중이 되면 실행에 실패한다.
+CanBuffer는 현재 딜레이만 제외하고, CanStart는 현재 행동 제한도 포함한다. 장전 중 두 발사 금지는 두 검사에 모두 적용한다. RequiresGrounded=true인 액션은 PlayerActionBase에서 수신·시작·선딜 완료 시 모두 접지를 검사한다. 현재 대시와 Skill2가 해당하며 공중 입력은 예약하지 않는다. 예약 후 공중이 되면 첫 실행 기회에 폐기하고, 선딜 중 공중이 되면 실행에 실패한다.
 
 예약에는 슬롯과 만료 시각만 둔다. 공격은 최신 Origin·조준점, 대시는 실행 프레임의 이동 방향 또는 카메라 Yaw 전방을 사용한다. 실제 대시 시작 이후 방향은 고정한다.
 
@@ -122,7 +124,7 @@ SampleScene의 F는 지면 전용·이동 허용 Skill2, Q는 공중 사용 가�
 | Update 0 / 50 | Motor 실제 이동 / Animation 갱신 |
 | LateUpdate -100 / 75 | Camera 배치 / Aim 총구·상체·IK 보정 |
 | LateUpdate 100 | PlayerCombat 명령 소비·조준/배율 준비·ReloadAction 작업 |
-| LateUpdate 110 | PlayerAction 선딜 완료, Attack 동기 호출·실행 결과 확정 |
+| LateUpdate 110 | PlayerActionBase 선딜 완료, Attack 동기 호출·실행 결과 확정 |
 
 PlayerCombat의 지연 명령은 전달 프레임에 한 번 소비한다. Attack에 독립 타이머·예약·LateUpdate는 없다. 이동·점프 조작과 대시 이동·후딜의 허용 범위는 기존 규칙을 유지한다.
 
@@ -185,7 +187,7 @@ Controller.CanAcceptAction이 입력 수신 시 자격을 검사한다. Motor·P
 
 이번에 원본 프로젝트의 Unity 6000.3.25f1에서 EnhancedInputValidation 85개, AttackValidation 68개, PlayerAttackValidation 50개, PlayerDashValidation 70개, PlayerReloadValidation 40개, PlayerActionDelayValidation 110개를 직접 실행해 총 423개와 종료 코드 0을 확인했다. 공중 입력 후 딜레이 종료 전 착지, 스태미나 부족/비활성·0발·가득 찬 탄창·비활성 공격·없는 Origin·투사체 구성 실패·쿨타임 입력의 기존 예약 보호와 이후 조건 충족 시 재실행 방지, 예약 후 자원·쿨타임 변경에 대한 실행 재검사를 포함한다. Unity C# 컴파일 오류·경고는 없었으며 씬·프리팹·공격 에셋·meta·실행 순서는 유지했다. 로그·결과는 Logs/InputEligibility_20261030/의 각 검증명.log, Results.json, RegressionResults.json에 있다. 실제 키·마우스 수동 플레이·이미지 렌더링·애니메이션/스태미나/투사체/Mortal 독립 검증은 이번에 다시 수행하지 않았다. 조작감 조정·남은 애니메이션·스킬 효과·적 AI·사망 행동·반복 전투 흐름은 후속 작업이다.
 
-## 10. 2026-10-30 PlayerAction·Soilder 전투 액션 구현과 이번 검증
+## 10. 2026-10-30 PlayerActionBase·Soilder 전투 액션 구현과 이번 검증
 
 이번 원본 프로젝트의 Unity **6000.3.25f1**에서 다음 9종 검증이 모두 종료 코드 0으로 통과했다. 아래 수치형 검사 **466개**와 애니메이션·스태미나 검증은 이번 직접 실행 결과다.
 
@@ -211,6 +213,6 @@ Controller.CanAcceptAction이 입력 수신 시 자격을 검사한다. Motor·P
 
 ## 2026-10-30: 기본 Origin의 Attack 이관
 
-기본 origin 직렬화 필드를 PlayerAttackAction에서 Attack으로 옮겼습니다. Inspector에서는 액션에 Attack을, Attack 컴포넌트에 Origin을 연결합니다. PlayerAttackAction.Origin과 PlayerActionBinding.Origin은 Attack.Origin을 조회하며, SampleScene의 세 공격은 기존 Muzzle을 그대로 사용합니다. 요청별 Transform·고정 좌표 API, 선딜 후 최신 위치 조회·삭제 시 실패·벽 보정을 유지합니다. 입력 선택·선입력·탄약·장전·공격 시간의 책임은 유지합니다.
+기본 origin 직렬화 필드를 PlayerAttackActionBase에서 Attack으로 옮겼습니다. Inspector에서는 액션에 Attack을, Attack 컴포넌트에 Origin을 연결합니다. PlayerAttackActionBase.Origin과 PlayerActionBinding.Origin은 AttackBase.Origin을 조회하며, SampleScene의 세 공격은 기존 Muzzle을 그대로 사용합니다. 요청별 Transform·고정 좌표 API, 선딜 후 최신 위치 조회·삭제 시 실패·벽 보정을 유지합니다. 입력 선택·선입력·탄약·장전·공격 시간의 책임은 유지합니다.
 
-이번 원본 Unity 6000.3.25f1에서 공통 공격 75개·플레이어 공격 50개·장전 40개·선입력 85개, 총 250개와 애니메이션(17발·이동·점프·IK·장전·투척·벽·정지)을 직접 실행해 통과했습니다. .NET 런타임·에디터 빌드는 경고 0·오류 0이며 씬 변경 범위·meta 보존과 git diff --check도 확인했습니다. 이번 결과는 앞선 PlayerAction 리팩토링 검증과 별도이며 로그는 Logs/AttackOrigin_20261030/, 상세 결과·실행 제약은 [PlayerAction 설계](PlayerAction%20설계.md) 10절에 있습니다. 실제 키·마우스 수동 플레이·이미지 렌더링은 이번에 수행하지 않았습니다. Skill2·Ultimate 효과, 손 투척 지점·추가 애니메이션·적 AI·사망 행동·반복 전투 흐름은 후속 작업입니다.
+이번 원본 Unity 6000.3.25f1에서 공통 공격 75개·플레이어 공격 50개·장전 40개·선입력 85개, 총 250개와 애니메이션(17발·이동·점프·IK·장전·투척·벽·정지)을 직접 실행해 통과했습니다. .NET 런타임·에디터 빌드는 경고 0·오류 0이며 씬 변경 범위·meta 보존과 git diff --check도 확인했습니다. 이번 결과는 앞선 PlayerActionBase 리팩토링 검증과 별도이며 로그는 Logs/AttackOrigin_20261030/, 상세 결과·실행 제약은 [PlayerAction 설계](PlayerAction%20설계.md) 10절에 있습니다. 실제 키·마우스 수동 플레이·이미지 렌더링은 이번에 수행하지 않았습니다. Skill2·Ultimate 효과, 손 투척 지점·추가 애니메이션·적 AI·사망 행동·반복 전투 흐름은 후속 작업입니다.

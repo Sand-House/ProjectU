@@ -3,7 +3,7 @@ using UnityEngine;
 namespace ProjectU
 {
     [RequireComponent(typeof(PlayerADS))]
-    public sealed class SoilderSecondaryFireAction : PlayerAction
+    public sealed class SoilderSecondaryFireAction : PlayerActionBase
     {
         private PlayerADS ads;
         private PlayerADS ADS => ads != null ? ads : (ads = GetComponent<PlayerADS>());

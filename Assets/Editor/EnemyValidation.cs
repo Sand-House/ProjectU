@@ -47,7 +47,7 @@ namespace ProjectU.Editor
         }
     }
 
-    public sealed class EnemySustainProbe : EnemyAction
+    public sealed class EnemySustainProbe : EnemyActionBase
     {
         public int Ticks { get; private set; }
         public bool Cleaned { get; private set; }
@@ -102,7 +102,7 @@ namespace ProjectU.Editor
                 demo[index] = fixture.GetComponent<EnemyAI>();
             }
             Check(FindFirstObjectByType<NavMeshSurface>().navMeshData != null, "saved NavMesh is connected");
-            Check(typeof(PlayerAction).BaseType == typeof(ActionBase) && typeof(EnemyAction).BaseType == typeof(ActionBase), "both actor action families share ActionBase");
+            Check(typeof(PlayerActionBase).BaseType == typeof(ActionBase) && typeof(EnemyActionBase).BaseType == typeof(ActionBase), "both actor action families share ActionBase");
             foreach (Type state in new[] { typeof(EnemyIdleState), typeof(EnemyChaseState), typeof(EnemyCombatState), typeof(EnemyDeadState) })
                 Check(state.BaseType == typeof(EnemyStateBase), state.Name + " derives from EnemyStateBase");
             foreach (EnemyAI enemy in demo)
@@ -218,7 +218,7 @@ namespace ProjectU.Editor
             MeleeAttack melee = caster.AddComponent<MeleeAttack>();
             MeleeAttackData data = Instantiate(AssetDatabase.LoadAssetAtPath<MeleeAttackData>("Assets/Data/Attacks/StrikerMeleeAttack.asset"));
             dataCopies.Add(data); Set(melee, "data", data); Set(melee, "origin", caster.transform);
-            PlayerAttackAction playerAction = PlayerActionValidationUtility.For(melee);
+            PlayerAttackActionBase playerAction = PlayerActionValidationUtility.For(melee);
             Combatant victim = Target(caster.transform.position + new Vector3(0f, 1f, 1.6f));
             GameObject blocker = GameObject.CreatePrimitive(PrimitiveType.Cube); fixtures.Add(blocker);
             blocker.transform.position = caster.transform.position + new Vector3(0f, 1f, 0.8f);
@@ -294,7 +294,7 @@ namespace ProjectU.Editor
             shooter.GetComponent<Combatant>().Faction = Faction.Player;
             Set(playerShot, "data", AssetDatabase.LoadAssetAtPath<HitscanAttackData>("Assets/Data/Attacks/TempPrimaryFire.asset"));
             Set(playerShot, "origin", shooter.transform);
-            PlayerAttackAction shotAction = PlayerActionValidationUtility.For(playerShot);
+            PlayerAttackActionBase shotAction = PlayerActionValidationUtility.For(playerShot);
             Physics.SyncTransforms();
             Check(shotAction.TryStart(shooter.transform, victimUnit.transform.position + Vector3.up), "player fires at TempEnemy capsule");
             yield return null; yield return null;

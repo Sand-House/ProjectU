@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace ProjectU
 {
-    public sealed class SoilderUltimateAction : PlayerAction
+    public sealed class SoilderUltimateAction : PlayerActionBase
     {
         public override PlayerActionSlot Slot => PlayerActionSlot.Ultimate;
 

@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace ProjectU
 {
-    public sealed class SoilderSkill2Action : PlayerAction
+    public sealed class SoilderSkill2Action : PlayerActionBase
     {
         public override PlayerActionSlot Slot => PlayerActionSlot.Skill2;
 

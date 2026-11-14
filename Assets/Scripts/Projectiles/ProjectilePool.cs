@@ -9,7 +9,7 @@ namespace ProjectU
         [Serializable]
         public sealed class Entry
         {
-            public Projectile prefab;
+            public ProjectileBase prefab;
             [Min(0)] public int prewarmCount = 16;
             [Min(1)] public int capacity = 64;
         }
@@ -18,12 +18,12 @@ namespace ProjectU
         private sealed class Bucket
         {
             public Entry settings;
-            public readonly Queue<Projectile> available = new Queue<Projectile>();
+            public readonly Queue<ProjectileBase> available = new Queue<ProjectileBase>();
             public int count;
         }
-        private readonly Dictionary<Projectile, Bucket> buckets = new Dictionary<Projectile, Bucket>();
-        private readonly Dictionary<Projectile, Bucket> instances = new Dictionary<Projectile, Bucket>();
-        private readonly HashSet<Projectile> rented = new HashSet<Projectile>();
+        private readonly Dictionary<ProjectileBase, Bucket> buckets = new Dictionary<ProjectileBase, Bucket>();
+        private readonly Dictionary<ProjectileBase, Bucket> instances = new Dictionary<ProjectileBase, Bucket>();
+        private readonly HashSet<ProjectileBase> rented = new HashSet<ProjectileBase>();
         private Transform inactiveRoot;
         public int ActiveCount => rented.Count;
         public int TotalCount => instances.Count;
@@ -45,9 +45,9 @@ namespace ProjectU
             }
         }
 
-        private Projectile Create(Bucket bucket)
+        private ProjectileBase Create(Bucket bucket)
         {
-            Projectile instance = Instantiate(bucket.settings.prefab, inactiveRoot);
+            ProjectileBase instance = Instantiate(bucket.settings.prefab, inactiveRoot);
             instance.gameObject.SetActive(false);
             instance.AttachPool(this);
             instances.Add(instance, bucket);
@@ -55,13 +55,13 @@ namespace ProjectU
             return instance;
         }
 
-        public Projectile Spawn(Projectile prefab, GameObject owner, Vector3 position, Vector3 direction)
+        public ProjectileBase Spawn(ProjectileBase prefab, GameObject owner, Vector3 position, Vector3 direction)
             => Spawn(prefab, owner, position, direction, default);
 
-        public Projectile Spawn(Projectile prefab, GameObject owner, Vector3 position, Vector3 direction, in ProjectileLaunchData attackInfo)
+        public ProjectileBase Spawn(ProjectileBase prefab, GameObject owner, Vector3 position, Vector3 direction, in ProjectileLaunchData attackInfo)
         {
             if (!isActiveAndEnabled || prefab == null || !buckets.TryGetValue(prefab, out Bucket bucket)) return null;
-            Projectile instance;
+            ProjectileBase instance;
             if (bucket.available.Count > 0) instance = bucket.available.Dequeue();
             else if (bucket.count < bucket.settings.capacity) instance = Create(bucket);
             else return null;
@@ -71,7 +71,7 @@ namespace ProjectU
             return instance;
         }
 
-        internal void Return(Projectile instance)
+        internal void Return(ProjectileBase instance)
         {
             if (!rented.Remove(instance)) return;
             instance.gameObject.SetActive(false);
@@ -82,7 +82,7 @@ namespace ProjectU
 
         public void ReturnAll()
         {
-            foreach (Projectile instance in new List<Projectile>(rented)) Return(instance);
+            foreach (ProjectileBase instance in new List<ProjectileBase>(rented)) Return(instance);
         }
 
         private void OnDisable() => ReturnAll();

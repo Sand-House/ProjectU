@@ -7,7 +7,7 @@ using UnityEngine;
 namespace ProjectU.Editor
 {
     // Attack-slot regression fixtures stay independent of the Soldier demo skills.
-    public sealed class PlayerActionAttackProbe : PlayerAttackAction
+    public sealed class PlayerActionAttackProbe : PlayerAttackActionBase
     {
         public PlayerActionSlot ActionSlot { get; set; } = PlayerActionSlot.None;
         public override PlayerActionSlot Slot => ActionSlot;
@@ -18,7 +18,7 @@ namespace ProjectU.Editor
     internal static class PlayerActionValidationUtility
     {
         private static readonly string[] timingFields = { "windupTime", "recoveryTime", "cooldown", "repeatWhileHeld" };
-        private static readonly Dictionary<AttackData, Dictionary<string, object>> presets = new Dictionary<AttackData, Dictionary<string, object>>();
+        private static readonly Dictionary<AttackDataBase, Dictionary<string, object>> presets = new Dictionary<AttackDataBase, Dictionary<string, object>>();
 
         // Older generic attack/input regressions exercise a second weapon, not ADS.
         // Replace only their unsaved Play-mode binding; the saved scene keeps ADS.
@@ -29,28 +29,28 @@ namespace ProjectU.Editor
             combat.enabled = false;
             ProjectileAttack attack = combat.GetComponents<ProjectileAttack>()
                 .Single(item => item.Data != null && item.Data.name == "TempSecondaryFire");
-            PlayerAttackAction action = Attach(attack, PlayerActionSlot.SecondaryFire, attack.Origin);
+            PlayerAttackActionBase action = Attach(attack, PlayerActionSlot.SecondaryFire, attack.Origin);
             SetDirect(action, "recoveryTime", 0.5f);
             SetDirect(action, "repeatWhileHeld", true);
             SetDirect(combat.GetBinding(PlayerActionSlot.SecondaryFire), "action", action);
             combat.enabled = wasEnabled;
         }
 
-        private static IEnumerable<PlayerAttackAction> ActionsFor(AttackData data)
-            => UnityEngine.Object.FindObjectsByType<PlayerAttackAction>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+        private static IEnumerable<PlayerAttackActionBase> ActionsFor(AttackDataBase data)
+            => UnityEngine.Object.FindObjectsByType<PlayerAttackActionBase>(FindObjectsInactive.Include, FindObjectsSortMode.None)
                 .Where(action => action.Attack != null && action.Attack.Data == data);
 
-        public static PlayerAttackAction For(Attack attack)
+        public static PlayerAttackActionBase For(AttackBase attack)
         {
             if (attack == null) throw new ArgumentNullException(nameof(attack));
-            PlayerAttackAction action = attack.GetComponents<PlayerAttackAction>().FirstOrDefault(item => item.Attack == attack);
+            PlayerAttackActionBase action = attack.GetComponents<PlayerAttackActionBase>().FirstOrDefault(item => item.Attack == attack);
             return action != null ? action : Attach(attack, PlayerActionSlot.PrimaryFire,
                 attack.Origin != null ? attack.Origin : attack.transform);
         }
 
-        public static PlayerAttackAction Attach(Attack attack, PlayerActionSlot slot, Transform origin)
+        public static PlayerAttackActionBase Attach(AttackBase attack, PlayerActionSlot slot, Transform origin)
         {
-            PlayerAttackAction action = attack.GetComponents<PlayerAttackAction>()
+            PlayerAttackActionBase action = attack.GetComponents<PlayerAttackActionBase>()
                 .FirstOrDefault(item => item.Slot == slot && (item.Attack == null || item.Attack == attack));
             if (action == null)
             {
@@ -63,7 +63,7 @@ namespace ProjectU.Editor
                     PlayerActionSlot.Ultimate => typeof(PlayerActionAttackProbe),
                     _ => throw new ArgumentOutOfRangeException(nameof(slot))
                 };
-                action = (PlayerAttackAction)attack.gameObject.AddComponent(type);
+                action = (PlayerAttackActionBase)attack.gameObject.AddComponent(type);
                 if (action is PlayerActionAttackProbe probe) probe.ActionSlot = slot;
             }
             SetDirect(action, "attack", attack);
@@ -72,23 +72,23 @@ namespace ProjectU.Editor
             return action;
         }
 
-        public static void CopyTiming(AttackData source, AttackData destination)
+        public static void CopyTiming(AttackDataBase source, AttackDataBase destination)
         {
             foreach (string field in timingFields) Set(destination, field, Timing(source, field));
         }
 
-        private static object Timing(AttackData data, string name)
+        private static object Timing(AttackDataBase data, string name)
         {
             if (presets.TryGetValue(data, out Dictionary<string, object> values) && values.TryGetValue(name, out object value)) return value;
-            PlayerAttackAction action = ActionsFor(data).FirstOrDefault();
+            PlayerAttackActionBase action = ActionsFor(data).FirstOrDefault();
             if (action != null) return FindField(action.GetType(), name).GetValue(action);
             return name == "repeatWhileHeld" ? (object)false : 0f;
         }
 
-        public static float TimingFloat(AttackData data, string name) => Convert.ToSingle(Timing(data, name));
-        public static bool Repeat(AttackData data) => (bool)Timing(data, "repeatWhileHeld");
+        public static float TimingFloat(AttackDataBase data, string name) => Convert.ToSingle(Timing(data, name));
+        public static bool Repeat(AttackDataBase data) => (bool)Timing(data, "repeatWhileHeld");
 
-        private static void ApplyPreset(PlayerAttackAction action, AttackData data)
+        private static void ApplyPreset(PlayerAttackActionBase action, AttackDataBase data)
         {
             if (data != null && presets.TryGetValue(data, out Dictionary<string, object> values))
                 foreach (KeyValuePair<string, object> value in values) SetDirect(action, value.Key, value.Value);
@@ -96,17 +96,17 @@ namespace ProjectU.Editor
 
         public static void Set(object target, string name, object value)
         {
-            if (target is AttackData data && timingFields.Contains(name))
+            if (target is AttackDataBase data && timingFields.Contains(name))
             {
                 if (!presets.TryGetValue(data, out Dictionary<string, object> values))
                     presets.Add(data, values = new Dictionary<string, object>());
                 values[name] = value;
-                foreach (PlayerAttackAction action in ActionsFor(data)) SetDirect(action, name, value);
+                foreach (PlayerAttackActionBase action in ActionsFor(data)) SetDirect(action, name, value);
                 return;
             }
             if (target is PlayerActionBinding binding && name == "attack")
             {
-                SetDirect(binding, "action", Attach((Attack)value, binding.Slot, ((Attack)value).transform));
+                SetDirect(binding, "action", Attach((AttackBase)value, binding.Slot, ((AttackBase)value).transform));
                 return;
             }
             if (target is PlayerActionBinding originBinding && name == "origin")
@@ -128,9 +128,9 @@ namespace ProjectU.Editor
                 SetDirect(motor.GetComponent<SoilderDashAction>(), "recoveryTime", value);
                 return;
             }
-            if (target is Attack attack && name == "data")
+            if (target is AttackBase attack && name == "data")
             {
-                PlayerAttackAction[] actions = attack.GetComponents<PlayerAttackAction>().Where(item => item.Attack == attack).ToArray();
+                PlayerAttackActionBase[] actions = attack.GetComponents<PlayerAttackActionBase>().Where(item => item.Attack == attack).ToArray();
                 if (attack.Data != null && !presets.ContainsKey(attack.Data) && actions.Length > 0)
                 {
                     var snapshot = new Dictionary<string, object>();
@@ -138,7 +138,7 @@ namespace ProjectU.Editor
                     presets.Add(attack.Data, snapshot);
                 }
                 SetDirect(target, name, value);
-                foreach (PlayerAttackAction action in actions) ApplyPreset(action, (AttackData)value);
+                foreach (PlayerAttackActionBase action in actions) ApplyPreset(action, (AttackDataBase)value);
                 return;
             }
             SetDirect(target, name, value);

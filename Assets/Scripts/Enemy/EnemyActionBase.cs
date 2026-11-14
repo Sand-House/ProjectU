@@ -3,7 +3,7 @@ using UnityEngine;
 namespace ProjectU
 {
     [DefaultExecutionOrder(110)]
-    public abstract class EnemyAction : ActionBase
+    public abstract class EnemyActionBase : ActionBase
     {
         private EnemyMotor motor;
         private EnemyCombat combat;

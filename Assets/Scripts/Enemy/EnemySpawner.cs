@@ -123,7 +123,7 @@ namespace ProjectU
             foreach (Collider collider in prefab.GetComponentsInChildren<Collider>())
                 if (collider.enabled && !collider.isTrigger && collider != capsule) return false;
             Vector3 scale = prefab.transform.localScale;
-            if (!AttackData.IsFinite(scale) || scale.x <= 0f || scale.y <= 0f || scale.z <= 0f) return false;
+            if (!AttackDataBase.IsFinite(scale) || scale.x <= 0f || scale.y <= 0f || scale.z <= 0f) return false;
             Vector3 center = Vector3.Scale(capsule.center, scale);
             float radialScale = Mathf.Max(scale.x, scale.z);
             float radius = capsule.radius * radialScale;
@@ -137,12 +137,12 @@ namespace ProjectU
                 Top = Mathf.Max(center.y + height * 0.5f, (agent.baseOffset + agent.height) * scale.y)
             };
             return shape.Radius > 0f && shape.Top - shape.Bottom > 0.02f &&
-                AttackData.IsFinite(new Vector3(shape.Radius, shape.Bottom, shape.Top));
+                AttackDataBase.IsFinite(new Vector3(shape.Radius, shape.Bottom, shape.Top));
         }
 
         private bool ValidSettings()
         {
-            return AttackData.IsFinite(transform.position) && AttackData.IsFinite(new Vector3(halfExtent, spacing, searchStep)) &&
+            return AttackDataBase.IsFinite(transform.position) && AttackDataBase.IsFinite(new Vector3(halfExtent, spacing, searchStep)) &&
                 halfExtent >= 0f && spacing >= 0f && searchStep >= 0.1f && halfExtent / searchStep <= 64f &&
                 !float.IsNaN(navMeshSampleDistance) && !float.IsInfinity(navMeshSampleDistance) && navMeshSampleDistance > 0f &&
                 maxBatchSize > 0;

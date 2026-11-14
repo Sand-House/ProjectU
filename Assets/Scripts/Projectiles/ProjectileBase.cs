@@ -5,7 +5,7 @@ using UnityEngine;
 namespace ProjectU
 {
     [RequireComponent(typeof(Rigidbody), typeof(SphereCollider))]
-    public abstract class Projectile : MonoBehaviour
+    public abstract class ProjectileBase : MonoBehaviour
     {
         [SerializeField, Min(0.01f)] private float speed = 40f;
         [SerializeField, Min(0.01f)] private float maxLifeTime = 5f;
@@ -107,7 +107,7 @@ namespace ProjectU
         private bool ProcessSweptContact(Collider collider)
         {
             if (collider == null || collider == HitCollider || BelongsToOwner(collider) ||
-                collider.GetComponentInParent<Projectile>() != null) return false;
+                collider.GetComponentInParent<ProjectileBase>() != null) return false;
             if (Hitbox.TryResolve(collider, out Combatant target, out _))
             {
                 bool allowed = AttackInfo.Damage.CanHit(target);

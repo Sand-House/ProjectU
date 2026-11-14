@@ -110,7 +110,7 @@ namespace ProjectU
 
         private void OnValidate()
         {
-            if (!AttackData.IsFinite(aimOffset)) aimOffset = new Vector3(0f, 0f, 0.25f);
+            if (!AttackDataBase.IsFinite(aimOffset)) aimOffset = new Vector3(0f, 0f, 0.25f);
         }
     }
 }

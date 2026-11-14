@@ -7,10 +7,10 @@ namespace ProjectU
     public sealed class PlayerActionBinding
     {
         [SerializeField] private PlayerActionSlot slot;
-        [SerializeField] private PlayerAction action;
+        [SerializeField] private PlayerActionBase action;
         public PlayerActionSlot Slot => slot;
-        public PlayerAction Action => action;
-        public Attack Attack => (action as PlayerAttackAction)?.Attack;
+        public PlayerActionBase Action => action;
+        public AttackBase Attack => (action as PlayerAttackActionBase)?.Attack;
         public Transform Origin => Attack != null ? Attack.Origin : null;
     }
 }

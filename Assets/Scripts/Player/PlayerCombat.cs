@@ -35,7 +35,7 @@ namespace ProjectU
         }
         private Vector3 dashDirection;
         private readonly RaycastHit[] aimHits = new RaycastHit[32];
-        private readonly Dictionary<PlayerAction, Action> executionHandlers = new Dictionary<PlayerAction, Action>();
+        private readonly Dictionary<PlayerActionBase, Action> executionHandlers = new Dictionary<PlayerActionBase, Action>();
 
         public event Action<PlayerActionSlot> AttackExecuted;
         public event Action<PlayerActionSlot> ActionExecuted;
@@ -60,7 +60,7 @@ namespace ProjectU
             return null;
         }
 
-        public PlayerAction GetAction(PlayerActionSlot slot) => GetBinding(slot)?.Action;
+        public PlayerActionBase GetAction(PlayerActionSlot slot) => GetBinding(slot)?.Action;
         public bool CanStart(PlayerActionSlot slot) => isActiveAndEnabled && GetAction(slot) != null && GetAction(slot).CanStart;
         public bool CanBuffer(PlayerActionSlot slot) => isActiveAndEnabled && GetAction(slot) != null && GetAction(slot).CanBuffer;
         internal bool IsDelayBlocking(PlayerActionSlot slot) => owner != null && owner.IsDelayBlocking(slot);
@@ -79,7 +79,7 @@ namespace ProjectU
             if (!ValidateBindings()) { enabled = false; return; }
             foreach (PlayerActionBinding binding in actionBindings)
             {
-                PlayerAction action = binding.Action;
+                PlayerActionBase action = binding.Action;
                 Action handler = () => ActionExecuted?.Invoke(binding.Slot);
                 executionHandlers.Add(action, handler);
                 action.OnExecuted += handler;
@@ -90,8 +90,8 @@ namespace ProjectU
         private bool ValidateBindings()
         {
             var slots = new HashSet<PlayerActionSlot>();
-            var actions = new HashSet<PlayerAction>();
-            var attacks = new HashSet<Attack>();
+            var actions = new HashSet<PlayerActionBase>();
+            var attacks = new HashSet<AttackBase>();
             foreach (PlayerActionBinding binding in actionBindings)
             {
                 if (binding == null || binding.Slot == PlayerActionSlot.None ||
@@ -117,9 +117,9 @@ namespace ProjectU
                 binding?.Action?.Process(PlayerActionStage.BeforeMotor);
         }
 
-        private void Prepare(PlayerAction action)
+        private void Prepare(PlayerActionBase action)
         {
-            if (action is PlayerAttackAction attackAction)
+            if (action is PlayerAttackActionBase attackAction)
             {
                 attackAction.DamageMultiplier = Stat.AttackMultiplier;
                 attackAction.SpeedMultiplier = Stat.AttackSpeed;
@@ -129,7 +129,7 @@ namespace ProjectU
         public bool TryStartAction(PlayerActionSlot slot)
         {
             if (!isActiveAndEnabled) return false;
-            PlayerAction action = GetAction(slot);
+            PlayerActionBase action = GetAction(slot);
             if (action == null) return false;
             Prepare(action);
             return action.TryStart();
@@ -154,7 +154,7 @@ namespace ProjectU
 
         internal void DeliverInput(PlayerActionSlot slot, ButtonInputState input)
         {
-            PlayerAction action = GetAction(slot);
+            PlayerActionBase action = GetAction(slot);
             if (action != null && (input.Released || (action.RequiresHeldInput && !input.Held))) action.Release();
         }
 
@@ -210,7 +210,7 @@ namespace ProjectU
             for (int i = 0; i < count; i++)
             {
                 RaycastHit hit = hits[i];
-                if (hit.transform.IsChildOf(transform) || hit.collider.GetComponentInParent<Projectile>() != null) continue;
+                if (hit.transform.IsChildOf(transform) || hit.collider.GetComponentInParent<ProjectileBase>() != null) continue;
                 if (hit.collider.isTrigger && !Hitbox.TryResolve(hit.collider, out _, out _)) continue;
                 if (hit.distance >= closest) continue;
                 closest = hit.distance;
@@ -225,7 +225,7 @@ namespace ProjectU
             ClearRequests();
             foreach (PlayerActionBinding binding in actionBindings)
                 if (binding?.Action != null) binding.Action.Cancel(ActionCancelReason.Disabled);
-            foreach (KeyValuePair<PlayerAction, Action> handler in executionHandlers)
+            foreach (KeyValuePair<PlayerActionBase, Action> handler in executionHandlers)
                 if (handler.Key != null) handler.Key.OnExecuted -= handler.Value;
             executionHandlers.Clear();
         }

@@ -3,7 +3,7 @@ using UnityEngine;
 namespace ProjectU
 {
     [CreateAssetMenu(menuName = "ProjectU/Combat/Hitscan Attack")]
-    public sealed class HitscanAttackData : AttackData
+    public sealed class HitscanAttackData : AttackDataBase
     {
         [SerializeField, Range(0f, 89f), Tooltip("Maximum spread angle in degrees. Zero disables spread.")]
         private float spreadAngle = 3f;

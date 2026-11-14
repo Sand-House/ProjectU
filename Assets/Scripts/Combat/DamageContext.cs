@@ -15,14 +15,14 @@ namespace ProjectU
         public float CriticalMultiplier { get; }
         public int HitMask { get; }
 
-        public DamageContext(Combatant source, AttackData data, float damageMultiplier = 1f)
+        public DamageContext(Combatant source, AttackDataBase data, float damageMultiplier = 1f)
         {
             IsValid = source != null && data != null;
             Source = source;
             Attacker = source != null ? source.gameObject : null;
             SourceFaction = source != null ? source.Faction : default;
             TargetRule = data != null ? data.TargetRule : default;
-            double damage = data != null ? (double)data.Damage * AttackData.FiniteAtLeast(damageMultiplier, 0f) : 0;
+            double damage = data != null ? (double)data.Damage * AttackDataBase.FiniteAtLeast(damageMultiplier, 0f) : 0;
             Damage = (float)System.Math.Min(int.MaxValue, damage);
             CanCritical = data != null && data.CanCritical;
             CriticalMultiplier = data != null ? data.CriticalMultiplier : 1f;

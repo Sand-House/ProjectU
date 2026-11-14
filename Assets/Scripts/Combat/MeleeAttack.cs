@@ -2,10 +2,10 @@ using UnityEngine;
 
 namespace ProjectU
 {
-    public sealed class MeleeAttack : Attack
+    public sealed class MeleeAttack : AttackBase
     {
         [SerializeField] private MeleeAttackData data;
-        public override AttackData Data => data;
+        public override AttackDataBase Data => data;
 
         protected override bool ExecuteAttack(Vector3 origin, Vector3 direction, in DamageContext context)
         {

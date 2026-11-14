@@ -29,16 +29,16 @@ namespace ProjectU
         protected virtual bool UsesDelayLock => true;
         protected virtual bool WaitForRecoveryTick => false;
         public Combatant Owner => owner != null ? owner : (owner = GetComponent<Combatant>());
-        public float WindupTime => AttackData.FiniteAtLeast(windupTime, 0f);
-        public float RecoveryTime => AttackData.FiniteAtLeast(recoveryTime, 0f);
-        public float Cooldown => AttackData.FiniteAtLeast(cooldown, 0f);
+        public float WindupTime => AttackDataBase.FiniteAtLeast(windupTime, 0f);
+        public float RecoveryTime => AttackDataBase.FiniteAtLeast(recoveryTime, 0f);
+        public float Cooldown => AttackDataBase.FiniteAtLeast(cooldown, 0f);
         public bool RequiresGrounded => requiresGrounded;
         public bool CanMove => canMove;
         public bool BlocksMovement => !CanMove && HasActionLock;
         public float SpeedMultiplier
         {
             get => speedMultiplier;
-            set => speedMultiplier = AttackData.FiniteAtLeast(value, 0.01f);
+            set => speedMultiplier = AttackDataBase.FiniteAtLeast(value, 0.01f);
         }
         public ActionPhase Phase => pending ? ActionPhase.Windup :
             active ? ActionPhase.Active :

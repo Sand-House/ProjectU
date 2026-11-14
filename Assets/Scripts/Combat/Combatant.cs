@@ -36,7 +36,7 @@ namespace ProjectU
                 foreach (MonoBehaviour component in modifiers)
                     if (component != null && component.isActiveAndEnabled && component is IMovementSpeedModifier modifier)
                         multiplier = System.Math.Min(float.MaxValue,
-                            multiplier * AttackData.FiniteAtLeast(modifier.MovementSpeedMultiplier, 0f));
+                            multiplier * AttackDataBase.FiniteAtLeast(modifier.MovementSpeedMultiplier, 0f));
                 return (float)multiplier;
             }
         }
@@ -85,12 +85,12 @@ namespace ProjectU
             }
         }
 
-        internal bool BlocksAction(PlayerActionSlot slot, bool ignoreDelay, PlayerAction except = null)
+        internal bool BlocksAction(PlayerActionSlot slot, bool ignoreDelay, PlayerActionBase except = null)
         {
             GetComponents(actions);
             foreach (ActionBase action in actions)
                 if (action != except && !(ignoreDelay && action.IsDelayLocked) &&
-                    (action is PlayerAction player ? player.Blocks(slot) : action.IsDelayLocked)) return true;
+                    (action is PlayerActionBase player ? player.Blocks(slot) : action.IsDelayLocked)) return true;
             return false;
         }
 
@@ -106,7 +106,7 @@ namespace ProjectU
         {
             GetComponents(actions);
             foreach (ActionBase action in actions)
-                if (action.IsDelayLocked && (action is PlayerAction player ? player.Blocks(slot) : true)) return true;
+                if (action.IsDelayLocked && (action is PlayerActionBase player ? player.Blocks(slot) : true)) return true;
             return false;
         }
 

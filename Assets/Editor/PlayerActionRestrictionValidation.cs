@@ -40,7 +40,7 @@ namespace ProjectU.Editor
         }
     }
 
-    public sealed class PlayerActionMovementProbe : PlayerAction
+    public sealed class PlayerActionMovementProbe : PlayerActionBase
     {
         public override PlayerActionSlot Slot => PlayerActionSlot.Skill2;
         protected override bool UsesDelayLock => false;
@@ -56,7 +56,7 @@ namespace ProjectU.Editor
         private PlayerController controller;
         private PlayerMotor motor;
         private PlayerCombat combat;
-        private PlayerAction skill, ultimate, dash, primary;
+        private PlayerActionBase skill, ultimate, dash, primary;
         private int pressed;
         private Vector2 movement;
         private int skillExecutions, ultimateExecutions, skillLogs, ultimateLogs, attackExecutions, failures;

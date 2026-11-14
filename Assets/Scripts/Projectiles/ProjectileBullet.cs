@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace ProjectU
 {
-    public sealed class ProjectileBullet : Projectile
+    public sealed class ProjectileBullet : ProjectileBase
     {
         protected override void OnImpact(Collision collision)
         {

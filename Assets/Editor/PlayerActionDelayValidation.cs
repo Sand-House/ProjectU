@@ -111,7 +111,7 @@ namespace ProjectU.Editor
             }
             foreach (PlayerActionBinding binding in bindings)
             {
-                AttackData data = Instantiate(binding.Attack.Data);
+                AttackDataBase data = Instantiate(binding.Attack.Data);
                 SetField(data, "windupTime", 0.18f);
                 SetField(data, "recoveryTime", 0.24f);
                 SetField(data, "cooldown", 0.9f);
@@ -128,7 +128,7 @@ namespace ProjectU.Editor
                 while (!motor.IsGrounded) yield return null;
                 stamina.Recover(100f);
                 int baseline = executions;
-                Attack attack = binding.Attack;
+                AttackBase attack = binding.Attack;
                 Check(PlayerActionValidationUtility.For(attack).TryStart(binding.Origin, attacks.GetAimPoint()) && owner.IsPerformingAttack &&
                     !motor.CanPerformActions && !motor.CanDash, binding.Slot + " immediately locks actions at windup start");
                 Check(!attacks.TryReload() && !motor.TryDash(Vector3.forward), binding.Slot + " blocks reload and direct dash APIs");
@@ -205,8 +205,8 @@ namespace ProjectU.Editor
             Check(executions > simultaneous + 2 && reentrantBlocked, "held input retries after the shared lock ends");
             yield return new WaitForSeconds(0.06f);
 
-            Attack primary = bindings[0].Attack;
-            Attack rivalAttack = bindings[1].Attack;
+            AttackBase primary = bindings[0].Attack;
+            AttackBase rivalAttack = bindings[1].Attack;
             SetField(primary.Data, "windupTime", 0.2f);
             SetField(primary.Data, "recoveryTime", 0.3f);
             input.GetComponent<PlayerStat>().AttackSpeed = 2f;

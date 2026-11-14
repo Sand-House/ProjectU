@@ -3,9 +3,9 @@ using UnityEngine;
 namespace ProjectU
 {
     // Shared adapter for actions whose current effect is an Attack.
-    public abstract class PlayerAttackAction : PlayerAction
+    public abstract class PlayerAttackActionBase : PlayerActionBase
     {
-        [SerializeField] private Attack attack;
+        [SerializeField] private AttackBase attack;
         private Transform pendingOrigin;
         private bool fixedPosition;
         private Vector3 pendingPosition;
@@ -13,7 +13,7 @@ namespace ProjectU
         private bool hasRequestedAim;
         private float damageMultiplier = 1f;
 
-        public Attack Attack => attack;
+        public AttackBase Attack => attack;
         public Transform Origin => attack != null ? attack.Origin : null;
         public Vector3 WorldAttackPosition => fixedPosition ? pendingPosition :
             pendingOrigin != null ? pendingOrigin.position : Origin != null ? Origin.position : transform.position;
@@ -21,7 +21,7 @@ namespace ProjectU
         public float DamageMultiplier
         {
             get => damageMultiplier;
-            set => damageMultiplier = AttackData.FiniteAtLeast(value, 0f);
+            set => damageMultiplier = AttackDataBase.FiniteAtLeast(value, 0f);
         }
 
         public bool TryStart(Transform anchor, Vector3 point) => TryStart(ActionContext.Aim(anchor, point));
@@ -31,15 +31,15 @@ namespace ProjectU
         protected override bool CheckRequirements(in ActionContext request)
         {
             if (attack == null || attack.gameObject != gameObject || !attack.IsConfiguredForExecution) return false;
-            if (request.HasAimPoint && !AttackData.IsFinite(request.AimPoint)) return false;
+            if (request.HasAimPoint && !AttackDataBase.IsFinite(request.AimPoint)) return false;
             if (request.HasPosition)
             {
-                if (!AttackData.IsFinite(request.Position)) return false;
+                if (!AttackDataBase.IsFinite(request.Position)) return false;
             }
             else
             {
                 Transform anchor = request.HasOrigin ? request.Origin : Origin;
-                if (anchor == null || !AttackData.IsFinite(anchor.position)) return false;
+                if (anchor == null || !AttackDataBase.IsFinite(anchor.position)) return false;
             }
             if (Combat == null) return true;
             if ((Slot == PlayerActionSlot.PrimaryFire || Slot == PlayerActionSlot.SecondaryFire) && Combat.IsReloading)
