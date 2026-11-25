@@ -116,6 +116,7 @@ namespace ProjectU.Editor
             probe.Reader = player.GetComponent<PlayerInputReader>();
             probe.Move = Vector2.zero;
             probe.Interact = false;
+            probe.InteractHeld = false;
         }
 
         private IEnumerator Validate()
@@ -138,9 +139,9 @@ namespace ProjectU.Editor
             stages.arraySize = 2;
             stages.GetArrayElementAtIndex(1).objectReferenceValue = stages.GetArrayElementAtIndex(0).objectReferenceValue;
             settings.ApplyModifiedPropertiesWithoutUndo();
-            probe.Interact = true;
-            for (int frame = 0; frame < 4; frame++) yield return null;
-            Check(game.State == StageState.OnStage, "G starts the first fixture stage");
+            probe.PlaceNearStarter();
+            yield return probe.HoldInteract(probe.StartButton.HoldDuration);
+            Check(game.State == StageState.OnStage, "central hold starts the first fixture stage");
             while (game.State == StageState.OnStage)
             {
                 KillEnemies();
@@ -151,8 +152,7 @@ namespace ProjectU.Editor
             Click(ui.RewardButton);
             for (int frame = 0; frame < 4; frame++) yield return null;
             Check(game.CurrentStageIndex == 1 && game.State == StageState.BeforeStage, "fixture reaches second-stage preparation");
-            probe.Interact = true;
-            for (int frame = 0; frame < 4; frame++) yield return null;
+            yield return probe.HoldInteract(probe.StartButton.HoldDuration);
             foreach (EnemyAI enemy in FindObjectsByType<EnemyAI>(FindObjectsSortMode.None)) enemy.enabled = false;
             Check(game.CurrentStageIndex == 1 && game.State == StageState.OnStage, "death fixture is actually on the second stage");
 
@@ -222,9 +222,9 @@ namespace ProjectU.Editor
 
             // Die with the reward modal open, then restart again to detect stale UI/ownership.
             health.IsInvincible = true;
-            probe.Interact = true;
-            for (int frame = 0; frame < 4; frame++) yield return null;
-            Check(game.State == StageState.OnStage && game.StageRunner.RemainingEnemyCount == 4, "fresh G interaction starts the first wave after restart");
+            probe.PlaceNearStarter();
+            yield return probe.HoldInteract(probe.StartButton.HoldDuration);
+            Check(game.State == StageState.OnStage && game.StageRunner.RemainingEnemyCount == 4, "fresh central hold starts the first wave after restart");
             while (game.State == StageState.OnStage)
             {
                 KillEnemies();

@@ -14,6 +14,7 @@ namespace ProjectU
         private PlayerMotor motor;
         private PlayerCombat combat;
         private Combatant combatant;
+        private PlayerInteraction interaction;
         private GameManager game;
         private PlayerActionSlot bufferedAction = PlayerActionSlot.None;
         private double bufferExpiresAt;
@@ -44,6 +45,7 @@ namespace ProjectU
             motor = GetComponent<PlayerMotor>();
             combat = GetComponent<PlayerCombat>();
             combatant = GetComponent<Combatant>();
+            interaction = GetComponent<PlayerInteraction>();
             if (playerCamera == null)
             {
                 Debug.LogError("PlayerController requires a Player Camera reference.", this);
@@ -85,10 +87,15 @@ namespace ProjectU
 
         private void HandleInteraction()
         {
-            if (game == null || !game.isActiveAndEnabled || !input.Interact.Pressed ||
-                (combatant != null && combatant.IsInteractionBlocked)) return;
+            if (interaction == null) interaction = GetComponent<PlayerInteraction>();
+            if (combatant != null && combatant.IsInteractionBlocked)
+            {
+                interaction?.CancelInteraction();
+                return;
+            }
+            if (interaction != null && interaction.isActiveAndEnabled && interaction.ProcessInput(input.Interact)) return;
+            if (game == null || !game.isActiveAndEnabled || !input.Interact.Pressed) return;
             if (game.IsSpawnFailed) game.TryRetrySpawn();
-            else if (game.State == StageState.BeforeStage) game.TryStartStage();
             else if (game.State == StageState.AfterStage) game.TryOpenReward();
         }
 
@@ -182,7 +189,12 @@ namespace ProjectU
         }
 
         private void ClearBuffer() { bufferedAction = PlayerActionSlot.None; bufferExpiresAt = 0d; }
-        private void ClearActions() { ClearBuffer(); if (combat != null) combat.InterruptInput(); }
+        private void ClearActions()
+        {
+            ClearBuffer();
+            interaction?.CancelInteraction();
+            if (combat != null) combat.InterruptInput();
+        }
         public void ClearBufferedInput() => ClearActions();
         private void OnDisable() { stageEvents?.Disable(); ClearActions(); }
         private void OnApplicationFocus(bool focused) { if (!focused) ClearActions(); }

@@ -30,7 +30,7 @@ namespace ProjectU
         [SerializeField] private string deathText = "플레이어 사망";
         [SerializeField] private string choosingRewardText = "보상을 선택하여 계속하세요";
         [SerializeField] private string spawnFailedText = "적 생성 실패 · 설정 확인 후 재시도";
-        [SerializeField] private string beforeStageText = "[G] 상호작용 · 스테이지 시작";
+        [SerializeField] private string beforeStageText = "중앙 장치로 이동하세요";
         [SerializeField] private string afterStageText = "[G] 보상 선택";
         [SerializeField] private string combatText = "적을 처치하여 다음 웨이브로 진행하세요";
 
@@ -39,6 +39,7 @@ namespace ProjectU
         private Mortal health;
         private PlayerStat stat;
         private PlayerCombat combat;
+        private PlayerInteraction interaction;
         private bool viewReady;
         private int displayedHealth = -1;
         private int displayedMaxHealth = -1;
@@ -55,6 +56,7 @@ namespace ProjectU
             health = GetComponent<Mortal>();
             stat = GetComponent<PlayerStat>();
             combat = GetComponent<PlayerCombat>();
+            interaction = GetComponent<PlayerInteraction>();
             viewReady = canvas != null && safeArea != null && healthWidget != null && ammoWidget != null &&
                 crosshair != null && healthNumber != null && ammoNumber != null && prompt != null && healthFill != null;
             if (!viewReady)
@@ -72,7 +74,8 @@ namespace ProjectU
         private void RefreshPresentation()
         {
             RefreshSafeArea();
-            RefreshPrompt();
+            bool hasInteractionPrompt = interaction != null && interaction.CurrentButton != null;
+            RefreshPrompt(hasInteractionPrompt);
             bool hasHealth = health != null && stat != null;
             healthWidget.SetActive(hasHealth);
             ammoWidget.SetActive(combat != null);
@@ -104,13 +107,15 @@ namespace ProjectU
                     ammoNumber.text = string.Format(ammoFormat, current, maximum);
                 }
             }
-            crosshair.SetActive(hasHealth && !health.isDead && combat != null && combat.isActiveAndEnabled &&
+            crosshair.SetActive(hasHealth && !health.isDead && combat != null && combat.isActiveAndEnabled && !hasInteractionPrompt &&
                 (game == null || (game.isActiveAndEnabled && game.IsGameplayEnabled)));
         }
 
-        private void RefreshPrompt()
+        private void RefreshPrompt(bool hasInteractionPrompt)
         {
             bool show = game != null && game.isActiveAndEnabled;
+            if (show && hasInteractionPrompt && game.State == StageState.BeforeStage && !game.IsSpawnFailed &&
+                (game.Result == GameResult.None || game.Result == GameResult.Stopped)) show = false;
             prompt.transform.parent.gameObject.SetActive(show);
             if (!show) return;
             string message = game.Result == GameResult.Won ? victoryText :

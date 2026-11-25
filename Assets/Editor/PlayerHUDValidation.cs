@@ -124,7 +124,7 @@ namespace ProjectU.Editor
             Text ammo = hud.Canvas.GetComponentsInChildren<Text>(true).Single(label => label.name == "Magazine Ammo");
             Text prompt = hud.Canvas.GetComponentsInChildren<Text>(true).Single(label => label.name == "Prompt");
             Check(flow.Canvas.transform.Find("Interaction Prompt") == null, "only PlayerHUD owns the interaction prompt");
-            Check(prompt.text == "[G] 상호작용 · 스테이지 시작", "HUD shows the preparation prompt");
+            Check(prompt.text == "중앙 장치로 이동하세요", "HUD directs the player to the central device");
             flow.enabled = false;
             yield return null; yield return null;
             Check(prompt.isActiveAndEnabled, "prompt stays visible independently of StageFlowUI");
@@ -188,7 +188,7 @@ namespace ProjectU.Editor
             flow.RewardButton.onClick.Invoke();
             for (int i = 0; i < 4; i++) yield return null;
             Check(!flow.IsRewardVisible && crosshair.gameObject.activeSelf, "reward selection restores crosshair");
-            Check(prompt.text == "[G] 상호작용 · 스테이지 시작", "HUD restores the preparation prompt after reward selection");
+            Check(prompt.text == "중앙 장치로 이동하세요", "HUD restores central device directions after reward selection");
             health.Dead();
             yield return null; yield return null;
             Check(hp.text == "0" && Mathf.Approximately(fill.rectTransform.anchorMax.x, 0f) &&

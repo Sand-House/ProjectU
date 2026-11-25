@@ -441,25 +441,30 @@ namespace ProjectU.Editor
 
             GameManager game = FindFirstObjectByType<GameManager>();
             StageFlowUI flow = FindFirstObjectByType<StageFlowUI>();
+            ButtonTrigger startButton = FindFirstObjectByType<GameStarter>().GetComponent<ButtonTrigger>();
+            Vector3 startPosition = startButton.TriggerRange.bounds.center + Vector3.back * 2.5f;
+            startPosition.y = input.transform.position.y;
+            input.transform.position = startPosition;
+            Physics.SyncTransforms();
             game.enabled = true;
             flow.enabled = true;
-            held = Secondary;
+            held = Secondary | Interact;
             pressed = Interact;
             yield return new WaitForSeconds(0.06f);
             Check(stance.IsAiming && game.State == StageState.BeforeStage,
                 "controller checks G after same-frame ADS entry");
             yield return new WaitForSeconds(0.24f);
             pressed = Interact;
-            yield return new WaitForSeconds(0.06f);
+            yield return new WaitForSeconds(startButton.HoldDuration + 0.1f);
             Check(stance.IsAiming && game.State == StageState.BeforeStage, "ADS blocks G interaction");
             held = 0;
             flow.enabled = false;
             yield return new WaitForSeconds(0.3f);
             Check(game.State == StageState.BeforeStage, "ADS-blocked G is not replayed after release");
-            pressed = Interact;
-            yield return new WaitForSeconds(0.06f);
+            pressed = held = Interact;
+            yield return new WaitForSeconds(startButton.HoldDuration + 0.1f);
             Check(game.State == StageState.OnStage && !flow.enabled,
-                "controller G starts a stage after ADS release without the presenter");
+                "the central hold starts a stage after ADS release without the presenter");
             flow.enabled = true;
             held = Secondary;
             yield return new WaitForSeconds(0.3f);

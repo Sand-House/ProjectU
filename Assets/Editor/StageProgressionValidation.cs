@@ -346,11 +346,9 @@ namespace ProjectU.Editor
             Check(!game.CompleteReward(firstRewardId), "prior-stage completion cannot affect the next stage");
             for (int frame = 0; frame < 8; frame++) yield return null;
             Check(runner.RemainingEnemyCount == 0, "next stage waits indefinitely for a fresh start interaction");
-            probe.Interact = true;
-            yield return null;
-            probe.Interact = false;
-            for (int frame = 0; frame < 3; frame++) yield return null;
-            Check(game.State == StageState.OnStage && runner.RemainingEnemyCount == 1, "G interaction starts the prepared next stage");
+            probe.PlaceNearStarter();
+            yield return probe.HoldInteract(probe.StartButton.HoldDuration);
+            Check(game.State == StageState.OnStage && runner.RemainingEnemyCount == 1, "central hold starts the prepared next stage");
             foreach (EnemyAI enemy in Enemies()) enemy.GetComponent<Mortal>().Dead();
             for (int frame = 0; frame < 4; frame++) yield return null;
             Check(game.State == StageState.AfterStage && game.PendingRewardId != firstRewardId, "last stage also has its own reward request");
@@ -405,7 +403,13 @@ namespace ProjectU.Editor
                 !player.GetComponent<Combatant>().IsGameplayBlocked, "initial spawn failure preserves free BeforeStage movement");
             Check(!game.TryStartStage(), "pending first wave requires explicit retry rather than duplicate start");
             foreach (EnemySpawner spawner in spawners) spawner.enabled = true;
-            Check(game.TryRetrySpawn() && game.State == StageState.OnStage && Time.timeScale == 0.5f, "game explicitly retries and resumes pending wave");
+            probe.PlaceNearStarter();
+            yield return null;
+            Check(!probe.StartButton.IsAvailable, "pending first-wave failure releases G for the retry path");
+            probe.Interact = true;
+            yield return null;
+            yield return null;
+            Check(game.State == StageState.OnStage && Time.timeScale == 0.5f, "a fresh G press retries the pending first wave");
             Check(!health.IsInvincible, "successful first-wave retry removes protection through the OnStage event");
             for (int frame = 0; frame < 3; frame++) yield return null;
             ActionBase skill = combat.GetAction(PlayerActionSlot.Skill2);
@@ -543,9 +547,48 @@ namespace ProjectU.Editor
             PlayerController controller = player.GetComponent<PlayerController>();
             Check(new SerializedObject(controller).FindProperty("game") == null,
                 "controller needs no new Inspector game binding");
-            controller.enabled = false;
+            GameStarter starter = FindFirstObjectByType<GameStarter>();
+            ButtonTrigger button = probe.StartButton;
+            PlayerInteraction playerInteraction = player.GetComponent<PlayerInteraction>();
+            PlayerHUD hud = player.GetComponent<PlayerHUD>();
+            var prompt = hud.Canvas.GetComponentInChildren<InteractionPrompt>().GetComponent<UnityEngine.UI.Text>();
+            Check(starter.transform.position == Vector3.zero && starter.GetComponentsInChildren<MeshRenderer>().Length > 0 &&
+                button.TriggerRange.isTrigger && button.InputMode == ButtonTriggerInputMode.Hold && button.HoldDuration == 1f,
+                "scene saves a central mesh and a one-second hold range");
+            Check(button.OnTriggered.GetPersistentEventCount() == 1 && button.OnTriggered.GetPersistentTarget(0) == starter &&
+                button.OnTriggered.GetPersistentMethodName(0) == nameof(GameStarter.StartGame),
+                "the saved button event targets the central GameStarter");
+            Check(!button.Contains(playerInteraction.InteractionPosition) && !prompt.enabled,
+                "the player spawns outside the range and the central prompt is hidden");
+            yield return probe.HoldInteract(button.HoldDuration);
+            Check(game.State == StageState.BeforeStage && runner.RemainingEnemyCount == 0,
+                "G held outside the range cannot start combat");
+            probe.Move = Vector2.up;
+            for (int frame = 0; frame < 90 && !button.Contains(playerInteraction.InteractionPosition); frame++) yield return null;
+            probe.Move = Vector2.zero;
+            yield return null;
+            yield return null;
+            Check(button.Contains(playerInteraction.InteractionPosition) && playerInteraction.CurrentButton == button &&
+                prompt.enabled && prompt.text.Contains("길게 누르기"), "walking into range shows the hold instructions");
+            Check(game.State == StageState.BeforeStage && runner.RemainingEnemyCount == 0,
+                "range entry does not start combat");
+            Check(!hud.Canvas.transform.Find("Crosshair").gameObject.activeSelf && !prompt.raycastTarget,
+                "the center prompt is readable and does not intercept input");
+            Check(!hud.Canvas.transform.Find("Safe Area/Interaction Prompt").gameObject.activeSelf,
+                "the approach instruction hides once the center prompt is visible");
+            Capture("Central-Device-Ready", hud.Canvas);
+            probe.InteractHeld = true;
             probe.Interact = true;
-            for (int frame = 0; frame < 3; frame++) yield return null;
+            yield return new WaitForSeconds(button.HoldDuration * 0.4f);
+            Check(game.State == StageState.BeforeStage && playerInteraction.IsHolding && prompt.text.Contains("%"),
+                "a partial hold shows progress and keeps the stage ready");
+            Capture("Central-Device-Holding", hud.Canvas);
+            probe.InteractHeld = false;
+            yield return new WaitForSeconds(button.HoldDuration);
+            Check(game.State == StageState.BeforeStage && playerInteraction.HoldProgress == 0f,
+                "releasing early resets progress and does not start combat");
+            controller.enabled = false;
+            yield return probe.HoldInteract(button.HoldDuration);
             Check(game.State == StageState.BeforeStage && runner.RemainingEnemyCount == 0,
                 "enabled UI cannot execute G while the controller is disabled");
             controller.enabled = true;
@@ -553,23 +596,20 @@ namespace ProjectU.Editor
             Check(game.State == StageState.BeforeStage,
                 "controller reenable does not replay an ignored interaction");
             game.enabled = false;
-            probe.Interact = true;
-            for (int frame = 0; frame < 3; frame++) yield return null;
+            yield return probe.HoldInteract(button.HoldDuration);
             Check(runner.RemainingEnemyCount == 0, "unbound controller cannot start a disabled game");
             game.enabled = true;
             for (int frame = 0; frame < 3; frame++) yield return null;
             Check(game.State == StageState.BeforeStage && runner.RemainingEnemyCount == 0,
                 "manager rebind waits for a fresh G input");
-            Capture("Saved-BeforeStage");
             ui.enabled = false;
-            probe.Interact = true;
-            yield return null;
-            probe.Interact = false;
-            for (int frame = 0; frame < 4; frame++) yield return null;
-            Check(game.State == StageState.OnStage, "saved scene interaction starts combat");
+            yield return probe.HoldInteract(button.HoldDuration);
+            Check(game.State == StageState.OnStage, "the saved hold event starts combat");
+            Check(!button.IsAvailable && !prompt.enabled && hud.Canvas.transform.Find("Crosshair").gameObject.activeSelf,
+                "combat disables the start device, hides the prompt and restores the crosshair");
             Check(runner.CurrentWaveIndex == 0 && runner.RemainingEnemyCount == 4, "saved first wave spawns four enemies");
             Check(!ui.enabled && !ui.Canvas.gameObject.activeInHierarchy,
-                "controller G starts combat independently of the disabled presenter");
+                "the central device starts combat independently of the disabled presenter");
             ui.enabled = true;
             for (int frame = 0; frame < 2; frame++) yield return null;
             Check(game.State == StageState.OnStage && runner.CurrentWaveIndex == 0 && runner.RemainingEnemyCount == 4,
@@ -597,6 +637,7 @@ namespace ProjectU.Editor
                 game.State == StageState.BeforeStage && !ui.IsRewardVisible,
                 "saved dummy reward selection closes UI and returns BeforeStage");
             Check(!player.GetComponent<Combatant>().IsGameplayBlocked && Time.timeScale == 1f, "saved completion restores gameplay input");
+            Check(button.IsAvailable == !isFinalStage, "the device reopens only when another stage is waiting");
             Capture("Saved-Completed");
         }
 
@@ -640,17 +681,20 @@ namespace ProjectU.Editor
             ExecuteEvents.Execute(ui.RewardButton.gameObject, click, ExecuteEvents.pointerClickHandler);
         }
 
-        private void Capture(string name)
+        private void Capture(string name, Canvas hudCanvas = null)
         {
             if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null || ui == null) return;
-            const string folder = "Logs/StageFlowRefactor_20261106/Screenshots";
+            string folder = SessionState.GetBool(StageProgressionValidation.Automatic, false)
+                ? "Logs/GameStarter_20261125/Screenshots"
+                : "Logs/StageFlowRefactor_20261106/Screenshots";
             Directory.CreateDirectory(folder);
             Camera camera = player.GetComponent<PlayerController>().GetComponentInChildren<Camera>();
             if (camera == null) camera = FindFirstObjectByType<PlayerCamera>().GetComponent<Camera>();
-            Canvas canvas = ui.Canvas;
+            Canvas canvas = hudCanvas != null ? hudCanvas : ui.Canvas;
             var scaler = canvas.GetComponent<UnityEngine.UI.CanvasScaler>();
             bool scalerEnabled = scaler.enabled;
             float previousScale = canvas.scaleFactor;
+            float previousPlaneDistance = canvas.planeDistance;
             scaler.enabled = false;
             canvas.scaleFactor = 1f;
             canvas.renderMode = RenderMode.ScreenSpaceCamera;
@@ -676,6 +720,7 @@ namespace ProjectU.Editor
                 RenderTexture.active = previous;
                 canvas.renderMode = RenderMode.ScreenSpaceOverlay;
                 canvas.worldCamera = null;
+                canvas.planeDistance = previousPlaneDistance;
                 canvas.scaleFactor = previousScale;
                 scaler.enabled = scalerEnabled;
                 target.Release();
@@ -705,13 +750,32 @@ namespace ProjectU.Editor
         public PlayerInputReader Reader;
         public Vector2 Move;
         public bool Interact;
+        public bool InteractHeld;
+        public ButtonTrigger StartButton => FindFirstObjectByType<GameStarter>().GetComponent<ButtonTrigger>();
         private static readonly ConstructorInfo Button = typeof(ButtonInputState).GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic).Single();
+
+        public void PlaceNearStarter()
+        {
+            Vector3 position = StartButton.TriggerRange.bounds.center + Vector3.back * 2.5f;
+            position.y = Reader.transform.position.y;
+            Reader.transform.position = position;
+            Physics.SyncTransforms();
+        }
+
+        public IEnumerator HoldInteract(float duration)
+        {
+            Interact = InteractHeld = true;
+            yield return new WaitForSeconds(duration + 0.1f);
+            InteractHeld = false;
+            yield return null;
+        }
+
         private void Update()
         {
             if (Reader == null || Reader.GetComponent<Combatant>().IsGameplayBlocked || Reader.GetComponent<Mortal>().isDead) return;
             typeof(PlayerInputReader).GetProperty("IsGameplayInputEnabled").SetValue(Reader, true);
             typeof(PlayerInputReader).GetProperty("Move").SetValue(Reader, Move);
-            typeof(PlayerInputReader).GetProperty("Interact").SetValue(Reader, Button.Invoke(new object[] { Interact, Interact, false }));
+            typeof(PlayerInputReader).GetProperty("Interact").SetValue(Reader, Button.Invoke(new object[] { Interact, Interact || InteractHeld, false }));
             Interact = false;
         }
     }
