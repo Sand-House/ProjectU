@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -25,53 +26,64 @@ namespace ProjectU
         [SerializeField, Min(0.01f), Tooltip("Dash distance in meters, before collision limits.")]
         private float dashDistance = 5f;
 
+        public float AttackMultiplierBonus { get; set; }
+        public int MaxHealthBonus { get; set; }
+        public float MaxStaminaBonus { get; set; }
+        public float AttackSpeedBonus { get; set; }
+        public float MoveSpeedBonus { get; set; }
+        public int MaxMagazineBonus { get; set; }
+        public float ReloadDurationBonus { get; set; }
+        public float ReloadSpeedMultiplierBonus { get; set; }
+        public float DashDistanceBonus { get; set; }
+
+        // Existing setters edit base values. Each getter includes its runtime bonus.
         public float AttackMultiplier
         {
-            get => attackMultiplier;
+            get => AddBonus(attackMultiplier, AttackMultiplierBonus, 0f);
             set => attackMultiplier = ClampFinite(value, 0f);
         }
 
         public int MaxHealth
         {
-            get => maxHealth;
+            get => AddBonus(maxHealth, MaxHealthBonus);
             set => maxHealth = Mathf.Max(1, value);
         }
 
         public float MaxStamina
         {
-            get => maxStamina;
+            get => AddBonus(maxStamina, MaxStaminaBonus, 0f);
             set => maxStamina = ClampFinite(value, 0f);
         }
 
         public float AttackSpeed
         {
-            get => attackSpeed;
+            get => AddBonus(attackSpeed, AttackSpeedBonus, 0.01f);
             set => attackSpeed = ClampFinite(value, 0.01f);
         }
 
         public float MoveSpeed
         {
-            get => moveSpeed;
+            get => AddBonus(moveSpeed, MoveSpeedBonus, 0f);
             set => moveSpeed = ClampFinite(value, 0f);
         }
 
         public int MaxMagazine
         {
-            get => maxMagazine;
+            get => AddBonus(maxMagazine, MaxMagazineBonus);
             set => maxMagazine = Mathf.Max(1, value);
         }
 
-        public float ReloadDuration => reloadDuration;
+        public float ReloadDuration => AddBonus(reloadDuration, ReloadDurationBonus, 0.01f);
 
         public float ReloadSpeedMultiplier
         {
-            get => reloadSpeedMultiplier;
+            get => AddBonus(reloadSpeedMultiplier, ReloadSpeedMultiplierBonus, 0.01f);
             set => reloadSpeedMultiplier = ClampFinite(value, 0.01f);
         }
 
         public float DashDistance
         {
-            get => dashDistance;
+            get => AddBonus(dashDistance, DashDistanceBonus, 0.01f);
             set => dashDistance = ClampFinite(value, 0.01f);
         }
 
@@ -97,6 +109,19 @@ namespace ProjectU
         private static float ClampFinite(float value, float minimum)
         {
             return float.IsNaN(value) || float.IsInfinity(value) ? minimum : Mathf.Max(minimum, value);
+        }
+
+        private static float AddBonus(float baseValue, float bonus, float minimum)
+        {
+            if (float.IsNaN(bonus) || float.IsInfinity(bonus))
+                return baseValue;
+
+            return (float)Math.Clamp((double)baseValue + bonus, minimum, float.MaxValue);
+        }
+
+        private static int AddBonus(int baseValue, int bonus)
+        {
+            return (int)Math.Clamp((long)baseValue + bonus, 1L, int.MaxValue);
         }
     }
 }
