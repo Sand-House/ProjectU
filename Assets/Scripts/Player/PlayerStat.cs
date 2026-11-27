@@ -15,7 +15,7 @@ namespace ProjectU
         private int maxHealth = 100;
         [SerializeField, Min(0f)] private float maxStamina = 100f;
         [SerializeField, Min(0.01f), Tooltip("Attack speed multiplier. 1 means the weapon's base fire rate.")]
-        private float attackSpeed = 1f;
+        private float attackSpeedMultiplier = 1f;
         [SerializeField, Min(0f), Tooltip("Horizontal movement speed in meters per second.")]
         private float moveSpeed = 6f;
         [SerializeField, Min(1)] private int maxMagazine = 30;
@@ -57,8 +57,8 @@ namespace ProjectU
 
         public float AttackSpeed
         {
-            get => AddBonus(attackSpeed, AttackSpeedBonus, 0.01f);
-            set => attackSpeed = ClampFinite(value, 0.01f);
+            get => AddBonus(attackSpeedMultiplier, AttackSpeedBonus, 0.01f);
+            set => attackSpeedMultiplier = ClampFinite(value, 0.01f);
         }
 
         public float MoveSpeed
@@ -98,7 +98,7 @@ namespace ProjectU
             AttackMultiplier = attackMultiplier;
             MaxHealth = maxHealth;
             MaxStamina = maxStamina;
-            AttackSpeed = attackSpeed;
+            AttackSpeed = attackSpeedMultiplier;
             MoveSpeed = moveSpeed;
             MaxMagazine = maxMagazine;
             reloadDuration = ClampFinite(reloadDuration, 0.01f);

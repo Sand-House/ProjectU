@@ -2448,7 +2448,7 @@ MonoBehaviour:
   attackMultiplier: 1
   maxHealth: 100
   maxStamina: 100
-  attackSpeed: 1
+  attackSpeedMultiplier: 1
   moveSpeed: 6
   maxMagazine: 30
   reloadDuration: 3.3
