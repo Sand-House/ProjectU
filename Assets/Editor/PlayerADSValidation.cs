@@ -550,10 +550,11 @@ namespace ProjectU.Editor
             var effect = input.gameObject.AddComponent<PlayerADSEffectProbe>();
             Check(Near(motor.MoveSpeed, stat.MoveSpeed * 0.5f * 0.8f),
                 "ADS composes with another movement modifier without overwriting base stats");
-            float savedSpeed = stat.MoveSpeed;
-            stat.MoveSpeed = savedSpeed + 2f;
-            Check(Near(motor.MoveSpeed, stat.MoveSpeed * 0.5f * 0.8f),
-                "base speed changes remain live while independent modifiers are active");
+            float savedBonus = stat.MoveSpeedBonus;
+            float upgradedSpeed = stat.MoveSpeed + 2f;
+            stat.MoveSpeedBonus += 2f;
+            Check(Near(motor.MoveSpeed, upgradedSpeed * 0.5f * 0.8f),
+                "speed upgrades remain live while independent modifiers are active");
             held = 0;
             yield return new WaitForSeconds(0.3f);
             Check(!stance.IsAiming && !alternate.IsActive && view.AimBlend == 0f &&
@@ -562,7 +563,7 @@ namespace ProjectU.Editor
             effect.enabled = false;
             Check(Near(motor.MoveSpeed, stat.MoveSpeed) && !input.GetComponent<Combatant>().IsInteractionBlocked,
                 "disabled generic modifiers stop contributing immediately");
-            stat.MoveSpeed = savedSpeed;
+            stat.MoveSpeedBonus = savedBonus;
             Destroy(effect);
 
             // Acceptance timing, including a nonzero windup, is intentionally preserved.

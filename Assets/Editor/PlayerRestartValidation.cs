@@ -157,10 +157,10 @@ namespace ProjectU.Editor
             Check(game.CurrentStageIndex == 1 && game.State == StageState.OnStage, "death fixture is actually on the second stage");
 
             PlayerStat stats = player.GetComponent<PlayerStat>();
-            stats.MaxHealth = 250;
-            stats.MaxMagazine = 12;
-            stats.AttackMultiplier = 3f;
-            stats.MoveSpeed = 9f;
+            stats.MaxHealthBonus += 250 - stats.MaxHealth;
+            stats.MaxMagazineBonus += 12 - stats.MaxMagazine;
+            stats.AttackMultiplierBonus += 3f - stats.AttackMultiplier;
+            stats.MoveSpeedBonus += 9f - stats.MoveSpeed;
             PlayerStamina stamina = player.GetComponent<PlayerStamina>();
             stamina.RecoveryRate = 0f;
             Check(stamina.TryConsume(75f), "fixture depletes stamina before restart");

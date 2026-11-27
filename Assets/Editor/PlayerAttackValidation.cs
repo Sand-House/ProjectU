@@ -229,15 +229,16 @@ namespace ProjectU.Editor
             Check(primaryShots == 1 && secondaryShots == 1 && grenades == 1, "pause suppresses all three input attacks");
             Time.timeScale = 1f;
 
-            // A fresh target verifies that the saved PlayerStat multiplier reaches the attack.
+            // A fresh target verifies that the upgraded PlayerStat multiplier reaches the attack.
             enemy.gameObject.SetActive(false);
             Combatant scaledTarget = Target("Scaled Damage", muzzle + Vector3.forward * 4f, Faction.Enemy);
-            stat.AttackMultiplier = 2f;
+            float savedAttackBonus = stat.AttackMultiplierBonus;
+            stat.AttackMultiplierBonus += 2f - stat.AttackMultiplier;
             Physics.SyncTransforms();
             pressMask = 1;
             yield return new WaitForSeconds(0.1f);
             Check(scaledTarget.Mortal.HP == 140 && primaryShots == 2, "player stat multiplier applies to connected attack");
-            stat.AttackMultiplier = 1f;
+            stat.AttackMultiplierBonus = savedAttackBonus;
 
             // Runtime-only data copies exercise held fire with nonzero timings; never save them.
             scaledTarget.Mortal.IsInvincible = true;
@@ -497,7 +498,7 @@ namespace ProjectU.Editor
                 PlayerStat healthStat = unit.AddComponent<PlayerStat>();
                 Mortal health = unit.GetComponent<Mortal>();
                 Check(health != null, "PlayerStat requires Mortal");
-                healthStat.MaxHealth = 250;
+                PlayerActionValidationUtility.Set(healthStat, "maxHealth", 250);
                 PlayerActionValidationUtility.Set(health, "hp", 17);
                 health.IsInvincible = true;
                 int damaged = 0, dead = 0;
@@ -514,8 +515,11 @@ namespace ProjectU.Editor
                 Check(health.HP == 210 && damaged == 1 && dead == 0, "player object reactivation does not heal");
                 healthStat.enabled = false; healthStat.enabled = true;
                 Check(health.HP == 210, "PlayerStat reactivation does not heal");
-                healthStat.MaxHealth = 500;
-                Check(health.HP == 210, "runtime MaxHealth changes do not implicitly refill current HP");
+                PlayerActionValidationUtility.Set(healthStat, "maxHealth", 500);
+                Check(healthStat.MaxHealth == 250, "serialized settings changes after Awake preserve base health");
+                healthStat.MaxHealthBonus = 250;
+                Check(healthStat.MaxHealth == 500 && health.HP == 210,
+                    "runtime MaxHealth upgrades do not implicitly refill current HP");
                 health.Dead();
                 unit.SetActive(false); unit.SetActive(true);
                 Check(health.HP == 0 && health.isDead && dead == 1, "player reactivation does not revive or repeat death");

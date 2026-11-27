@@ -340,7 +340,8 @@ namespace ProjectU.Editor
             // Capture distance/time settings at start, and freeze both phases when paused.
             ResetPosition();
             stamina.Recover(100f);
-            input.GetComponent<PlayerStat>().DashDistance = 3f;
+            var stat = input.GetComponent<PlayerStat>();
+            stat.DashDistanceBonus += 3f - stat.DashDistance;
             SetField(motor, "dashDuration", 0.4f);
             SetField(motor, "dashPostDelay", 0.25f);
             dashPress = true;

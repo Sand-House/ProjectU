@@ -146,7 +146,7 @@ namespace ProjectU.Editor
             Check(hp.text == "25" && Mathf.Approximately(fill.rectTransform.anchorMax.x, 25f / stat.MaxHealth), "damage updates number and bar");
             Check(fill.color.r > fill.color.g * 2f && hp.color == fill.color, "critical health has a visible red warning");
             Capture(hud, flow, "LowHealth", 1280, 720);
-            stat.MaxHealth = 200;
+            stat.MaxHealthBonus += 200 - stat.MaxHealth;
             yield return null; yield return null;
             Check(hp.text == "25" && Mathf.Approximately(fill.rectTransform.anchorMax.x, 0.125f), "maximum health changes rescale without healing");
             health.TryRestoreHealth(stat.MaxHealth);
@@ -157,11 +157,11 @@ namespace ProjectU.Editor
             Check(combat.TryStartAction(PlayerActionSlot.PrimaryFire), "real primary shot is accepted");
             for (int i = 0; i < 25; i++) yield return null;
             Check(combat.CurrentAmmo == beforeShot - 1 && ammo.text.StartsWith(combat.CurrentAmmo + "<"), "successful shot updates magazine display");
-            stat.ReloadSpeedMultiplier = 10f;
+            stat.ReloadSpeedMultiplierBonus += 10f - stat.ReloadSpeedMultiplier;
             Check(combat.TryReload(), "real reload is accepted");
             for (int i = 0; i < 30; i++) yield return null;
             Check(!combat.IsReloading && combat.CurrentAmmo == combat.MaxAmmo && ammo.text.StartsWith(combat.MaxAmmo + "<"), "reload completion refreshes magazine");
-            stat.MaxMagazine = 45;
+            stat.MaxMagazineBonus += 45 - stat.MaxMagazine;
             yield return null; yield return null;
             Check(ammo.text.Contains(" / 45") && combat.CurrentAmmo == beforeShot, "capacity changes update total without refilling");
             hud.enabled = false;

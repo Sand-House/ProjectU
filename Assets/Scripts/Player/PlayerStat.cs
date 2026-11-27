@@ -11,7 +11,7 @@ namespace ProjectU
         [SerializeField, Min(0f), Tooltip("Attack power multiplier. 1 means the weapon's base damage.")]
         [FormerlySerializedAs("attackPowerMultiplier")]
         private float attackMultiplier = 1f;
-        [SerializeField, Min(1), Tooltip("Starting HP applied to Mortal once in Awake. Changing this during play does not refill HP.")]
+        [SerializeField, Min(1), Tooltip("Base maximum HP used to initialize Mortal when the player spawns.")]
         private int maxHealth = 100;
         [SerializeField, Min(0f)] private float maxStamina = 100f;
         [SerializeField, Min(0.01f), Tooltip("Attack speed multiplier. 1 means the weapon's base fire rate.")]
@@ -26,6 +26,9 @@ namespace ProjectU
         [SerializeField, Min(0.01f), Tooltip("Dash distance in meters, before collision limits.")]
         private float dashDistance = 5f;
 
+        private BaseStats? initializedBaseStats;
+        private BaseStats Base => initializedBaseStats ?? new BaseStats(this);
+
         public float AttackMultiplierBonus { get; set; }
         public int MaxHealthBonus { get; set; }
         public float MaxStaminaBonus { get; set; }
@@ -36,74 +39,35 @@ namespace ProjectU
         public float ReloadSpeedMultiplierBonus { get; set; }
         public float DashDistanceBonus { get; set; }
 
-        // Existing setters edit base values. Each getter includes its runtime bonus.
-        public float AttackMultiplier
-        {
-            get => AddBonus(attackMultiplier, AttackMultiplierBonus, 0f);
-            set => attackMultiplier = ClampFinite(value, 0f);
-        }
-
-        public int MaxHealth
-        {
-            get => AddBonus(maxHealth, MaxHealthBonus);
-            set => maxHealth = Mathf.Max(1, value);
-        }
-
-        public float MaxStamina
-        {
-            get => AddBonus(maxStamina, MaxStaminaBonus, 0f);
-            set => maxStamina = ClampFinite(value, 0f);
-        }
-
-        public float AttackSpeed
-        {
-            get => AddBonus(attackSpeedMultiplier, AttackSpeedBonus, 0.01f);
-            set => attackSpeedMultiplier = ClampFinite(value, 0.01f);
-        }
-
-        public float MoveSpeed
-        {
-            get => AddBonus(moveSpeed, MoveSpeedBonus, 0f);
-            set => moveSpeed = ClampFinite(value, 0f);
-        }
-
-        public int MaxMagazine
-        {
-            get => AddBonus(maxMagazine, MaxMagazineBonus);
-            set => maxMagazine = Mathf.Max(1, value);
-        }
-
-        public float ReloadDuration => AddBonus(reloadDuration, ReloadDurationBonus, 0.01f);
-
-        public float ReloadSpeedMultiplier
-        {
-            get => AddBonus(reloadSpeedMultiplier, ReloadSpeedMultiplierBonus, 0.01f);
-            set => reloadSpeedMultiplier = ClampFinite(value, 0.01f);
-        }
-
-        public float DashDistance
-        {
-            get => AddBonus(dashDistance, DashDistanceBonus, 0.01f);
-            set => dashDistance = ClampFinite(value, 0.01f);
-        }
+        public float AttackMultiplier => AddBonus(Base.AttackMultiplier, AttackMultiplierBonus, 0f);
+        public int MaxHealth => AddBonus(Base.MaxHealth, MaxHealthBonus);
+        public float MaxStamina => AddBonus(Base.MaxStamina, MaxStaminaBonus, 0f);
+        public float AttackSpeed => AddBonus(Base.AttackSpeed, AttackSpeedBonus, 0.01f);
+        public float MoveSpeed => AddBonus(Base.MoveSpeed, MoveSpeedBonus, 0f);
+        public int MaxMagazine => AddBonus(Base.MaxMagazine, MaxMagazineBonus);
+        public float ReloadDuration => AddBonus(Base.ReloadDuration, ReloadDurationBonus, 0.01f);
+        public float ReloadSpeedMultiplier => AddBonus(Base.ReloadSpeedMultiplier, ReloadSpeedMultiplierBonus, 0.01f);
+        public float DashDistance => AddBonus(Base.DashDistance, DashDistanceBonus, 0.01f);
 
         private void Awake()
         {
+            initializedBaseStats ??= new BaseStats(this);
             // A repeated or late initialization must preserve existing damage and death.
             GetComponent<Mortal>().TryInitializeHealth(MaxHealth);
         }
 
         private void OnValidate()
         {
-            AttackMultiplier = attackMultiplier;
-            MaxHealth = maxHealth;
-            MaxStamina = maxStamina;
-            AttackSpeed = attackSpeedMultiplier;
-            MoveSpeed = moveSpeed;
-            MaxMagazine = maxMagazine;
-            reloadDuration = ClampFinite(reloadDuration, 0.01f);
-            ReloadSpeedMultiplier = reloadSpeedMultiplier;
-            DashDistance = dashDistance;
+            var settings = new BaseStats(this);
+            attackMultiplier = settings.AttackMultiplier;
+            maxHealth = settings.MaxHealth;
+            maxStamina = settings.MaxStamina;
+            attackSpeedMultiplier = settings.AttackSpeed;
+            moveSpeed = settings.MoveSpeed;
+            maxMagazine = settings.MaxMagazine;
+            reloadDuration = settings.ReloadDuration;
+            reloadSpeedMultiplier = settings.ReloadSpeedMultiplier;
+            dashDistance = settings.DashDistance;
         }
 
         private static float ClampFinite(float value, float minimum)
@@ -122,6 +86,32 @@ namespace ProjectU
         private static int AddBonus(int baseValue, int bonus)
         {
             return (int)Math.Clamp((long)baseValue + bonus, 1L, int.MaxValue);
+        }
+
+        private readonly struct BaseStats
+        {
+            public readonly float AttackMultiplier;
+            public readonly int MaxHealth;
+            public readonly float MaxStamina;
+            public readonly float AttackSpeed;
+            public readonly float MoveSpeed;
+            public readonly int MaxMagazine;
+            public readonly float ReloadDuration;
+            public readonly float ReloadSpeedMultiplier;
+            public readonly float DashDistance;
+
+            public BaseStats(PlayerStat settings)
+            {
+                AttackMultiplier = ClampFinite(settings.attackMultiplier, 0f);
+                MaxHealth = Mathf.Max(1, settings.maxHealth);
+                MaxStamina = ClampFinite(settings.maxStamina, 0f);
+                AttackSpeed = ClampFinite(settings.attackSpeedMultiplier, 0.01f);
+                MoveSpeed = ClampFinite(settings.moveSpeed, 0f);
+                MaxMagazine = Mathf.Max(1, settings.maxMagazine);
+                ReloadDuration = ClampFinite(settings.reloadDuration, 0.01f);
+                ReloadSpeedMultiplier = ClampFinite(settings.reloadSpeedMultiplier, 0.01f);
+                DashDistance = ClampFinite(settings.dashDistance, 0.01f);
+            }
         }
     }
 }

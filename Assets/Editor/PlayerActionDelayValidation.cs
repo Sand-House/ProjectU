@@ -209,7 +209,8 @@ namespace ProjectU.Editor
             AttackBase rivalAttack = bindings[1].Attack;
             SetField(primary.Data, "windupTime", 0.2f);
             SetField(primary.Data, "recoveryTime", 0.3f);
-            input.GetComponent<PlayerStat>().AttackSpeed = 2f;
+            var stat = input.GetComponent<PlayerStat>();
+            stat.AttackSpeedBonus += 2f - stat.AttackSpeed;
             PlayerActionValidationUtility.For(primary).SpeedMultiplier = 2f;
             Check(PlayerActionValidationUtility.For(primary).TryStart(bindings[0].Origin, attacks.GetAimPoint()), "speed-scaled windup accepts request");
             int pauseBaseline = executions;

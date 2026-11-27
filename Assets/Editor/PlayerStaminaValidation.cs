@@ -70,7 +70,7 @@ namespace ProjectU.Editor
                 motor = input.GetComponent<PlayerMotor>();
                 // Isolate resource timing from the full dash/post-delay validation.
                 var motorSettings = new SerializedObject(motor);
-                stat.DashDistance = 0.1f;
+                stat.DashDistanceBonus += 0.1f - stat.DashDistance;
                 motorSettings.FindProperty("dashDuration").floatValue = 0.01f;
                 PlayerActionValidationUtility.Set(input.GetComponent<SoilderDashAction>(), "recoveryTime", 0f);
                 motorSettings.ApplyModifiedPropertiesWithoutUndo();
@@ -114,24 +114,29 @@ namespace ProjectU.Editor
                 resource.Recover(10f);
                 Check(!resource.TryConsume(1f) && resource.Current == 10f, "Disabled component rejects consumption.");
                 resource.enabled = true;
-                testStat.MaxStamina = 5f;
+                testStat.MaxStaminaBonus += 5f - testStat.MaxStamina;
                 Check(resource.Current == 5f && resource.Max == 5f, "Lower maximum clamps reads immediately.");
                 // One update commits the clamp before increasing the maximum again.
                 typeof(PlayerStamina).GetMethod("Update", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(resource, null);
-                testStat.MaxStamina = 150f;
+                testStat.MaxStaminaBonus += 150f - testStat.MaxStamina;
                 Check(resource.Current == 5f, "Higher maximum does not refill.");
-                testStat.AttackMultiplier = -1f;
-                testStat.MaxHealth = 0;
-                testStat.MaxMagazine = 0;
-                testStat.MaxStamina = float.NaN;
-                testStat.MoveSpeed = -1f;
-                testStat.AttackSpeed = float.PositiveInfinity;
+                var invalidUnit = new GameObject("Invalid Stat Settings Validation");
+                invalidUnit.SetActive(false);
+                var invalidStat = invalidUnit.AddComponent<PlayerStat>();
+                PlayerActionValidationUtility.Set(invalidStat, "attackMultiplier", -1f);
+                PlayerActionValidationUtility.Set(invalidStat, "maxHealth", 0);
+                PlayerActionValidationUtility.Set(invalidStat, "maxMagazine", 0);
+                PlayerActionValidationUtility.Set(invalidStat, "maxStamina", float.NaN);
+                PlayerActionValidationUtility.Set(invalidStat, "moveSpeed", -1f);
+                PlayerActionValidationUtility.Set(invalidStat, "attackSpeedMultiplier", float.PositiveInfinity);
+                invalidUnit.SetActive(true);
                 resource.RecoveryDelay = -1f;
                 resource.RecoveryRate = float.NaN;
-                Check(testStat.AttackMultiplier == 0f && testStat.MaxHealth == 1 &&
-                    testStat.MaxMagazine == 1 && testStat.MaxStamina == 0f && testStat.MoveSpeed == 0f &&
-                    testStat.AttackSpeed == 0.01f && resource.RecoveryDelay == 0f && resource.RecoveryRate == 0f,
+                Check(invalidStat.AttackMultiplier == 0f && invalidStat.MaxHealth == 1 &&
+                    invalidStat.MaxMagazine == 1 && invalidStat.MaxStamina == 0f && invalidStat.MoveSpeed == 0f &&
+                    invalidStat.AttackSpeed == 0.01f && resource.RecoveryDelay == 0f && resource.RecoveryRate == 0f,
                     "Invalid stat and recovery settings are clamped.");
+                UnityEngine.Object.Destroy(invalidUnit);
                 UnityEngine.Object.Destroy(unit);
 
                 stamina.OnChanged += (current, max) =>
@@ -255,7 +260,7 @@ namespace ProjectU.Editor
                 }
                 else if (phase == 9 && stamina.Current == stamina.Max)
                 {
-                    stat.MoveSpeed = 3f;
+                    stat.MoveSpeedBonus += 3f - stat.MoveSpeed;
                     Check(motor.MoveSpeed == 3f, "Motor uses PlayerStat.MoveSpeed.");
                     Check(notifications >= 4, "Resource changes emit notifications.");
             Debug.Log("PLAYER STAMINA VALIDATION PASSED: stats, scene references, both Shift bindings, press/hold, insufficient/invalid consumption, recovery delay/reset/rate/clamp, pause/resume, max changes, Inspector starting amount, events, movement-speed source, configured dash displacement.");

@@ -147,7 +147,7 @@ namespace ProjectU.Editor
             yield return new WaitForSeconds(0.5f);
             Check(!attacks.IsReloading, "blocked manual input is not buffered");
 
-            stat.ReloadSpeedMultiplier = 2f;
+            stat.ReloadSpeedMultiplierBonus += 2f - stat.ReloadSpeedMultiplier;
             pressMask = 8;
             yield return new WaitForSeconds(0.15f);
             Check(attacks.IsReloading && starts == 1 && !attacks.TryReload(), "partial R starts once and rejects duplicate requests");
@@ -262,21 +262,21 @@ namespace ProjectU.Editor
             }
 
             // Multiplier upgrades affect current work and state playback together.
-            stat.ReloadSpeedMultiplier = 1f;
+            stat.ReloadSpeedMultiplierBonus += 1f - stat.ReloadSpeedMultiplier;
             pressMask = 8;
             yield return new WaitForSeconds(0.3f);
             float slowRemaining = attacks.ReloadRemaining;
-            stat.ReloadSpeedMultiplier = 3f;
+            stat.ReloadSpeedMultiplierBonus += 3f - stat.ReloadSpeedMultiplier;
             yield return new WaitForSeconds(0.1f);
             Check(attacks.ReloadRemaining < slowRemaining / 3f && animator.GetFloat("ReloadSpeedMultiplier") == 3f,
                 "live reload upgrade changes remaining time and animation speed together");
-            stat.MaxMagazine = 40;
+            stat.MaxMagazineBonus += 40 - stat.MaxMagazine;
             while (attacks.IsReloading) yield return null;
             Check(attacks.CurrentAmmo == 40, "reload fills the latest upgraded magazine capacity");
-            stat.MaxMagazine = 5;
+            stat.MaxMagazineBonus += 5 - stat.MaxMagazine;
             yield return null;
             Check(attacks.CurrentAmmo == 5 && !attacks.IsReloading, "capacity decrease clamps ammo without refilling");
-            stat.MaxMagazine = 6;
+            stat.MaxMagazineBonus += 6 - stat.MaxMagazine;
 
             // Reload cannot interrupt primary windup; explicit cancellation must not spend ammo.
             SetField(primaryData, "windupTime", 0.2f);
